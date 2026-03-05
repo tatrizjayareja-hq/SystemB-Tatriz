@@ -28,6 +28,11 @@ const db = {
     }
 };
 
+pool.on('error', (err) => {
+    console.error('🔥 Unexpected error on idle client', err);
+    process.exit(-1);
+});
+
 // --- 2. KONEKSI STORAGE (Supabase SDK) ---
 const supabaseUrl = process.env.SUPABASE_URL;
 const supabaseKey = process.env.SUPABASE_ANON_KEY;
@@ -111,7 +116,7 @@ app.post('/login', async (req, res) => {
 });
 
 app.use(async (req, res, next) => {
-    // Data default jika belum login atau data kosong
+    // Data default
     res.locals.config = { 
         nama_aplikasi: "Tatriz System", 
         nama_perusahaan: "Tatriz", 
@@ -127,7 +132,7 @@ app.use(async (req, res, next) => {
     if (!tId) return next();
 
     try {
-        const bulanIni = new Date().toISOString().slice(0, 7);
+        const bulanIni = new Date().toISOString().slice(0, 7); // Format: YYYY-MM
 
         // 1. Ambil Settings
         const config = await db.get("SELECT * FROM settings WHERE tenant_id = $1", [tId]);
@@ -136,23 +141,26 @@ app.use(async (req, res, next) => {
             if (!res.locals.config.logo_path) res.locals.config.logo_path = "default.png";
         }
 
-        // 2. Hitung Saldo Kas Riil (Pemasukan - Pengeluaran)
+        // 2. Hitung Saldo Kas Riil
         const saldoRes = await db.get(`
             SELECT SUM(CASE WHEN jenis = 'PEMASUKAN' THEN jumlah ELSE -jumlah END) as saldo 
             FROM arus_kas WHERE tenant_id = $1`, [tId]);
         
-        // 3. Hitung Beban Kontrakan Terbayar bulan ini
+        // 3. Hitung Beban Kontrakan Terbayar (Perbaikan query LIKE untuk Postgres)
         const bebanRes = await db.get(`
             SELECT SUM(jumlah) as terbayar FROM arus_kas 
-            WHERE kategori = 'BIAYA KONTRAKAN' AND tanggal LIKE $1 AND tenant_id = $2`, 
+            WHERE kategori = 'BIAYA KONTRAKAN' 
+            AND CAST(tanggal AS TEXT) LIKE $1 
+            AND tenant_id = $2`, 
             [bulanIni + '%', tId]);
 
         const saldoLaci = parseFloat(saldoRes?.saldo || 0);
         const terbayar = parseFloat(bebanRes?.terbayar || 0);
         const conf = res.locals.config;
         
-        const sisaBeban = (terbayar >= conf.beban_tetap) ? 0 : conf.beban_tetap;
-        const uangDikunci = (conf.nominal_buffer || 0) + sisaBeban;
+        // Logika Uang Dikunci
+        const sisaBeban = (terbayar >= (parseFloat(conf.beban_tetap) || 0)) ? 0 : (parseFloat(conf.beban_tetap) || 0);
+        const uangDikunci = (parseFloat(conf.nominal_buffer) || 0) + sisaBeban;
 
         res.locals.uangKunci = {
             saldoLaci,
@@ -164,6 +172,7 @@ app.use(async (req, res, next) => {
         next();
     } catch (err) {
         console.error("🔥 Global Middleware Error:", err);
+        // Jangan biarkan aplikasi crash jika DB bermasalah, tetap jalankan halaman dengan data default
         next();
     }
 });
