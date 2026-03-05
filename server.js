@@ -390,9 +390,146 @@ app.get('/delete-mesin/:id', isAdmin, async (req, res) => {
     }
 });
 
+app.get('/logout', (req, res) => {
+    req.session.destroy((err) => {
+        if (err) {
+            console.error("🔥 Logout Error:", err);
+        }
+        res.redirect('/'); // Lempar kembali ke halaman login
+    });
+});
 
+//RUTE PO BARU
+app.get('/po-baru', (req, res) => {
+    if (!req.session.userId) return res.redirect('/');
+    // Data user sudah dikirim otomatis via middleware res.locals.user
+    res.render('po-baru');
+});
 
+app.post('/save-po', async (req, res) => {
+    if (!req.session.userId) return res.redirect('/');
+    
+    const tId = req.session.tenantId;
+    const { tanggal, nama_po, customer, status, jenis_bordir, nama_desain, jumlah, harga_operator, harga_customer } = req.body;
 
+    // Pastikan data rincian diproses sebagai array (bahkan jika hanya 1 baris)
+    const jbList = Array.isArray(jenis_bordir) ? jenis_bordir : [jenis_bordir];
+    const dsList = Array.isArray(nama_desain) ? nama_desain : [nama_desain];
+    const jmlList = Array.isArray(jumlah) ? jumlah : [jumlah];
+    const hOpList = Array.isArray(harga_operator) ? harga_operator : [harga_operator];
+    const hCuList = Array.isArray(harga_customer) ? harga_customer : [harga_customer];
+
+    try {
+        await db.query("BEGIN"); // Mulai Transaksi agar data konsisten
+
+        // 1. Simpan Header PO ke po_utama
+        const sqlHeader = `
+            INSERT INTO po_utama (tenant_id, tanggal, nama_po, customer, status) 
+            VALUES ($1, $2, $3, $4, $5) RETURNING id
+        `;
+        const headerRes = await db.query(sqlHeader, [tId, tanggal, nama_po, customer, status]);
+        const poId = headerRes.rows[0].id;
+
+        let totalTagihan = 0;
+
+        // 2. Simpan Rincian ke po_detail (Looping)
+        for (let i = 0; i < jbList.length; i++) {
+            if (!jbList[i]) continue; // Lewati jika baris kosong
+
+            const qty = parseInt(jmlList[i]) || 0;
+            const hCu = parseFloat(hCuList[i]) || 0;
+            const hOp = parseFloat(hOpList[i]) || hCu; // Jika Op kosong, samakan dengan Cust
+
+            totalTagihan += (qty * hCu);
+
+            const sqlDetail = `
+                INSERT INTO po_detail (po_id, jenis_bordir, nama_desain, jumlah, harga_operator, harga_customer) 
+                VALUES ($1, $2, $3, $4, $5, $6)
+            `;
+            await db.query(sqlDetail, [poId, jbList[i], dsList[i], qty, hOp, hCu]);
+        }
+
+        // 3. Update Total Harga di Header
+        await db.query("UPDATE po_utama SET total_harga_customer = $1 WHERE id = $2", [totalTagihan, poId]);
+
+        await db.query("COMMIT"); // Simpan Permanen
+        res.send("<script>alert('Data PO Berhasil Disimpan!'); window.location='/po-data';</script>");
+
+    } catch (err) {
+        await db.query("ROLLBACK"); // Batalkan jika ada error
+        console.error("🔥 Save PO Error:", err.message);
+        res.status(500).send("Gagal menyimpan PO: " + err.message);
+    }
+});
+
+app.get('/po-data', async (req, res) => {
+    if (!req.session.userId) return res.redirect('/');
+    const tId = req.session.tenantId;
+
+    try {
+        // 1. Ambil data Header PO
+        // Kita hitung total Qty per PO dan cek apakah ada variasi item (lebih dari 1 jenis rincian)
+        const sqlOrders = `
+            SELECT 
+                u.*, 
+                (SELECT SUM(jumlah) FROM po_detail WHERE po_id = u.id) as qty_tampil,
+                (SELECT COUNT(*) FROM po_detail WHERE po_id = u.id) as variasi_jumlah
+            FROM po_utama u 
+            WHERE u.tenant_id = $1 
+            ORDER BY u.tanggal DESC, u.id DESC
+        `;
+        const orders = await db.all(sqlOrders, [tId]);
+
+        // 2. Ambil semua Rincian (Detail) untuk semua PO milik tenant ini
+        const sqlDetails = `
+            SELECT d.* FROM po_detail d
+            JOIN po_utama u ON d.po_id = u.id
+            WHERE u.tenant_id = $1
+        `;
+        const details = await db.all(sqlDetails, [tId]);
+
+        res.render('po-data', { 
+            orders: orders,
+            details: details
+        });
+    } catch (err) {
+        console.error("🔥 Load PO Data Error:", err.message);
+        res.status(500).send("Gagal memuat data pesanan.");
+    }
+});
+
+app.post('/update-status/:id', async (req, res) => {
+    if (!req.session.userId) return res.redirect('/');
+    const { status_baru } = req.body;
+    const poId = req.params.id;
+    const tId = req.session.tenantId;
+
+    try {
+        // Pastikan hanya bisa update PO milik tenant sendiri
+        await db.query(
+            "UPDATE po_utama SET status = $1 WHERE id = $2 AND tenant_id = $3",
+            [status_baru, poId, tId]
+        );
+        res.redirect('/po-data');
+    } catch (err) {
+        console.error("🔥 Update Status Error:", err.message);
+        res.status(500).send("Gagal memperbarui status.");
+    }
+});
+
+app.get('/delete-po/:id', async (req, res) => {
+    if (!req.session.userId) return res.redirect('/');
+    const poId = req.params.id;
+    const tId = req.session.tenantId;
+
+    try {
+        // Karena kita pakai CASCADE di database, menghapus po_utama akan otomatis menghapus po_detail terkait
+        await db.query("DELETE FROM po_utama WHERE id = $1 AND tenant_id = $2", [poId, tId]);
+        res.redirect('/po-data');
+    } catch (err) {
+        res.status(500).send("Gagal menghapus PO.");
+    }
+});
 
 
 
