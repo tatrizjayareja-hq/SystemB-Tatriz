@@ -37,12 +37,13 @@ pool.on('error', (err) => {
 const supabaseUrl = process.env.SUPABASE_URL;
 const supabaseKey = process.env.SUPABASE_ANON_KEY;
 
-if (!supabaseUrl || !supabaseKey) {
-    console.error("❌ Error: SUPABASE_URL atau SUPABASE_ANON_KEY hilang di .env");
+let supabase = null;
+if (supabaseUrl && supabaseKey) {
+    const { createClient } = require('@supabase/supabase-js');
+    supabase = createClient(supabaseUrl, supabaseKey);
+} else {
+    console.warn("⚠️ Supabase URL/Key tidak ditemukan. Fitur Storage mungkin tidak jalan.");
 }
-
-const supabase = createClient(supabaseUrl, supabaseKey);;
-
 // --- 3. KONFIGURASI MULTER (Memory Storage) ---
 // File tidak disimpan di disk Vercel, tapi ditampung di RAM untuk diteruskan ke Supabase
 const storage = multer.memoryStorage();
