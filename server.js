@@ -294,9 +294,10 @@ app.post('/register-tenant', async (req, res) => {
         await db.query("BEGIN");
         
         // Buat Profil Setting Awal
+        // SOLUSI:
         await db.query(
-            "INSERT INTO settings (tenant_id, nama_perusahaan, level, nama_aplikasi, logo_path) VALUES ($1, $2, 1, 'TATRIZ ONLINE', $3)",
-            [newTenantId, nama_toko, 'https://placehold.co/200x200?text=Logo']
+            "INSERT INTO settings (tenant_id, nama_perusahaan, level, nama_aplikasi, logo_path) VALUES ($1, $2, 1, $3, $4)",
+            [newTenantId, nama_toko, 'TATRIZ ONLINE', 'https://placehold.co/200x200?text=Logo']
         );
 
         // Buat Akun Owner (Admin)
