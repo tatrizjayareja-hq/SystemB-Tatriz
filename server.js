@@ -296,6 +296,7 @@ app.post('/save-settings-all', upload.single('logo'), async (req, res) => {
         res.status(500).send("Gagal menyimpan pengaturan: " + err.message);
     }
 });
+console.log("Mencoba update settings untuk Tenant ID:", tId);
 
 // Menampilkan Halaman Register
 app.get('/register', (req, res) => {
