@@ -333,6 +333,7 @@ app.post('/setup-auth', isAdmin, async (req, res) => {
     const { password } = req.body;
     const tId = req.session.tenantId;
 
+    
     try {
         const row = await db.get("SELECT password_admin, password FROM settings s JOIN users u ON s.tenant_id = u.tenant_id WHERE s.tenant_id = $1 AND u.id = $2", [tId, req.session.userId]);
         
