@@ -171,9 +171,10 @@ app.use(async (req, res, next) => {
 
         next();
     } catch (err) {
-        console.error("🔥 Global Middleware Error:", err);
-        // Jangan biarkan aplikasi crash jika DB bermasalah, tetap jalankan halaman dengan data default
-        next();
+        console.error("🔥 DATABASE ERROR:", err.message);
+        // Jika DB error, jangan lempar ke 404, tapi lanjut saja dengan data kosong
+        res.locals.config = { nama_perusahaan: "Tatriz (Offline)" };
+        next(); 
     }
 });
 
