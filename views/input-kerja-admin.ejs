@@ -1,0 +1,146 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Input Admin - Tatriz</title>
+    <style>
+        body { font-family: 'Segoe UI', sans-serif; background: #f0f2f5; margin: 0; padding: 15px; }
+        .card { background: white; padding: 20px; border-radius: 15px; box-shadow: 0 4px 10px rgba(0,0,0,0.1); border-top: 5px solid #e67e22; }
+        .input-group { margin-bottom: 15px; }
+        label { display: block; font-weight: bold; margin-bottom: 5px; font-size: 13px; color: #333; }
+        input, select { width: 100%; padding: 12px; border: 1px solid #ddd; border-radius: 8px; font-size: 16px; }
+        .btn-simpan { background: #e67e22; color: white; border: none; padding: 15px; width: 100%; border-radius: 10px; font-weight: bold; font-size: 16px; cursor: pointer; }
+    </style>
+</head>
+<body>
+    
+
+<div style="margin-bottom: 20px;">
+    <a href="/dashboard" style="text-decoration: none; color: #333; font-weight: bold;">← Kembali</a>
+    <h3 style="margin-top: 10px;">🛠️ Input Hasil Kerja (Mode Admin)</h3>
+</div>
+
+<div class="card">
+    <form action="/admin/simpan-kerja" method="POST">
+        <div class="input-group">
+            <label>Pilih Operator</label>
+            <select name="user_id_manual" required>
+                <option value="">-- Siapa yang mengerjakan? --</option>
+                <% daftarOperator.forEach(op => { %>
+                    <option value="<%= op.id %>"><%= op.nama_lengkap %></option>
+                <% }) %>
+            </select>
+        </div>
+
+        <div class="input-group">
+            <label>Tanggal & Shift</label>
+            <div style="display: grid; grid-template-columns: 1.5fr 1fr; gap: 10px;">
+                <input type="date" name="tanggal" required>
+                <select name="shift">
+                    <option value="Pagi">Pagi</option>
+                    <option value="Sore">Sore</option>
+                    <option value="Malam">Malam</option>
+                </select>
+            </div>
+        </div>
+
+        <div class="input-group">
+            <label>Pilih Pesanan (PO)</label>
+            <select name="po_id" onchange="muatDaftarDesain(this.value)" required>
+                <option value="">-- Pilih PO --</option>
+                <% active_pos.forEach(po => { %>
+                    <option value="<%= po.id %>"><%= po.nama_po %></option>
+                <% }) %>
+            </select>
+        </div>
+
+        <div class="input-group">
+            <label>Pilih Jenis Bordir</label>
+            <select name="detail_id" id="select_jenis" onchange="pilihOtomatisDesain(this)" required disabled>
+                <option value="">-- Pilih Jenis --</option>
+            </select>
+        </div>
+
+        <input type="hidden" name="harga_op" id="input_harga_op">
+
+        <div id="info_bordir" style="display: none; background: #fff5e6; padding: 15px; border-radius: 10px; margin-bottom: 15px;">
+            <small>Nama Desain:</small> <strong id="display_nama_desain"></strong><br>
+            <small>Upah Op:</small> <strong id="display_harga"></strong><br><br>
+            <label>Jumlah Hasil (Pcs)</label>
+            <input type="number" name="jumlah_setor" id="input_setor" required placeholder="0">
+        </div>
+
+        <div class="input-group">
+            <label>Mesin</label>
+            <select name="mesin_id" required>
+                <% daftarMesin.forEach(m => { %>
+                    <option value="<%= m.id %>"><%= m.nama_mesin %></option>
+                <% }) %>
+            </select>
+        </div>
+
+        <button type="submit" class="btn-simpan">KONFIRMASI SIMPAN (ADMIN)</button>
+    </form>
+</div>
+
+<script>
+    let dataSimpanan = []; 
+
+// FUNGSI 1: Ambil data PO & isi dropdown JENIS
+async function muatDaftarDesain(poId) {
+    const selectJenis = document.getElementById('select_jenis');
+    const infoDiv = document.getElementById('info_bordir');
+    
+    infoDiv.style.display = 'none';
+    if(!poId) { selectJenis.disabled = true; return; }
+
+    try {
+        const res = await fetch(`/api/po-details/${poId}`);
+        dataSimpanan = await res.json(); 
+        
+        let html = '<option value="">-- Pilih Jenis Bordir --</option>';
+        dataSimpanan.forEach(d => {
+            // Kita simpan ID Detail di value Jenis agar langsung terhubung ke Nama Desain
+            html += `<option value="${d.id}" 
+                             data-nama="${d.nama_desain}" 
+                             data-harga="${d.harga_operator}" 
+                             data-sisa="${d.sisa}">${d.jenis_bordir} (Sisa: ${d.sisa})</option>`;
+        });
+        
+        selectJenis.innerHTML = html;
+        selectJenis.disabled = false;
+    } catch (err) {
+        console.error("Gagal ambil data:", err);
+    }
+}
+
+// FUNGSI 2: Klik Jenis langsung Muncul Nama & Harga (TIDAK PERLU PILIH LAGI)
+function pilihOtomatisDesain(el) {
+    const infoDiv = document.getElementById('info_bordir');
+    const selected = el.options[el.selectedIndex];
+    
+    if(el.value) {
+        // Ambil data dari atribut data- yang kita buat di atas
+        const namaDesain = selected.getAttribute('data-nama');
+        const harga = selected.getAttribute('data-harga');
+        const sisa = selected.getAttribute('data-sisa');
+
+        // Tampilkan ke UI otomatis
+        document.getElementById('display_nama_desain').innerText = namaDesain;
+        document.getElementById('display_harga').innerText = "Rp " + parseInt(harga).toLocaleString('id-ID');
+        document.getElementById('input_harga_op').value = harga;
+        
+        const inputSetor = document.getElementById('input_setor');
+        inputSetor.placeholder = "Maksimal " + sisa;
+        inputSetor.max = sisa; // Batasi input agar tidak over-limit
+        
+        infoDiv.style.display = 'block';
+    } else {
+        infoDiv.style.display = 'none';
+    }
+}
+</script>
+</body>
+</html>

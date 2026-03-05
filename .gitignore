@@ -1,0 +1,6 @@
+node_modules
+.env
+database/*.db
+public/uploads/*
+!public/uploads/default.png
+.DS_Store
