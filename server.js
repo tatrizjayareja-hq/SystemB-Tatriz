@@ -285,34 +285,33 @@ app.post('/register-tenant', async (req, res) => {
     const { nama_toko, username, password } = req.body;
 
     try {
-        // 1. Cari ID tertinggi agar tidak bentrok
         const row = await db.get("SELECT MAX(tenant_id) as maxid FROM settings");
         let currentMax = parseInt(row?.maxid || 0);
         let newTenantId = (currentMax < 100) ? 100 : currentMax + 1;
 
-        // 2. Gunakan Transaction (Serial execution)
         await db.query("BEGIN");
         
-        // Buat Profil Setting Awal
-        // SOLUSI:
+        // --- PERBAIKAN DI SINI ---
+        // Ada 4 Kolom: tenant_id, nama_perusahaan, level, nama_aplikasi
+        // Maka harus ada 4 buah $ ( $1, $2, $3, $4 )
         await db.query(
-            "INSERT INTO settings (tenant_id, nama_perusahaan, level, nama_aplikasi, logo_path) VALUES ($1, $2, 1, $3, $4)",
-            [newTenantId, nama_toko, 'TATRIZ ONLINE', 'https://placehold.co/200x200?text=Logo']
+            "INSERT INTO settings (tenant_id, nama_perusahaan, level, nama_aplikasi) VALUES ($1, $2, 1, $3)",
+            [newTenantId, nama_toko, 'TATRIZ ONLINE']
         );
 
-        // Buat Akun Owner (Admin)
+        // Simpan Akun User
         await db.query(
             "INSERT INTO users (tenant_id, username, password, role, nama_lengkap) VALUES ($1, $2, $3, 'admin', $4)",
             [newTenantId, username, password, 'Owner ' + nama_toko]
         );
 
         await db.query("COMMIT");
-        res.send("<script>alert('Pendaftaran Berhasil! Silakan Login.'); window.location='/';</script>");
+        res.send("<script>alert('Pendaftaran Berhasil!'); window.location='/';</script>");
 
     } catch (err) {
         await db.query("ROLLBACK");
-        console.error(err);
-        res.send("<script>alert('Gagal! Username mungkin sudah dipakai.'); window.history.back();</script>");
+        console.error("🔥 Register Error:", err.message);
+        res.send("<script>alert('Gagal mendaftar: " + err.message + "'); window.history.back();</script>");
     }
 });
 
