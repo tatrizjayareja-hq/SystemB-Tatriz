@@ -184,7 +184,7 @@ app.get('/dashboard', async (req, res) => {
     const tId = req.session.tenantId;
 
     try {
-        // 1. Statistik Status PO
+        // 1. Statistik Status PO (Sudah benar)
         const stats = await db.get(`
             SELECT 
                 COUNT(CASE WHEN status = 'Design' THEN 1 END) as jml_design,
@@ -193,33 +193,36 @@ app.get('/dashboard', async (req, res) => {
                 COUNT(CASE WHEN status = 'DP/Cicil' THEN 1 END) as jml_cicil
             FROM po_utama WHERE tenant_id = $1`, [tId]);
 
-        // 2. Hitung Total Piutang (Total Harga PO - Total Pembayaran Masuk)
+        // 2. Hitung Total Piutang (Sudah benar)
         const piutangRes = await db.get(`
             SELECT (
                 COALESCE((SELECT SUM(total_harga_customer) FROM po_utama WHERE tenant_id = $1), 0) - 
                 COALESCE((SELECT SUM(jumlah) FROM arus_kas WHERE kategori IN ('PEMBAYARAN BORDIR', 'PELUNASAN', 'DP/CICILAN') AND tenant_id = $1), 0)
             ) as total_piutang`, [tId]);
 
-        // 3. Cek Masalah Produksi (Setoran > Target)
+        // 3. Cek Masalah Produksi (DIPERBAIKI: Tambahkan d.jumlah ke GROUP BY)
         const masalahRes = await db.get(`
             SELECT COUNT(*) as total FROM (
-                SELECT h.detail_id FROM hasil_kerja h 
+                SELECT h.detail_id 
+                FROM hasil_kerja h 
                 JOIN po_detail d ON h.detail_id = d.id 
                 WHERE h.tenant_id = $1 
-                GROUP BY h.detail_id HAVING SUM(h.jumlah_setor) > d.jumlah
+                GROUP BY h.detail_id, d.jumlah 
+                HAVING SUM(h.jumlah_setor) > d.jumlah
             ) as subquery`, [tId]);
 
         res.render('dashboard', {
             stats: stats || { jml_design: 0, jml_produksi: 0, jml_invoice: 0, jml_cicil: 0 },
-            totalPiutangSemua: piutangRes?.total_piutang || 0,
-            jumlahMasalah: masalahRes?.total || 0
+            totalPiutangSemua: parseFloat(piutangRes?.total_piutang || 0),
+            jumlahMasalah: parseInt(masalahRes?.total || 0)
         });
 
     } catch (err) {
-        console.error("🔥 Dashboard Error:", err);
-        res.status(500).send("Gagal memuat dashboard");
+        console.error("🔥 Dashboard Error:", err.message);
+        res.status(500).send("Gagal memuat dashboard: " + err.message);
     }
 });
+
 
 app.post('/save-settings-all', upload.single('logo'), async (req, res) => {
     const tId = req.session.tenantId;
