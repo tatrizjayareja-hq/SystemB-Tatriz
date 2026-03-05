@@ -232,7 +232,7 @@ app.post('/save-settings-all', upload.single('logo'), async (req, res) => {
         nama_perusahaan, alamat, no_hp, nominal_buffer, 
         target_bonus, nominal_bonus_dasar, beban_tetap 
     } = req.body;
-
+console.log("Mencoba update settings untuk Tenant ID:", tId);
     try {
         let logoUrl = null;
 
@@ -296,7 +296,6 @@ app.post('/save-settings-all', upload.single('logo'), async (req, res) => {
         res.status(500).send("Gagal menyimpan pengaturan: " + err.message);
     }
 });
-console.log("Mencoba update settings untuk Tenant ID:", tId);
 
 // Menampilkan Halaman Register
 app.get('/register', (req, res) => {
