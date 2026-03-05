@@ -236,11 +236,10 @@ app.post('/save-settings-all', upload.single('logo'), async (req, res) => {
     try {
         let logoUrl = null;
 
-        // 1. Jika ada file yang diunggah
+        // 1. Proses Upload Logo ke Supabase (Jika ada file)
         if (req.file) {
             const fileName = `logo-${tId}-${Date.now()}${path.extname(req.file.originalname)}`;
             
-            // Upload ke Supabase Storage (Bucket: uploads)
             const { data, error } = await supabase.storage
                 .from('uploads')
                 .upload(fileName, req.file.buffer, {
@@ -250,7 +249,6 @@ app.post('/save-settings-all', upload.single('logo'), async (req, res) => {
 
             if (error) throw error;
 
-            // Dapatkan URL Publik
             const { data: publicData } = supabase.storage
                 .from('uploads')
                 .getPublicUrl(fileName);
@@ -258,24 +256,33 @@ app.post('/save-settings-all', upload.single('logo'), async (req, res) => {
             logoUrl = publicData.publicUrl;
         }
 
-        // 2. Siapkan Query Update
-        let sql = `UPDATE settings SET 
-                   nama_perusahaan = $1, alamat = $2, no_hp = $3, 
-                   nominal_buffer = $4, target_bonus = $5, 
-                   nominal_bonus_dasar = $6, beban_tetap = $7`;
+        // 2. Susun Parameter Dasar (Selalu Ada)
         let params = [
-            nama_perusahaan, alamat, no_hp, 
+            nama_perusahaan, 
+            alamat, 
+            no_hp, 
             parseFloat(nominal_buffer) || 0, 
             parseFloat(target_bonus) || 0, 
             parseFloat(nominal_bonus_dasar) || 0, 
             parseFloat(beban_tetap) || 0
         ];
 
-        // Jika ada logo baru, tambahkan ke query
+        // 3. Susun Query SQL
+        let sql = `UPDATE settings SET 
+                    nama_perusahaan = $1, 
+                    alamat = $2, 
+                    no_hp = $3, 
+                    nominal_buffer = $4, 
+                    target_bonus = $5, 
+                    nominal_bonus_dasar = $6, 
+                    beban_tetap = $7`;
+
         if (logoUrl) {
+            // Jika ada logo, logo_path jadi $8, tenant_id jadi $9
             sql += `, logo_path = $8 WHERE tenant_id = $9`;
             params.push(logoUrl, tId);
         } else {
+            // Jika tidak ada logo, tenant_id jadi $8
             sql += ` WHERE tenant_id = $8`;
             params.push(tId);
         }
@@ -285,6 +292,7 @@ app.post('/save-settings-all', upload.single('logo'), async (req, res) => {
 
     } catch (err) {
         console.error("🔥 Save Settings Error:", err.message);
+        // Tip: Pastikan bucket 'uploads' sudah ada di Supabase Storage dan aksesnya PUBLIC
         res.status(500).send("Gagal menyimpan pengaturan: " + err.message);
     }
 });
