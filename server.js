@@ -1098,7 +1098,7 @@ app.post('/simpan-kerja', async (req, res) => {
             await db.query("UPDATE po_utama SET status = 'QC' WHERE id = $1", [po_id]);
         }
 
-        res.redirect('/hasil-saya');
+        res.redirect('/hasil-kerja-operator');
     } catch (err) {
         console.error("🔥 Error Simpan Kerja:", err.message);
         res.status(500).send("Gagal menyimpan data.");
