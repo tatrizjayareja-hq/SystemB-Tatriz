@@ -933,6 +933,71 @@ async function updateStatusPO(poId) {
     }
 }
 
+app.get('/karyawan', isAdmin, async (req, res) => {
+    const tId = req.session.tenantId;
+
+    try {
+        // PostgreSQL menggunakan $1 sebagai placeholder
+        const sql = `
+            SELECT id, nama_lengkap, username, role, COALESCE(gaji_pokok, 0) as gaji_pokok 
+            FROM users 
+            WHERE tenant_id = $1 
+            ORDER BY role DESC, nama_lengkap ASC
+        `;
+        
+        const users = await db.all(sql, [tId]);
+        
+        res.render('karyawan', { users: users || [] });
+    } catch (err) {
+        console.error("🔥 Gagal memuat karyawan:", err.message);
+        res.status(500).send("Gagal mengambil data karyawan.");
+    }
+});
+
+app.post('/tambah-karyawan', isAdmin, async (req, res) => {
+    const tId = req.session.tenantId;
+    const { nama_lengkap, username, password, gaji_pokok, role } = req.body;
+
+    try {
+        const sql = `
+            INSERT INTO users (tenant_id, nama_lengkap, username, password, gaji_pokok, role) 
+            VALUES ($1, $2, $3, $4, $5, $6)
+        `;
+
+        await db.query(sql, [
+            tId, 
+            nama_lengkap, 
+            username, 
+            password, 
+            parseFloat(gaji_pokok) || 0, 
+            role
+        ]);
+
+        res.redirect('/karyawan');
+    } catch (err) {
+        console.error("🔥 Gagal tambah karyawan:", err.message);
+        res.status(500).send("<script>alert('Username sudah dipakai!'); window.history.back();</script>");
+    }
+});
+
+app.get('/hapus-karyawan/:id', isAdmin, async (req, res) => {
+    const tId = req.session.tenantId;
+    const userId = req.params.id;
+
+    try {
+        // Tambahan proteksi: Hanya hapus jika ID cocok, Tenant cocok, dan BUKAN username 'admin'
+        await db.query(
+            "DELETE FROM users WHERE id = $1 AND tenant_id = $2 AND username != 'admin'", 
+            [userId, tId]
+        );
+        
+        res.redirect('/karyawan');
+    } catch (err) {
+        console.error("🔥 Gagal hapus karyawan:", err.message);
+        res.status(500).send("Gagal menghapus karyawan.");
+    }
+});
+
 
 
 
