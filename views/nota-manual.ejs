@@ -120,6 +120,10 @@
             const nama = row.querySelector('.nama').value;
             const qty = row.querySelector('.qty').value;
             const hrg = row.querySelector('.hrg').value;
+            const pathLogo = "/uploads/<%= config.logo_path %>"; 
+            const namaToko = "<%= config.nama_perusahaan %>";
+            const alamatToko = `<%= config.alamat %>`.replace(/\n/g, ' ');
+            const waToko = "<%= config.no_hp %>";
             
             if(nama && hrg) {
                 const sub = qty * hrg;
@@ -141,7 +145,18 @@
         const template = `
         <div style="position: relative; height: 100%; display: flex; flex-direction: column; color: #333;">
             <img src="/uploads/<%= config.logo_path %>" style="position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%) rotate(-30deg); opacity: 0.05; width: 180px; z-index: 0;">
+            <div style="position: relative; height: 100%; display: flex; flex-direction: column; color: #333;">
+            <img src="${pathLogo}" style="position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%) rotate(-30deg); opacity: 0.05; width: 180px; z-index: 0;">
             
+            <div style="display: flex; align-items: center; border-bottom: 2px solid #333; padding-bottom: 8px; margin-bottom: 10px; z-index: 1;">
+                <img src="${pathLogo}" style="width: 45px; height: 45px; margin-right: 10px; object-fit: contain;">
+                
+                <div style="flex-grow:1">
+                    <h2 style="margin:0; font-size: 14px; text-transform: uppercase;">${namaToko}</h2>
+                    <p style="margin:1px 0; font-size: 9px;">${alamatToko}</p>
+                    <p style="margin:1px 0; font-size: 9px; font-weight: bold;">WA: ${waToko}</p>
+                </div>
+            </div>
             <div style="display: flex; align-items: center; border-bottom: 2px solid #333; padding-bottom: 8px; margin-bottom: 10px; z-index: 1;">
                 <img src="/uploads/<%= config.logo_path %>" style="width: 45px; height: 45px; margin-right: 10px; object-fit: contain;">
                 <div style="flex-grow:1">

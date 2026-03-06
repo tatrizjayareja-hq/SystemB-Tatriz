@@ -1570,12 +1570,17 @@ app.post('/proses-print-gaji', isAdmin, async (req, res) => {
     }
 });
 
-app.get('/nota-manual', isAdmin, (req, res) => {
-    // Kita tidak perlu ambil data dari DB karena form diisi manual,
-    // tapi res.locals.config (logo & nama toko) akan otomatis terkirim
-    res.render('nota-manual');
+app.get('/nota-manual', isAdmin, async (req, res) => {
+    const tId = req.session.tenantId;
+    try {
+        const config = await db.get("SELECT * FROM settings WHERE tenant_id = $1", [tId]);
+        // Berikan nilai default jika config kosong
+        const safeConfig = config || { logo_path: 'default.png', nama_perusahaan: 'Tatriz' };
+        res.render('nota-manual', { config: safeConfig });
+    } catch (err) {
+        res.status(500).send("Error");
+    }
 });
-
 
 
 
