@@ -107,18 +107,17 @@
         const row = tbody.insertRow();
         row.innerHTML = `<td><input type="text" class="nama"></td>
                          <td><input type="number" class="qty" value="1"></td>
-                         <td><input type="number" class="hrg"></td>`;
+                         <td><input type="number" class="hrg" placeholder="Rp"></td>`;
     }
 
     function bukaPreview() {
         const cust = document.getElementById('cust').value || "Umum";
         const rows = document.querySelectorAll("#tabelItem tbody tr");
         
-        // Ambil data dari server (EJS) ke variabel JS dengan aman
-        const pathLogo = "/uploads/<%= config.logo_path %>"; 
+        // AMBIL DATA DARI SERVER KE VARIABEL JS (Sesuai gaya nota gabungan)
+        const logoPath = "<%= config.logo_path %>"; 
         const namaToko = "<%= config.nama_perusahaan %>";
         const waToko = "<%= config.no_hp %>";
-        // Gunakan JSON.stringify untuk alamat agar aman dari baris baru/tanda kutip
         const alamatToko = `<%- (config.alamat || '').replace(/\r?\n|\r/g, ' ') %>`;
 
         let htmlItem = "";
@@ -134,68 +133,70 @@
                 total += sub;
                 htmlItem += `
                     <tr>
-                        <td style="padding: 5px 0; border-bottom: 1px solid #eee;">${nama}</td>
-                        <td style="padding: 5px 0; border-bottom: 1px solid #eee; text-align: center;">${qty}</td>
-                        <td style="padding: 5px 0; border-bottom: 1px solid #eee; text-align: right;">${hrg.toLocaleString('id-ID')}</td>
-                        <td style="padding: 5px 0; border-bottom: 1px solid #eee; text-align: right;">${sub.toLocaleString('id-ID')}</td>
+                        <td style="padding: 4px 2px; border-bottom: 1px solid #eee;">${nama}</td>
+                        <td style="padding: 4px 2px; border-bottom: 1px solid #eee; text-align: center;">${qty}</td>
+                        <td style="padding: 4px 2px; border-bottom: 1px solid #eee; text-align: right;">${hrg.toLocaleString('id-ID')}</td>
+                        <td style="padding: 4px 2px; border-bottom: 1px solid #eee; text-align: right;">${sub.toLocaleString('id-ID')}</td>
                     </tr>`;
             }
         });
 
-        if (total === 0) {
-            alert("Mohon isi minimal satu barang dengan harga.");
-            return;
-        }
-
-        // Set Nama File PDF via Title browser
-        const tglStr = new Date().toLocaleDateString('id-ID').replace(/\//g, '-');
-        document.title = "Nota_" + cust.replace(/\s+/g, '_') + "_" + tglStr;
-
+        // Template menggunakan struktur CSS yang sama dengan Nota Gabungan kamu
         const template = `
-            <div style="position: relative; height: 100%; display: flex; flex-direction: column; color: #333; font-family: 'Segoe UI', sans-serif;">
-                <img src="${pathLogo}" style="position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%) rotate(-30deg); opacity: 0.05; width: 180px; z-index: 0;">
+            <div class="nota-box" style="border:none; margin:0; padding:0;">
+                <img src="${logoPath}" class="watermark" style="width: 220px;">
                 
-                <div style="display: flex; align-items: center; border-bottom: 2px solid #333; padding-bottom: 8px; margin-bottom: 10px; z-index: 1;">
-                    <img src="${pathLogo}" style="width: 45px; height: 45px; margin-right: 10px; object-fit: contain;">
-                    <div style="flex-grow:1">
-                        <h2 style="margin:0; font-size: 14px; text-transform: uppercase;">${namaToko}</h2>
-                        <p style="margin:1px 0; font-size: 9px;">${alamatToko}</p>
-                        <p style="margin:1px 0; font-size: 9px; font-weight: bold;">WA: ${waToko}</p>
+                <div class="header-container">
+                    <img src="${logoPath}" class="logo-header">
+                    <div class="company-info">
+                        <h2>${namaToko}</h2>
+                        <p>${alamatToko}</p>
+                        <p><strong>WA: ${waToko}</strong></p>
+                    </div>
+                    <div class="label-nota">
+                        <h3>NOTA PESANAN</h3>
+                        <p>Tgl: ${new Date().toLocaleDateString('id-ID')}</p>
+                        <p>Cust: <strong>${cust}</strong></p>
                     </div>
                 </div>
 
-                <div style="display: flex; justify-content: space-between; font-size: 11px; margin-bottom: 10px; z-index: 1;">
-                    <span>Cust: <b>${cust}</b></span>
-                    <span>Tgl: ${new Date().toLocaleDateString('id-ID')}</span>
-                </div>
-
-                <div style="flex-grow: 1; z-index: 1;">
-                    <table style="width: 100%; border-collapse: collapse; font-size: 10px;">
+                <div class="content-area">
+                    <table>
                         <thead>
-                            <tr style="border-bottom: 1px solid #333; text-align: left;">
-                                <th style="padding: 5px 0; width: 45%;">Item</th>
-                                <th style="padding: 5px 0; text-align:center; width: 10%;">Qty</th>
-                                <th style="padding: 5px 0; text-align:right; width: 20%;">Harga</th>
-                                <th style="padding: 5px 0; text-align:right; width: 25%;">Total</th>
+                            <tr>
+                                <th style="width: 40%;">Item / Jasa</th>
+                                <th class="text-center" style="width: 15%;">Qty</th>
+                                <th class="text-end" style="width: 20%;">Harga</th>
+                                <th class="text-end" style="width: 25%;">Total</th>
                             </tr>
                         </thead>
                         <tbody>${htmlItem}</tbody>
                     </table>
                 </div>
 
-                <div style="z-index: 1; margin-top: auto;">
-                    <div style="display: flex; justify-content: space-between; font-weight: bold; font-size: 13px; border-top: 1px solid #333; padding-top: 5px;">
-                        <span>GRAND TOTAL:</span>
-                        <span>Rp ${total.toLocaleString('id-ID')}</span>
+                <div class="footer-nota">
+                    <div class="total-box">
+                        <div class="total-row" style="font-weight: bold; font-size: 13px;">
+                            <span>GRAND TOTAL:</span>
+                            <span>Rp ${total.toLocaleString('id-ID')}</span>
+                        </div>
                     </div>
 
-                    <div style="margin-top: 15px; display: flex; justify-content: space-between; font-size: 9px; text-align: center;">
-                        <div style="width: 45%;">Penerima<br><br><br>( ................. )</div>
-                        <div style="width: 45%;">Hormat Kami<br><br><br>( ................. )</div>
+                    <div class="ttd-section">
+                        <div class="ttd-box">
+                            Penerima,
+                            <div class="ttd-space" style="height:35px"></div>
+                            ( ............................ )
+                        </div>
+                        <div class="ttd-box">
+                            Hormat Kami,
+                            <div class="ttd-space" style="height:35px"></div>
+                            ( ............................ )
+                        </div>
                     </div>
-                    <p style="text-align: center; font-size: 7px; font-style: italic; margin-top: 8px; color: #777;">
+                    <div class="warning-box" style="text-align:center; margin-top:10px;">
                         * Barang yang sudah dibeli tidak dapat ditukar/dikembalikan.
-                    </p>
+                    </div>
                 </div>
             </div>
         `;
