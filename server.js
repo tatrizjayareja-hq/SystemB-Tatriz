@@ -760,6 +760,130 @@ app.get('/api/piutang-detail/:customer', isAdmin, async (req, res) => {
     }
 });
 
+app.get('/laporan-kas', isAdmin, async (req, res) => {
+    const tId = req.session.tenantId;
+    const bulanIni = req.query.bulan || new Date().toISOString().slice(0, 7);
+    
+    try {
+        // 0. Ambil Config
+        const config = await db.get("SELECT * FROM settings WHERE tenant_id = $1", [tId]);
+        const conf = config || { beban_tetap: 0, nominal_buffer: 0 };
+
+        // 1. Query Statistik Keuangan (Gunakan LIKE dengan $1 || '%')
+        const sqlData = `
+            SELECT 
+                (SELECT SUM(h.jumlah_setor * d.harga_customer) FROM hasil_kerja h JOIN po_detail d ON h.detail_id = d.id WHERE h.tanggal LIKE $1 || '%' AND h.tenant_id = $2) as prod_bln,
+                (SELECT SUM(jumlah) FROM arus_kas WHERE jenis = 'PENGELUARAN' AND kategori NOT IN ('BIAYA KONTRAKAN', 'BAYAR HUTANG') AND tanggal LIKE $1 || '%' AND tenant_id = $2) as op_bln,
+                (SELECT SUM(jumlah) FROM arus_kas WHERE kategori = 'BIAYA KONTRAKAN' AND tanggal LIKE $1 || '%' AND tenant_id = $2) as k_bayar_bln,
+                (SELECT SUM(CASE WHEN kategori = 'HUTANG' THEN jumlah WHEN kategori = 'BAYAR HUTANG' THEN -jumlah ELSE 0 END) FROM arus_kas WHERE tenant_id = $2) as hutang_riil,
+                (SELECT SUM(CASE WHEN jenis = 'PEMASUKAN' THEN jumlah ELSE -jumlah END) FROM arus_kas WHERE tenant_id = $2) as saldo_laci
+        `;
+        const data = await db.get(sqlData, [bulanIni, tId]);
+
+        // 2. Query Piutang Berjalan (Akumulatif)
+        const sqlPiutang = `
+            SELECT (
+                COALESCE((SELECT SUM(h2.jumlah_setor * d2.harga_customer) FROM hasil_kerja h2 JOIN po_detail d2 ON h2.detail_id = d2.id WHERE h2.tenant_id = $1), 0) - 
+                COALESCE((SELECT SUM(jumlah) FROM arus_kas WHERE kategori IN ('PEMBAYARAN BORDIR', 'PELUNASAN', 'DP/CICILAN') AND tenant_id = $1), 0)
+            ) as piutang_total
+        `;
+        const rowP = await db.get(sqlPiutang, [tId]);
+
+        // 3. Query Rincian Transaksi
+        const rincian = await db.all(`
+            SELECT ak.*, p.customer, p.nama_po 
+            FROM arus_kas ak 
+            LEFT JOIN po_utama p ON ak.po_id = p.id 
+            WHERE ak.tanggal LIKE $1 || '%' AND ak.tenant_id = $2
+            ORDER BY ak.tanggal DESC, ak.id DESC
+        `, [bulanIni, tId]);
+
+        // 4. Query Omzet Harian
+        const monitor = await db.all(`
+            SELECT h.tanggal, SUM(h.jumlah_setor * d.harga_customer) as total_harian
+            FROM hasil_kerja h 
+            JOIN po_detail d ON h.detail_id = d.id 
+            WHERE h.tanggal LIKE $1 || '%' AND h.tenant_id = $2
+            GROUP BY h.tanggal 
+            ORDER BY h.tanggal DESC
+        `, [bulanIni, tId]);
+
+        // PERHITUNGAN
+        const prod = parseFloat(data?.prod_bln || 0);
+        const op = parseFloat(data?.op_bln || 0);
+        const k_terbayar = parseFloat(data?.k_bayar_bln || 0);
+        const estimasiProfit = prod - op - (parseFloat(conf.beban_tetap) || 0);
+        const sisaBebanKontrakan = Math.max(0, (parseFloat(conf.beban_tetap) || 0) - k_terbayar);
+
+        res.render('laporan-kas', {
+            bulanIni,
+            nilaiProduksi: prod,
+            totalBiaya: op,
+            sisaHutangRiil: parseFloat(data?.hutang_riil || 0),
+            sisaBebanKontrakan,
+            estimasiProfit,
+            saldoRiil: parseFloat(data?.saldo_laci || 0),
+            piutangBerjalan: parseFloat(rowP?.piutang_total || 0),
+            monitorHarian: monitor || [],
+            rincianKas: rincian || [],
+            config: conf
+        });
+
+    } catch (err) {
+        console.error("🔥 Laporan Kas Error:", err.message);
+        res.status(500).send("Gagal memuat laporan kas.");
+    }
+});
+
+app.post('/save-kas', isAdmin, async (req, res) => {
+    const tId = req.session.tenantId;
+    const { kas_id, tanggal, jenis, kategori, jumlah, keterangan, po_id } = req.body;
+    
+    // Pastikan po_id null jika tidak dipilih
+    const isPayment = ["PEMBAYARAN BORDIR", "PELUNASAN", "DP/CICILAN"].includes(kategori);
+    const ref_po = (isPayment && po_id && po_id !== "") ? parseInt(po_id) : null;
+
+    try {
+        if (kas_id) {
+            await db.query(`
+                UPDATE arus_kas SET tanggal=$1, jenis=$2, kategori=$3, jumlah=$4, keterangan=$5, po_id=$6 
+                WHERE id=$7 AND tenant_id=$8`,
+                [tanggal, jenis, kategori, jumlah, keterangan, ref_po, kas_id, tId]
+            );
+        } else {
+            await db.query(`
+                INSERT INTO arus_kas (tenant_id, tanggal, jenis, kategori, jumlah, keterangan, po_id) 
+                VALUES ($1, $2, $3, $4, $5, $6, $7)`,
+                [tId, tanggal, jenis, kategori, jumlah, keterangan, ref_po]
+            );
+        }
+
+        if (ref_po) updateStatusPO(ref_po); // Panggil fungsi helper status
+        res.redirect('/laporan-kas');
+    } catch (err) {
+        console.error("🔥 Save Kas Error:", err.message);
+        res.status(500).send("Gagal menyimpan transaksi.");
+    }
+});
+
+app.get('/hapus-kas/:id', isAdmin, async (req, res) => {
+    const tId = req.session.tenantId;
+    const kasId = req.params.id;
+
+    try {
+        const row = await db.get("SELECT po_id FROM arus_kas WHERE id = $1 AND tenant_id = $2", [kasId, tId]);
+        const poIdTerikat = row ? row.po_id : null;
+
+        await db.query("DELETE FROM arus_kas WHERE id = $1 AND tenant_id = $2", [kasId, tId]);
+
+        if (poIdTerikat) updateStatusPO(poIdTerikat);
+        res.redirect('/laporan-kas');
+    } catch (err) {
+        console.error("🔥 Hapus Kas Error:", err.message);
+        res.status(500).send("Gagal menghapus transaksi.");
+    }
+});
+
 
 
 
