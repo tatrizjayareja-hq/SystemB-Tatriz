@@ -654,47 +654,93 @@ app.get('/edit-po/:id', async (req, res) => {
 
 app.get('/print-nota-gabungan', async (req, res) => {
     const tId = req.session.tenantId;
-    const { customer } = req.query; // Panggil via /nota-gabungan?customer=NamaCustomer
+    const { customer, ids } = req.query; // 'ids' adalah array dari checkbox
 
     if (!tId) return res.redirect('/');
-    if (!customer) return res.send("Nama customer tidak ditemukan.");
+    
+    // Pastikan ids berupa array
+    const idList = Array.isArray(ids) ? ids : [ids];
 
     try {
-        // 1. Ambil Setting Perusahaan untuk Logo & Nama Toko
         const config = await db.get("SELECT * FROM settings WHERE tenant_id = $1", [tId]);
 
-        // 2. Ambil semua PO milik customer ini yang belum Lunas (atau semua PO aktif)
-        // Kita gunakan COALESCE pada total_bayar agar tidak null saat perhitungan di EJS
+        // Ambil hanya PO yang dicentang saja
         const orders = await db.all(`
             SELECT *, COALESCE(total_bayar, 0) as total_bayar 
+            FROM po_utama 
+            WHERE tenant_id = $1 AND id = ANY($2::int[])
+        `, [tId, idList.map(id => parseInt(id))]);
+
+        const details = await db.all(`
+            SELECT * FROM po_detail 
+            WHERE po_id = ANY($1::int[])
+        `, [idList.map(id => parseInt(id))]);
+
+        res.render('nota-gabungan', { orders, details, config: config || {} });
+    } catch (err) {
+        console.error("🔥 Cetak Gabungan Error:", err.message);
+        res.status(500).send("Gagal mencetak nota gabungan.");
+    }
+});
+
+// 1. Halaman Daftar Piutang
+app.get('/piutang-customer', async (req, res) => {
+    const tId = req.session.tenantId;
+    if (!tId) return res.redirect('/');
+
+    try {
+        // Query ini menghitung Sisa Piutang: (Total Harga PO) - (Total Bayar)
+        // Hanya menampilkan customer yang masih punya hutang (> 0)
+        const daftar = await db.all(`
+            SELECT 
+                customer, 
+                COUNT(id) as total_po_aktif,
+                SUM(total_harga_customer) - SUM(COALESCE(total_bayar, 0)) as sisa_piutang_customer
+            FROM po_utama 
+            WHERE tenant_id = $1 AND status != 'Lunas'
+            GROUP BY customer
+            HAVING (SUM(total_harga_customer) - SUM(COALESCE(total_bayar, 0))) > 0
+            ORDER BY sisa_piutang_customer DESC
+        `, [tId]);
+
+        res.render('piutang-customer', { daftar });
+    } catch (err) {
+        console.error("🔥 Piutang Page Error:", err.message);
+        res.status(500).send("Gagal memuat daftar piutang.");
+    }
+});
+
+// 2. API Detail PO per Customer (Untuk Modal)
+app.get('/api/piutang-detail/:customer', async (req, res) => {
+    const tId = req.session.tenantId;
+    const customer = req.params.customer;
+
+    if (!tId) return res.status(401).json({ error: "Unauthorized" });
+
+    try {
+        const details = await db.all(`
+            SELECT 
+                id, 
+                nama_po, 
+                tanggal, 
+                total_harga_customer, 
+                COALESCE(total_bayar, 0) as telah_bayar
             FROM po_utama 
             WHERE tenant_id = $1 AND customer = $2 AND status != 'Lunas'
             ORDER BY tanggal DESC
         `, [tId, customer]);
 
-        if (orders.length === 0) {
-            return res.send("<script>alert('Tidak ada tagihan aktif untuk customer ini.'); window.history.back();</script>");
-        }
-
-        // 3. Ambil semua rincian item untuk semua PO tersebut
-        const poIds = orders.map(o => o.id);
-        const details = await db.all(`
-            SELECT * FROM po_detail 
-            WHERE po_id = ANY($1::int[])
-        `, [poIds]);
-
-        // 4. Render halaman nota-gabungan.ejs
-        res.render('nota-gabungan', { 
-            orders, 
-            details, 
-            config: config || {} 
-        });
-
+        res.json(details);
     } catch (err) {
-        console.error("🔥 Nota Gabungan Error:", err.message);
-        res.status(500).send("Gagal memproses nota gabungan.");
+        console.error("🔥 API Piutang Error:", err.message);
+        res.status(500).json({ error: "Gagal ambil detail" });
     }
 });
+
+
+
+
+
 
 // --- LOGIKA ROUTES AKAN DI MASUKKAN DI SINI ---
 
