@@ -625,18 +625,30 @@ app.post('/update-po/:id', async (req, res) => {
 app.get('/edit-po/:id', async (req, res) => {
     const tId = req.session.tenantId;
     const poId = req.params.id;
+
     if (!tId) return res.redirect('/');
 
     try {
         const po = await db.get("SELECT * FROM po_utama WHERE id = $1 AND tenant_id = $2", [poId, tId]);
-        const details = await db.all("SELECT * FROM po_detail WHERE po_id = $1", [poId]);
+        const details = await db.all("SELECT * FROM po_detail WHERE po_id = $1 ORDER BY id ASC", [poId]);
 
-        if (!po) return res.render('404'); // Melempar ke 404 jika PO tidak ketemu
+        if (!po) return res.status(404).render('404');
 
-        res.render('edit-po', { po, details });
+        // Pastikan format tanggal aman untuk HTML5 Input Date
+        if (po.tanggal) {
+            po.tanggal = new Date(po.tanggal).toISOString().split('T')[0];
+        }
+
+        // --- PERBAIKAN DI SINI ---
+        res.render('po-edit', { // Sesuaikan dengan nama file po-edit.ejs
+            po, 
+            details: details || [],
+            user: req.session 
+        });
+
     } catch (err) {
-        console.error("🔥 Edit PO Load Error:", err.message);
-        res.render('404'); 
+        console.error("🔥 Error Load po-edit:", err.message);
+        res.status(500).render('404');
     }
 });
 
