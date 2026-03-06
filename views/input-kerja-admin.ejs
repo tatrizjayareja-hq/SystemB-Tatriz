@@ -98,15 +98,14 @@ async function muatDaftarDesain(poId) {
 
     try {
         const res = await fetch(`/api/po-details/${poId}`);
-        dataSimpanan = await res.json(); 
-        
-        let html = '<option value="">-- Pilih Jenis Bordir --</option>';
         dataSimpanan.forEach(d => {
-            // Kita simpan ID Detail di value Jenis agar langsung terhubung ke Nama Desain
+            // Pastikan sisa tidak negatif
+            const sisaKerja = d.sisa < 0 ? 0 : d.sisa;
+            
             html += `<option value="${d.id}" 
-                             data-nama="${d.nama_desain}" 
-                             data-harga="${d.harga_operator}" 
-                             data-sisa="${d.sisa}">${d.jenis_bordir} (Sisa: ${d.sisa})</option>`;
+                            data-nama="${d.nama_desain}" 
+                            data-harga="${d.harga_operator}" 
+                            data-sisa="${sisaKerja}">${d.jenis_bordir} (Sisa: ${sisaKerja})</option>`;
         });
         
         selectJenis.innerHTML = html;
@@ -122,19 +121,18 @@ function pilihOtomatisDesain(el) {
     const selected = el.options[el.selectedIndex];
     
     if(el.value) {
-        // Ambil data dari atribut data- yang kita buat di atas
         const namaDesain = selected.getAttribute('data-nama');
         const harga = selected.getAttribute('data-harga');
         const sisa = selected.getAttribute('data-sisa');
 
-        // Tampilkan ke UI otomatis
         document.getElementById('display_nama_desain').innerText = namaDesain;
         document.getElementById('display_harga').innerText = "Rp " + parseInt(harga).toLocaleString('id-ID');
         document.getElementById('input_harga_op').value = harga;
         
         const inputSetor = document.getElementById('input_setor');
         inputSetor.placeholder = "Maksimal " + sisa;
-        inputSetor.max = sisa; // Batasi input agar tidak over-limit
+        inputSetor.max = sisa; 
+        inputSetor.value = sisa; // Otomatis isi dengan sisa agar admin cepat kerjanya
         
         infoDiv.style.display = 'block';
     } else {

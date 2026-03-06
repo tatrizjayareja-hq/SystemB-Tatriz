@@ -1052,7 +1052,7 @@ app.get('/operator', async (req, res) => {
     }
 });
 
-app.get('/api/po-details/:id', async (req, res) => {
+app.get('/api/po-details/:id', isAdmin, async (req, res) => {
     const poId = req.params.id;
     // Menghitung sisa per item desain secara real-time
     const sql = `
