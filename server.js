@@ -884,6 +884,27 @@ app.get('/hapus-kas/:id', isAdmin, async (req, res) => {
     }
 });
 
+app.get('/input-kas', async (req, res) => { // 1. Tambahkan async
+    if (!req.session.userId) return res.redirect('/');
+    
+    const tId = req.session.tenantId;
+
+    // 2. Ubah ? menjadi $1
+    const sqlPO = `SELECT id, nama_po, customer, total_harga_customer 
+                   FROM po_utama 
+                   WHERE status NOT IN ('Lunas', 'Design') AND tenant_id = $1
+                   ORDER BY tanggal DESC`; // Tambahkan ORDER BY agar PO terbaru di atas
+    
+    try {
+        // 3. Gunakan await (tanpa callback err, pos)
+        const pos = await db.all(sqlPO, [tId]);
+        res.render('input-kas', { pos: pos || [] });
+    } catch (err) {
+        console.error("🔥 Error Load Input Kas:", err.message);
+        res.status(500).send("Gagal memuat daftar PO.");
+    }
+});
+
 
 
 
