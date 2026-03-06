@@ -1347,6 +1347,102 @@ app.get('/hapus-produksi/:id', isAdmin, async (req, res) => {
     }
 });
 
+app.get('/laporan-produksi', isAdmin, async (req, res) => {
+    const tId = req.session.tenantId;
+
+    try {
+        // 1. Query Ringkasan Progres per Desain
+        // Menampilkan data desain yang masih proses (bukan Lunas/Clear)
+        const sqlRingkasan = `
+            SELECT 
+                d.id as detail_id, 
+                p.nama_po, 
+                d.nama_desain, 
+                d.jenis_bordir, 
+                d.jumlah as target_po,
+                SUM(COALESCE(h.jumlah_setor, 0)) as total_produksi
+            FROM po_detail d
+            JOIN po_utama p ON d.po_id = p.id
+            LEFT JOIN hasil_kerja h ON d.id = h.detail_id
+            WHERE p.tenant_id = $1 AND p.status NOT IN ('Lunas', 'Clear')
+            GROUP BY d.id, p.nama_po, d.nama_desain, d.jenis_bordir, d.jumlah, p.tanggal
+            ORDER BY p.tanggal DESC, d.id DESC
+        `;
+
+        // 2. Query Detail Log untuk fitur Koreksi (Menampilkan siapa yg setor)
+        const sqlLogs = `
+            SELECT h.*, u.nama_lengkap 
+            FROM hasil_kerja h
+            JOIN users u ON h.operator_id = u.id
+            WHERE h.tenant_id = $1
+            ORDER BY h.tanggal DESC, h.id DESC
+        `;
+
+        const [ringkasan, detailLog] = await Promise.all([
+            db.all(sqlRingkasan, [tId]),
+            db.all(sqlLogs, [tId])
+        ]);
+
+        res.render('admin/laporan-produksi', { 
+            ringkasan: ringkasan || [], 
+            detailLog: detailLog || [] 
+        });
+
+    } catch (err) {
+        console.error("🔥 Error Monitor Produksi:", err.message);
+        res.status(500).send("Gagal memuat monitor produksi.");
+    }
+});
+
+app.post('/admin/update-koreksi-produksi', isAdmin, async (req, res) => {
+    const tId = req.session.tenantId;
+    const { 
+        log_id, 
+        tanggal_baru, 
+        shift_baru, 
+        detail_id_baru, 
+        jumlah_baru 
+    } = req.body;
+
+    try {
+        const sql = `
+            UPDATE hasil_kerja 
+            SET tanggal = $1, 
+                shift = $2, 
+                detail_id = $3, 
+                jumlah_setor = $4 
+            WHERE id = $5 AND tenant_id = $6
+        `;
+
+        await db.query(sql, [
+            tanggal_baru, 
+            shift_baru, 
+            parseInt(detail_id_baru), 
+            parseInt(jumlah_baru), 
+            parseInt(log_id), 
+            tId
+        ]);
+        
+        res.redirect('/laporan-produksi'); 
+    } catch (err) {
+        console.error("🔥 Gagal Koreksi Produksi:", err.message);
+        res.status(500).send("Gagal menyimpan koreksi.");
+    }
+});
+
+app.get('/admin/hapus-produksi/:id', isAdmin, async (req, res) => {
+    const tId = req.session.tenantId;
+    const logId = req.params.id;
+
+    try {
+        await db.query("DELETE FROM hasil_kerja WHERE id = $1 AND tenant_id = $2", [logId, tId]);
+        res.redirect('/laporan-produksi');
+    } catch (err) {
+        console.error("🔥 Gagal Hapus Log:", err.message);
+        res.status(500).send("Gagal menghapus log.");
+    }
+});
+
 
 
 

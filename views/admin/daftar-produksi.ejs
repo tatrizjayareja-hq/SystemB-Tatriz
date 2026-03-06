@@ -6,8 +6,6 @@
         <div class="d-flex gap-2">
             <input type="month" id="filterBulan" class="form-control form-control-sm" 
                    value="<%= bulanIni %>" onchange="location.href='?bulan='+this.value">
-            <button onclick="window.print()" class="btn btn-sm btn-outline-secondary">
-                <i class="bi bi-printer"></i> Cetak
             </button>
             <% if (user.role === 'admin') { %>
     <div style="margin-bottom: 15px;">
