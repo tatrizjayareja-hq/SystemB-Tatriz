@@ -102,6 +102,12 @@
 </div>
 
 <script>
+    // 1. Ambil data dari EJS ke JavaScript Client-side
+    const logoPath = "/uploads/<%= config.logo_path %>"; 
+    const namaPerusahaan = "<%= config.nama_perusahaan %>";
+    const alamatPerusahaan = "<%= config.alamat %>".replace(/\n/g, ' ');
+    const noHp = "<%= config.no_hp %>";
+
     function tambahBaris() {
         const tbody = document.querySelector("#tabelItem tbody");
         const row = tbody.insertRow();
@@ -134,10 +140,10 @@
             }
         });
 
-        // Set Nama File PDF via Title
         const tgl = new Date().toLocaleDateString('id-ID').replace(/\//g, '-');
         document.title = "Nota_Manual_" + cust.replace(/\s+/g, '_') + "_" + tgl;
 
+        // 2. Gunakan variabel JS yang sudah didefinisikan di atas
         const template = `
             <div style="position: relative; height: 100%; display: flex; flex-direction: column; color: #333;">
                 <img src="${logoPath}" style="position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%) rotate(-30deg); opacity: 0.05; width: 180px; z-index: 0;">
@@ -145,9 +151,9 @@
                 <div style="display: flex; align-items: center; border-bottom: 2px solid #333; padding-bottom: 8px; margin-bottom: 10px; z-index: 1;">
                     <img src="${logoPath}" style="width: 45px; height: 45px; margin-right: 10px; object-fit: contain;">
                     <div style="flex-grow:1">
-                        <h2 style="margin:0; font-size: 14px; text-transform: uppercase;"><%= config.nama_perusahaan %></h2>
-                        <p style="margin:1px 0; font-size: 9px;">${'<%= config.alamat %>'.replace(/\n/g, ' ')}</p>
-                        <p style="margin:1px 0; font-size: 9px; font-weight: bold;">WA: <%= config.no_hp %></p>
+                        <h2 style="margin:0; font-size: 14px; text-transform: uppercase;">${namaPerusahaan}</h2>
+                        <p style="margin:1px 0; font-size: 9px;">${alamatPerusahaan}</p>
+                        <p style="margin:1px 0; font-size: 9px; font-weight: bold;">WA: ${noHp}</p>
                     </div>
                 </div>
 
