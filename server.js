@@ -1570,6 +1570,12 @@ app.post('/proses-print-gaji', isAdmin, async (req, res) => {
     }
 });
 
+app.get('/nota-manual', isAdmin, (req, res) => {
+    // Kita tidak perlu ambil data dari DB karena form diisi manual,
+    // tapi res.locals.config (logo & nama toko) akan otomatis terkirim
+    res.render('nota-manual');
+});
+
 
 
 
