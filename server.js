@@ -1098,12 +1098,57 @@ app.post('/simpan-kerja', async (req, res) => {
             await db.query("UPDATE po_utama SET status = 'QC' WHERE id = $1", [po_id]);
         }
 
-        res.redirect('/hasil-kerja-operator');
+        res.redirect('/hasil-saya');
     } catch (err) {
         console.error("🔥 Error Simpan Kerja:", err.message);
         res.status(500).send("Gagal menyimpan data.");
     }
 });
+
+app.get('/hasil-saya', async (req, res) => {
+    // 1. Cek keamanan session
+    if (!req.session.userId) return res.redirect('/');
+
+    const userId = req.session.userId;
+    const tId = req.session.tenantId;
+    const userName = req.session.nama_lengkap; // Pastikan session ini sesuai dengan saat login
+
+    // 2. Query Riwayat Kerja (Join PO Utama & Detail)
+    const sql = `
+        SELECT 
+            h.id, 
+            h.tanggal, 
+            h.shift, 
+            h.jumlah_setor,
+            p.nama_po, 
+            d.jenis_bordir, 
+            d.nama_desain, 
+            COALESCE(d.harga_operator, 0) as harga_operator,
+            (h.jumlah_setor * COALESCE(d.harga_operator, 0)) as subtotal_upah
+        FROM hasil_kerja h
+        JOIN po_utama p ON h.po_id = p.id
+        JOIN po_detail d ON h.detail_id = d.id
+        WHERE h.operator_id = $1 AND h.tenant_id = $2
+        ORDER BY h.tanggal DESC, h.id DESC
+    `;
+
+    try {
+        const rows = await db.all(sql, [userId, tId]);
+
+        // 3. Render ke EJS
+        res.render('hasil-kerja-operator', { 
+            rows: rows || [], 
+            userName: userName,
+            user: req.session // Kirim data session untuk header jika perlu
+        });
+
+    } catch (err) {
+        console.error("🔥 Gagal memuat rekap operator:", err.message);
+        res.status(500).send("Terjadi kesalahan saat memuat rekap kerja.");
+    }
+});
+
+
 
 
 
