@@ -1149,6 +1149,110 @@ app.get('/hasil-saya', async (req, res) => {
     }
 });
 
+app.get('/input-kerja-admin', isAdmin, async (req, res) => {
+    const tId = req.session.tenantId;
+
+    try {
+        // 1. Ambil PO yang statusnya Produksi
+        const active_pos = await db.all(
+            "SELECT id, nama_po FROM po_utama WHERE tenant_id = $1 AND status = 'Produksi'", 
+            [tId]
+        );
+
+        // 2. Ambil Daftar Mesin
+        const daftarMesin = await db.all(
+            "SELECT id, nama_mesin FROM mesin WHERE tenant_id = $1 ORDER BY id ASC", 
+            [tId]
+        );
+
+        // 3. Ambil Daftar User ber-role Operator
+        const daftarOperator = await db.all(
+            "SELECT id, nama_lengkap FROM users WHERE tenant_id = $1 AND role = 'operator' ORDER BY nama_lengkap ASC", 
+            [tId]
+        );
+
+        // 4. Ambil Setting Toko
+        const config = await db.get("SELECT * FROM settings WHERE tenant_id = $1", [tId]);
+
+        // Kirim semua data ke EJS
+        res.render('input-kerja-admin', {
+            active_pos: active_pos || [],
+            daftarMesin: daftarMesin || [],
+            daftarOperator: daftarOperator || [], 
+            config: config || { nama_perusahaan: "Tatriz" },
+            kurangnya: 0, // Admin tidak menghitung target bonus personal
+            user: req.session
+        });
+
+    } catch (err) {
+        console.error("🔥 Error Load Input Kerja Admin:", err.message);
+        res.status(500).send("Terjadi kesalahan pada server.");
+    }
+});
+
+app.post('/admin/simpan-kerja', isAdmin, async (req, res) => {
+    const tId = req.session.tenantId;
+    const { 
+        user_id_manual, tanggal, shift, po_id, 
+        detail_id, jumlah_setor, mesin_id 
+    } = req.body;
+
+    // 1. Tentukan target user (Admin input untuk OP atau OP input sendiri)
+    let targetUserId = user_id_manual ? parseInt(user_id_manual) : req.session.userId;
+
+    // 2. Validasi Jumlah
+    if (!jumlah_setor || parseInt(jumlah_setor) <= 0) {
+        return res.send("<script>alert('Jumlah tidak valid!'); window.history.back();</script>");
+    }
+
+    try {
+        // Mulai Transaksi agar data aman
+        await db.query("BEGIN");
+
+        // 3. Simpan ke Tabel hasil_kerja
+        const sqlInsert = `
+            INSERT INTO hasil_kerja 
+            (tenant_id, operator_id, po_id, detail_id, mesin_id, tanggal, shift, jumlah_setor) 
+            VALUES ($1, $2, $3, $4, $5, $6, $7, $8)`;
+        
+        await db.query(sqlInsert, [
+            tId, 
+            targetUserId, 
+            parseInt(po_id), 
+            parseInt(detail_id), 
+            parseInt(mesin_id), 
+            tanggal, 
+            shift, 
+            parseInt(jumlah_setor)
+        ]);
+
+        // 4. AUTO-UPDATE STATUS KE QC JIKA TARGET TERCAPAI
+        const sqlCheck = `
+            SELECT 
+                (SELECT SUM(jumlah) FROM po_detail WHERE po_id = $1) as target,
+                (SELECT SUM(jumlah_setor) FROM hasil_kerja WHERE po_id = $1) as realisasi
+        `;
+        const row = await db.get(sqlCheck, [parseInt(po_id)]);
+
+        if (row && parseFloat(row.realisasi) >= parseFloat(row.target)) {
+            await db.query("UPDATE po_utama SET status = 'QC' WHERE id = $1", [parseInt(po_id)]);
+        }
+
+        await db.query("COMMIT");
+
+        // 5. Response Berdasarkan Role
+        if (req.session.role === 'admin') {
+            res.send("<script>alert('Data Berhasil Disimpan (Mode Admin)!'); window.location='/dashboard';</script>");
+        } else {
+            res.redirect('/hasil-saya');
+        }
+
+    } catch (err) {
+        await db.query("ROLLBACK").catch(() => {});
+        console.error("🔥 Error Simpan Kerja Admin:", err.message);
+        res.status(500).send("Gagal menyimpan data: " + err.message);
+    }
+});
 
 
 
