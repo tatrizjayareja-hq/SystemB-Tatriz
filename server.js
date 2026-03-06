@@ -102,6 +102,7 @@ app.post('/login', async (req, res) => {
             req.session.role = user.role;
             req.session.tenantId = user.tenant_id;
             req.session.tenantLevel = user.level || 1;
+            req.session.nama_lengkap = user.nama_lengkap;
 
             if (user.role === 'admin') {
                 return res.redirect('/dashboard');
