@@ -1255,6 +1255,98 @@ app.post('/admin/simpan-kerja', isAdmin, async (req, res) => {
     }
 });
 
+app.get('/daftar-produksi', isAdmin, async (req, res) => {
+    const tId = req.session.tenantId;
+    const bulanIni = req.query.bulan || new Date().toISOString().slice(0, 7);
+
+    // Query super lengkap disesuaikan untuk PostgreSQL
+    const sql = `
+        SELECT 
+            h.id as "ID_PROD", 
+            h.tanggal as "TANGGAL", 
+            h.shift as "SHIFT", 
+            u.nama_lengkap as "OP", 
+            p.nama_po as "NAMA_PO", 
+            p.customer as "PEMILIK", 
+            d.nama_desain as "NAMA_BORDIR", 
+            d.jenis_bordir as "JENIS_BORDIR", 
+            d.jumlah as "TARGET_PO", 
+            h.jumlah_setor as "JML", 
+            COALESCE(d.harga_operator, 0) as "HARGA_PABRIK", 
+            (h.jumlah_setor * COALESCE(d.harga_operator, 0)) as "TOTAL_H_PABRIK",
+            (SELECT SUM(jumlah_setor) FROM hasil_kerja WHERE detail_id = h.detail_id) as "TOTAL_SDH_SETOR"
+        FROM hasil_kerja h
+        JOIN users u ON h.operator_id = u.id
+        JOIN po_utama p ON h.po_id = p.id
+        JOIN po_detail d ON h.detail_id = d.id
+        WHERE h.tanggal LIKE $1 || '%' AND h.tenant_id = $2
+        ORDER BY h.tanggal DESC, h.id DESC
+    `;
+
+    try {
+        const rows = await db.all(sql, [bulanIni, tId]);
+        
+        res.render('admin/daftar-produksi', { 
+            dataProduksi: rows || [], 
+            bulanIni: bulanIni,
+            user: req.session 
+        });
+    } catch (err) {
+        console.error("🔥 Error Daftar Produksi:", err.message);
+        res.status(500).send("Gagal memuat log produksi.");
+    }
+});
+
+app.post('/update-produksi', isAdmin, async (req, res) => {
+    const tId = req.session.tenantId;
+    const { 
+        id_prod, tanggal, op, shift, 
+        nama_po, nama_bordir, jenis_bordir, 
+        jumlah, harga 
+    } = req.body;
+
+    try {
+        // 1. Ambil relasi ID tabel induk
+        const row = await db.get("SELECT po_id, detail_id FROM hasil_kerja WHERE id = $1 AND tenant_id = $2", [id_prod, tId]);
+        
+        if (!row) return res.status(404).send("Data tidak ditemukan.");
+
+        const poId = row.po_id;
+        const detailId = row.detail_id;
+
+        // 2. Jalankan rangkaian update dalam satu blok try
+        // Update PO Utama
+        await db.query("UPDATE po_utama SET nama_po = $1 WHERE id = $2 AND tenant_id = $3", [nama_po, poId, tId]);
+        
+        // Update PO Detail (Nama Desain & Harga)
+        await db.query("UPDATE po_detail SET nama_desain = $1, jenis_bordir = $2, harga_operator = $3 WHERE id = $4", 
+            [nama_bordir, jenis_bordir, parseFloat(harga), detailId]);
+
+        // Update Log Hasil Kerja (Tanggal, Shift, Jumlah)
+        await db.query("UPDATE hasil_kerja SET tanggal = $1, shift = $2, jumlah_setor = $3 WHERE id = $4 AND tenant_id = $5", 
+            [tanggal, shift, parseInt(jumlah), id_prod, tId]);
+
+        res.redirect('/daftar-produksi'); 
+
+    } catch (err) {
+        console.error("🔥 Gagal Update Produksi:", err.message);
+        res.status(500).send("Gagal memperbarui data.");
+    }
+});
+
+app.get('/hapus-produksi/:id', isAdmin, async (req, res) => {
+    const idProd = req.params.id;
+    const tId = req.session.tenantId;
+
+    try {
+        await db.query("DELETE FROM hasil_kerja WHERE id = $1 AND tenant_id = $2", [idProd, tId]);
+        res.redirect('/daftar-produksi');
+    } catch (err) {
+        console.error("🔥 Gagal Hapus Produksi:", err.message);
+        res.status(500).send("Gagal menghapus data.");
+    }
+});
+
 
 
 
