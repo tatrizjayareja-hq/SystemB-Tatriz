@@ -5,6 +5,19 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Edit PO - <%= po.nama_po %></title>
     <style>
+        table input {
+            border: none;
+            padding: 5px;
+            width: 100%;
+            background: transparent;
+        }
+        table input:focus {
+            background: #fff9db;
+            outline: none;
+        }
+        tr:hover {
+            background-color: #f1f1f1;
+        }
         body { font-family: 'Segoe UI', sans-serif; background: #f4f7f6; padding: 15px; margin: 0; }
         .container { max-width: 900px; margin: auto; background: white; padding: 20px; border-radius: 12px; box-shadow: 0 4px 10px rgba(0,0,0,0.1); }
         .form-group { margin-bottom: 15px; }

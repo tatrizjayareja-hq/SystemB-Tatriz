@@ -549,7 +549,78 @@ app.get('/delete-po/:id', async (req, res) => {
     }
 });
 
+app.post('/update-po/:id', async (req, res) => {
+    const poId = req.params.id;
+    const tId = req.session.tenantId;
+    if (!tId) return res.redirect('/');
 
+    const { 
+        tanggal, nama_po, customer, status, 
+        jenis_bordir, nama_desain, jumlah, 
+        harga_cmt, harga_operator, harga_customer 
+    } = req.body;
+
+    try {
+        await db.query("BEGIN");
+
+        // 1. Hitung ulang total harga customer untuk Header PO
+        let totalHargaCust = 0;
+        const jmlArray = Array.isArray(jumlah) ? jumlah : [jumlah];
+        const hrgCustArray = Array.isArray(harga_customer) ? harga_customer : [harga_customer];
+        
+        jmlArray.forEach((qty, i) => {
+            totalHargaCust += (parseFloat(qty) || 0) * (parseFloat(hrgCustArray[i]) || 0);
+        });
+
+        // 2. Update Header PO
+        await db.query(`
+            UPDATE po_utama SET 
+                tanggal = $1, nama_po = $2, customer = $3, 
+                status = $4, total_harga_customer = $5 
+            WHERE id = $6 AND tenant_id = $7`,
+            [tanggal, nama_po, customer, status, totalHargaCust, poId, tId]
+        );
+
+        // 3. Hapus detail lama, lalu masukkan yang baru (Metode paling bersih)
+        await db.query("DELETE FROM po_detail WHERE po_id = $1", [poId]);
+
+        if (Array.isArray(jenis_bordir)) {
+            for (let i = 0; i < jenis_bordir.length; i++) {
+                if (jenis_bordir[i].trim() !== "") {
+                    await db.query(`
+                        INSERT INTO po_detail 
+                        (po_id, jenis_bordir, nama_desain, jumlah, harga_cmt, harga_operator, harga_customer) 
+                        VALUES ($1, $2, $3, $4, $5, $6, $7)`,
+                        [
+                            poId, 
+                            jenis_bordir[i], 
+                            nama_desain[i], 
+                            parseFloat(jumlah[i]) || 0, 
+                            parseFloat(harga_cmt[i]) || 0, 
+                            parseFloat(harga_operator[i]) || 0, 
+                            parseFloat(harga_customer[i]) || 0
+                        ]
+                    );
+                }
+            }
+        } else if (jenis_bordir) { // Jika hanya ada 1 baris (bukan array)
+            await db.query(`
+                INSERT INTO po_detail 
+                (po_id, jenis_bordir, nama_desain, jumlah, harga_cmt, harga_operator, harga_customer) 
+                VALUES ($1, $2, $3, $4, $5, $6, $7)`,
+                [poId, jenis_bordir, nama_desain, jumlah, harga_cmt, harga_operator, harga_customer]
+            );
+        }
+
+        await db.query("COMMIT");
+        res.send("<script>alert('PO Berhasil Diperbarui!'); window.location='/po-data';</script>");
+
+    } catch (err) {
+        await db.query("ROLLBACK").catch(() => {});
+        console.error("🔥 Update PO Error:", err.message);
+        res.status(500).send("Gagal memperbarui PO: " + err.message);
+    }
+});
 
 
 // --- LOGIKA ROUTES AKAN DI MASUKKAN DI SINI ---
