@@ -1065,7 +1065,8 @@ app.get('/api/po-details/:id', isAdmin, async (req, res) => {
         const rows = await db.all(sql, [poId]);
         res.json(rows);
     } catch (err) {
-        res.json([]);
+        console.error("🔥 API Details Error:", err.message);
+        res.status(500).json([]);
     }
 });
 

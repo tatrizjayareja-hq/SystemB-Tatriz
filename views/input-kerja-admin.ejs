@@ -88,57 +88,69 @@
 <script>
     let dataSimpanan = []; 
 
-// FUNGSI 1: Ambil data PO & isi dropdown JENIS
-async function muatDaftarDesain(poId) {
-    const selectJenis = document.getElementById('select_jenis');
-    const infoDiv = document.getElementById('info_bordir');
-    
-    infoDiv.style.display = 'none';
-    if(!poId) { selectJenis.disabled = true; return; }
-
-    try {
-        const res = await fetch(`/api/po-details/${poId}`);
-        dataSimpanan.forEach(d => {
-            // Pastikan sisa tidak negatif
-            const sisaKerja = d.sisa < 0 ? 0 : d.sisa;
-            
-            html += `<option value="${d.id}" 
-                            data-nama="${d.nama_desain}" 
-                            data-harga="${d.harga_operator}" 
-                            data-sisa="${sisaKerja}">${d.jenis_bordir} (Sisa: ${sisaKerja})</option>`;
-        });
+    // FUNGSI 1: Ambil data PO & isi dropdown JENIS
+    async function muatDaftarDesain(poId) {
+        const selectJenis = document.getElementById('select_jenis');
+        const infoDiv = document.getElementById('info_bordir');
         
-        selectJenis.innerHTML = html;
-        selectJenis.disabled = false;
-    } catch (err) {
-        console.error("Gagal ambil data:", err);
-    }
-}
-
-// FUNGSI 2: Klik Jenis langsung Muncul Nama & Harga (TIDAK PERLU PILIH LAGI)
-function pilihOtomatisDesain(el) {
-    const infoDiv = document.getElementById('info_bordir');
-    const selected = el.options[el.selectedIndex];
-    
-    if(el.value) {
-        const namaDesain = selected.getAttribute('data-nama');
-        const harga = selected.getAttribute('data-harga');
-        const sisa = selected.getAttribute('data-sisa');
-
-        document.getElementById('display_nama_desain').innerText = namaDesain;
-        document.getElementById('display_harga').innerText = "Rp " + parseInt(harga).toLocaleString('id-ID');
-        document.getElementById('input_harga_op').value = harga;
-        
-        const inputSetor = document.getElementById('input_setor');
-        inputSetor.placeholder = "Maksimal " + sisa;
-        inputSetor.max = sisa; 
-        inputSetor.value = sisa; // Otomatis isi dengan sisa agar admin cepat kerjanya
-        
-        infoDiv.style.display = 'block';
-    } else {
         infoDiv.style.display = 'none';
+        if(!poId) { 
+            selectJenis.innerHTML = '<option value="">-- Pilih Jenis --</option>';
+            selectJenis.disabled = true; 
+            return; 
+        }
+
+        try {
+            const res = await fetch(`/api/po-details/${poId}`);
+            dataSimpanan = await res.json(); 
+            
+            // --- BAGIAN YANG TADI HILANG ---
+            let html = '<option value="">-- Pilih Jenis Bordir --</option>';
+            
+            dataSimpanan.forEach(d => {
+                const sisaKerja = d.sisa < 0 ? 0 : d.sisa;
+                // Masukkan data ke atribut HTML agar bisa diambil Fungsi 2
+                html += `<option value="${d.id}" 
+                                 data-nama="${d.nama_desain}" 
+                                 data-harga="${d.harga_operator}" 
+                                 data-sisa="${sisaKerja}">
+                            ${d.jenis_bordir} (Sisa: ${sisaKerja})
+                         </option>`;
+            });
+            
+            selectJenis.innerHTML = html;
+            selectJenis.disabled = false;
+            // ------------------------------
+        } catch (err) {
+            console.error("Gagal ambil data:", err);
+            alert("Gagal mengambil rincian desain.");
+        }
     }
-}
+
+    // FUNGSI 2: Klik Jenis langsung Muncul Nama & Harga
+    function pilihOtomatisDesain(el) {
+        const infoDiv = document.getElementById('info_bordir');
+        const selected = el.options[el.selectedIndex];
+        
+        if(el.value) {
+            const namaDesain = selected.getAttribute('data-nama');
+            const harga = selected.getAttribute('data-harga');
+            const sisa = selected.getAttribute('data-sisa');
+
+            document.getElementById('display_nama_desain').innerText = namaDesain;
+            document.getElementById('display_harga').innerText = "Rp " + parseInt(harga).toLocaleString('id-ID');
+            document.getElementById('input_harga_op').value = harga;
+            
+            const inputSetor = document.getElementById('input_setor');
+            inputSetor.placeholder = "Maksimal " + sisa;
+            inputSetor.max = sisa; 
+            inputSetor.value = sisa; // Admin biasanya input langsung lunas
+            
+            infoDiv.style.display = 'block';
+        } else {
+            infoDiv.style.display = 'none';
+        }
+    }
 </script>
 </body>
 </html>
