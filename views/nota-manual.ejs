@@ -79,6 +79,13 @@
 </div>
 
 <script>
+    // JEMBATAN DATA: Simpan data dari Supabase ke variabel browser
+    const LOGO_DARI_DB = "<%= config.logo_path %>"; 
+    
+    // Logika: Jika nama file tidak diawali 'http', berarti dia ada di folder /uploads/
+    const URL_LOGO_ASLI = LOGO_DARI_DB.startsWith('http') 
+                          ? LOGO_DARI_DB 
+                          : "/uploads/" + LOGO_DARI_DB;
     function tambahBaris() {
         const tbody = document.querySelector("#tabelItem tbody");
         const row = tbody.insertRow();
@@ -122,15 +129,15 @@
 
         // 2. Buat Template tunggal
         const template = `
-            <div style="position: relative; height: 100%; display: flex; flex-direction: column; color: #333;">
-                <img src="${logoPath}" style="position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%) rotate(-30deg); opacity: 0.05; width: 180px; z-index: 0;">
-                
-                <div style="display: flex; align-items: center; border-bottom: 2px solid #333; padding-bottom: 8px; margin-bottom: 10px; z-index: 1;">
-                    <img src="${logoPath}" style="width: 45px; height: 45px; margin-right: 10px; object-fit: contain;">
-                    <div style="flex-grow:1">
-                        <h2 style="margin:0; font-size: 14px; text-transform: uppercase;">${namaToko}</h2>
-                        <p style="margin:1px 0; font-size: 9px;">${alamatToko}</p>
-                        <p style="margin:1px 0; font-size: 9px; font-weight: bold;">WA: ${waToko}</p>
+            <div class="nota-box">
+                <img src="${URL_LOGO_ASLI}" class="watermark" style="position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%) rotate(-30deg); opacity: 0.05; width: 220px; z-index: 0;">
+
+                <div class="header-container" style="display: flex; align-items: center; border-bottom: 2px solid #333; padding-bottom: 8px;">
+                    <img src="${URL_LOGO_ASLI}" style="width: 45px; height: 45px; margin-right: 10px; object-fit: contain;">
+                    
+                    <div class="company-info">
+                        <h2 style="margin:0; font-size: 14px;"><%= config.nama_perusahaan %></h2>
+                        <p style="margin:0; font-size: 9px;"><%= config.alamat %></p>
                     </div>
                 </div>
 
