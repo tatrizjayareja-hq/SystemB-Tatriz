@@ -23,4 +23,32 @@
         </div>
     </div>
 </div>
+<script>
+    const tglAwalInput = document.querySelector('input[name="tgl_awal"]');
+    const tglAkhirInput = document.querySelector('input[name="tgl_akhir"]');
+
+    // 1. Set Default Tanggal Awal ke hari Senin pada minggu berjalan
+    const today = new Date();
+    const day = today.getDay();
+    // Logika mencari hari Senin terdekat (day 1)
+    const diff = today.getDate() - day + (day === 0 ? -6 : 1); 
+    const monday = new Date(today.setDate(diff));
+    tglAwalInput.value = monday.toISOString().split('T')[0];
+
+    // 2. Fungsi hitung otomatis 6 hari ke depan (Default satu minggu)
+    function setOtomatisAkhir() {
+        if (tglAwalInput.value) {
+            let startDate = new Date(tglAwalInput.value);
+            // Tambah 6 hari agar berakhir di hari Minggu
+            startDate.setDate(startDate.getDate() + 6); 
+            tglAkhirInput.value = startDate.toISOString().split('T')[0];
+        }
+    }
+
+    // Jalankan saat halaman pertama kali dibuka
+    setOtomatisAkhir();
+
+    // Jalankan jika Admin mengubah tanggal mulai
+    tglAwalInput.addEventListener('change', setOtomatisAkhir);
+</script>
 <%- include('../partials/footer') %>

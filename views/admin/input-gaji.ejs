@@ -91,6 +91,7 @@ function hitungSemua() {
         const lembur = parseFloat(row.querySelector('.input-lembur').value) || 0;
         const boronganBonus = parseFloat(row.querySelector('.input-borongan-bonus').value) || 0;
         const kasbon = parseFloat(row.querySelector('.input-kasbon').value) || 0;
+        const sql = `... WHERE h.tanggal BETWEEN $1 AND $2 ...`;
 
         // Logika Hari.Jam (Contoh 5.6)
         let hari = 0;

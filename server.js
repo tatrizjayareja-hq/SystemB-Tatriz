@@ -1443,6 +1443,133 @@ app.get('/admin/hapus-produksi/:id', isAdmin, async (req, res) => {
     }
 });
 
+app.get('/input-gaji', isAdmin, async (req, res) => {
+    const tId = req.session.tenantId;
+    const { tgl_awal, tgl_akhir } = req.query;
+
+    try {
+        // STEP 1: Ambil settingan toko
+        const config = await db.get("SELECT * FROM settings WHERE tenant_id = $1", [tId]);
+        const activeConfig = config || { 
+            target_bonus: 500000, 
+            nominal_bonus_dasar: 10000, 
+            kelipatan_bonus: 100000, 
+            nominal_bonus_lipat: 5000 
+        };
+
+        // STEP 2: Jika belum pilih tanggal, render halaman pemilih
+        if (!tgl_awal || !tgl_akhir) {
+            return res.render('admin/pilih-tanggal-gaji', { 
+                config: activeConfig, 
+                user: req.session 
+            });
+        }
+
+        // STEP 3: Tarik data produksi (PostgreSQL menggunakan $1, $2, $3)
+        const sql = `
+            SELECT u.id, u.nama_lengkap, u.gaji_pokok, u.role, 
+                   h.tanggal, h.jumlah_setor, d.harga_operator
+            FROM users u
+            LEFT JOIN hasil_kerja h ON u.id = h.operator_id AND h.tanggal BETWEEN $1 AND $2
+            LEFT JOIN po_detail d ON h.detail_id = d.id
+            WHERE u.tenant_id = $3 AND u.role IN ('operator', 'QC')
+            ORDER BY u.nama_lengkap ASC
+        `;
+
+        const rows = await db.all(sql, [tgl_awal, tgl_akhir, tId]);
+
+        const rekap = {};
+        rows.forEach(row => {
+            if (!rekap[row.id]) {
+                rekap[row.id] = { 
+                    id: row.id, nama: row.nama_lengkap, role: row.role, 
+                    gp: parseFloat(row.gaji_pokok || 0), borongan: 0, bonus: 0, harian: {} 
+                };
+            }
+            
+            if (row.tanggal && row.role === 'operator') {
+                const sub = (parseInt(row.jumlah_setor) || 0) * (parseFloat(row.harga_operator) || 0);
+                rekap[row.id].borongan += sub;
+                rekap[row.id].harian[row.tanggal] = (rekap[row.id].harian[row.tanggal] || 0) + sub;
+            }
+        });
+
+        // STEP 4: Hitung Bonus Harian secara Dinamis
+        Object.values(rekap).forEach(op => {
+            Object.values(op.harian).forEach(totalHari => {
+                if (totalHari >= parseFloat(activeConfig.target_bonus)) {
+                    let kelipatan = parseFloat(activeConfig.kelipatan_bonus) || 1;
+                    let bonusDasar = parseFloat(activeConfig.nominal_bonus_dasar) || 0;
+                    let bonusLipat = Math.floor((totalHari - parseFloat(activeConfig.target_bonus)) / kelipatan) * (parseFloat(activeConfig.nominal_bonus_lipat) || 0);
+                    op.bonus += (bonusDasar + bonusLipat);
+                }
+            });
+        });
+
+        // STEP 5: Render ke input-gaji.ejs
+        res.render('admin/input-gaji', { 
+            rekap, tgl_awal, tgl_akhir, 
+            config: activeConfig, 
+            user: req.session 
+        });
+
+    } catch (err) {
+        console.error("🔥 Error Input Gaji:", err.message);
+        res.status(500).send("Gagal memproses data gaji.");
+    }
+});
+
+app.post('/proses-print-gaji', isAdmin, async (req, res) => {
+    const tId = req.session.tenantId;
+    const { tgl_awal, tgl_akhir, operator_ids, nama, gp, hari_kerja, lembur, bonus, kasbon } = req.body;
+
+    try {
+        const config = await db.get("SELECT * FROM settings WHERE tenant_id = $1", [tId]);
+
+        // Pastikan input array
+        const nmList = Array.isArray(nama) ? nama : [nama];
+        const gpList = Array.isArray(gp) ? gp : [gp];
+        const hkList = Array.isArray(hari_kerja) ? hari_kerja : [hari_kerja];
+        const lbList = Array.isArray(lembur) ? lembur : [lembur];
+        const bnList = Array.isArray(bonus) ? bonus : [bonus];
+        const kbList = Array.isArray(kasbon) ? kasbon : [kasbon];
+
+        let dataGaji = nmList.map((nm, i) => {
+            let gajiPokok = parseFloat(gpList[i]) || 0;
+            let inputHK = String(hkList[i]) || "0";
+            
+            // Logika Titik (Hari.Jam) -> 5.6 artinya 5 hari 6 jam
+            let [hariFull, jamSisa] = inputHK.split('.').map(num => parseFloat(num) || 0);
+
+            let nominalHari = hariFull * gajiPokok;
+            let nominalJamSisa = (gajiPokok / 8) * jamSisa;
+            let nominalLembur = (gajiPokok / 4) * (parseFloat(lbList[i]) || 0);
+            
+            let totalFinal = nominalHari + nominalJamSisa + nominalLembur + parseFloat(bnList[i]) - parseFloat(kbList[i]);
+
+            return {
+                nama: nm,
+                gp: gajiPokok,
+                hari_kerja: hariFull,
+                jam_sisa: jamSisa,
+                lembur: lbList[i],
+                borongan_bonus: bnList[i],
+                kasbon: kbList[i],
+                totalFinal: Math.round(totalFinal)
+            };
+        });
+
+        res.render('admin/cetak-slip', { 
+            dataGaji, tgl_awal, tgl_akhir, 
+            config: config || { nama_perusahaan: "Tatriz" },
+            user: req.session 
+        });
+
+    } catch (err) {
+        res.status(500).send("Gagal mencetak slip.");
+    }
+});
+
 
 
 
