@@ -622,6 +622,23 @@ app.post('/update-po/:id', async (req, res) => {
     }
 });
 
+app.get('/edit-po/:id', async (req, res) => {
+    const tId = req.session.tenantId;
+    const poId = req.params.id;
+    if (!tId) return res.redirect('/');
+
+    try {
+        const po = await db.get("SELECT * FROM po_utama WHERE id = $1 AND tenant_id = $2", [poId, tId]);
+        const details = await db.all("SELECT * FROM po_detail WHERE po_id = $1", [poId]);
+
+        if (!po) return res.render('404'); // Melempar ke 404 jika PO tidak ketemu
+
+        res.render('edit-po', { po, details });
+    } catch (err) {
+        console.error("🔥 Edit PO Load Error:", err.message);
+        res.render('404'); 
+    }
+});
 
 // --- LOGIKA ROUTES AKAN DI MASUKKAN DI SINI ---
 
