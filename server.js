@@ -652,6 +652,50 @@ app.get('/edit-po/:id', async (req, res) => {
     }
 });
 
+app.get('/nota-gabungan', async (req, res) => {
+    const tId = req.session.tenantId;
+    const { customer } = req.query; // Panggil via /nota-gabungan?customer=NamaCustomer
+
+    if (!tId) return res.redirect('/');
+    if (!customer) return res.send("Nama customer tidak ditemukan.");
+
+    try {
+        // 1. Ambil Setting Perusahaan untuk Logo & Nama Toko
+        const config = await db.get("SELECT * FROM settings WHERE tenant_id = $1", [tId]);
+
+        // 2. Ambil semua PO milik customer ini yang belum Lunas (atau semua PO aktif)
+        // Kita gunakan COALESCE pada total_bayar agar tidak null saat perhitungan di EJS
+        const orders = await db.all(`
+            SELECT *, COALESCE(total_bayar, 0) as total_bayar 
+            FROM po_utama 
+            WHERE tenant_id = $1 AND customer = $2 AND status != 'Lunas'
+            ORDER BY tanggal DESC
+        `, [tId, customer]);
+
+        if (orders.length === 0) {
+            return res.send("<script>alert('Tidak ada tagihan aktif untuk customer ini.'); window.history.back();</script>");
+        }
+
+        // 3. Ambil semua rincian item untuk semua PO tersebut
+        const poIds = orders.map(o => o.id);
+        const details = await db.all(`
+            SELECT * FROM po_detail 
+            WHERE po_id = ANY($1::int[])
+        `, [poIds]);
+
+        // 4. Render halaman nota-gabungan.ejs
+        res.render('nota-gabungan', { 
+            orders, 
+            details, 
+            config: config || {} 
+        });
+
+    } catch (err) {
+        console.error("🔥 Nota Gabungan Error:", err.message);
+        res.status(500).send("Gagal memproses nota gabungan.");
+    }
+});
+
 // --- LOGIKA ROUTES AKAN DI MASUKKAN DI SINI ---
 
 // Handler jika rute tidak ditemukan
