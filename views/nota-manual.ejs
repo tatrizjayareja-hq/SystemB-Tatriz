@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Nota Manual - Tatriz</title>
     <style>
-        /* 1. GAYA HALAMAN INPUT (TIDAK DICETAK) */
+        /* CSS UNTUK TAMPILAN LAYAR */
         body { font-family: 'Segoe UI', sans-serif; background: #f4f7f6; padding: 15px; margin: 0; }
         .container { max-width: 600px; margin: auto; background: white; padding: 20px; border-radius: 12px; box-shadow: 0 4px 10px rgba(0,0,0,0.1); }
         .form-group { margin-bottom: 15px; }
@@ -14,49 +14,26 @@
         table.input-table { width: 100%; border-collapse: collapse; margin-top: 10px; }
         th { text-align: left; font-size: 12px; color: #666; padding: 5px; }
         .btn { padding: 12px; border: none; border-radius: 8px; cursor: pointer; font-weight: bold; width: 100%; margin-top: 10px; }
-        .btn-add { background: #f1f2f6; color: #2f3542; border: 1px dashed #ced4da; margin-bottom: 15px; }
         .btn-preview { background: #3498db; color: white; font-size: 16px; }
 
-        /* 2. GAYA NOTA (Sesuai Nota Gabungan) */
+        /* MODAL PREVIEW */
         #modalPreview { 
             display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; 
-            background: rgba(0,0,0,0.85); z-index: 1000; overflow-y: auto; padding: 20px; box-sizing: border-box;
+            background: rgba(0,0,0,0.85); z-index: 1000; overflow-y: auto; padding: 20px; 
         }
-        .nota-box {
-            width: 105mm; min-height: 148mm; position: relative; padding: 8mm;
-            box-sizing: border-box; overflow: hidden; display: flex; flex-direction: column;
-            background-color: #fff; color: #333; margin: auto;
+        .preview-content { 
+            background: white; width: 105mm; height: 148mm; margin: auto; 
+            padding: 8mm; position: relative; box-shadow: 0 0 20px rgba(0,0,0,0.5); 
+            box-sizing: border-box; display: flex; flex-direction: column; overflow: hidden;
         }
-        .header-container { display: flex; align-items: center; border-bottom: 2px solid #333; padding-bottom: 8px; margin-bottom: 10px; position: relative; z-index: 2; }
-        .logo-header { width: 45px; height: 45px; object-fit: contain; margin-right: 10px; }
-        .company-info { flex-grow: 1; }
-        .company-info h2 { margin: 0; font-size: 10px; text-transform: uppercase; }
-        .company-info p { margin: 1px 0; font-size: 8px; line-height: 1.2; }
-        .label-nota { text-align: right; }
-        .label-nota h3 { margin: 0; color: #e67e22; font-size: 10px; }
-        .label-nota p { margin: 1px 0; font-size: 8px; }
-        
-        .content-area { position: relative; z-index: 2; flex-grow: 1; }
-        .nota-table { width: 100%; border-collapse: collapse; margin-top: 5px; font-size: 9px; }
-        .nota-table th { background: #f8f9fa; border-bottom: 1px solid #333; padding: 6px; text-align: left; }
-        .nota-table td { border-bottom: 1px solid #eee; padding: 4px 2px; }
 
-        .footer-nota { margin-top: auto; position: relative; z-index: 2; }
-        .total-box { width: 100%; border-top: 1px solid #333; padding-top: 5px; margin-bottom: 10px; }
-        .total-row { display: flex; justify-content: space-between; font-weight: bold; font-size: 11px; }
-        .ttd-section { display: flex; justify-content: space-between; font-size: 9px; text-align: center; }
-        .ttd-box { width: 45%; }
-        .ttd-space { height: 30px; }
-        .watermark { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%) rotate(-30deg); opacity: 0.05; width: 200px; z-index: 1; pointer-events: none; }
-        .warning-box { font-size: 7px; color: #d63031; text-align: center; margin-top: 10px; font-style: italic; }
-
-        /* 3. CSS KHUSUS CETAK */
+        /* CSS KHUSUS CETAK */
         @media print {
             @page { size: 105mm 148mm; margin: 0; }
             body { background: none; padding: 0; margin: 0; }
-            .container, #modalPreview .no-print { display: none !important; }
+            .container, .no-print { display: none !important; }
             #modalPreview { position: absolute; top: 0; left: 0; width: 100%; display: block; background: none; padding: 0; }
-            .nota-box { border: none; box-shadow: none; margin: 0; width: 105mm; height: 148mm; }
+            .preview-content { border: none; box-shadow: none; margin: 0; width: 105mm; height: 148mm; padding: 8mm; }
         }
     </style>
 </head>
@@ -89,18 +66,16 @@
         </tbody>
     </table>
     
-    <button class="btn btn-add" onclick="tambahBaris()">+ Tambah Baris Pesanan</button>
+    <button class="btn" style="background:#f1f2f6; border:1px dashed #ccc;" onclick="tambahBaris()">+ Tambah Baris</button>
     <button class="btn btn-preview" onclick="bukaPreview()">LIHAT PRATINJAU NOTA</button>
 </div>
 
 <div id="modalPreview">
-    <div class="no-print" style="text-align: center; margin: 20px 0;">
-        <button onclick="tutupPreview()" style="background: #e74c3c; color: white; border: none; padding: 10px 25px; border-radius: 30px; cursor: pointer; font-weight: bold;">❌ EDIT LAGI</button>
-        <button onclick="eksekusiCetak()" style="background: #27ae60; color: white; border: none; padding: 10px 25px; border-radius: 30px; cursor: pointer; font-weight: bold; margin-left: 15px;">🖨️ CETAK NOTA</button>
+    <div class="no-print" style="text-align: center; margin-bottom: 20px;">
+        <button onclick="tutupPreview()" style="background: #e74c3c; color: white; border: none; padding: 10px 25px; border-radius: 30px; cursor: pointer; font-weight: bold;">❌ EDIT</button>
+        <button onclick="window.print()" style="background: #27ae60; color: white; border: none; padding: 10px 25px; border-radius: 30px; cursor: pointer; font-weight: bold; margin-left: 15px;">🖨️ CETAK</button>
     </div>
-    
-    <div id="areaCetak">
-        </div>
+    <div class="preview-content" id="areaCetak"></div>
 </div>
 
 <script>
@@ -109,18 +84,18 @@
         const row = tbody.insertRow();
         row.innerHTML = `<td><input type="text" class="nama"></td>
                          <td><input type="number" class="qty" value="1"></td>
-                         <td><input type="number" class="hrg" placeholder="Rp"></td>`;
+                         <td><input type="number" class="hrg"></td>`;
     }
 
     function bukaPreview() {
         const cust = document.getElementById('cust').value || "Umum";
         const rows = document.querySelectorAll("#tabelItem tbody tr");
         
-        // AMBIL DATA DARI SERVER KE VARIABEL JS
+        // 1. Ambil data config secara aman
         const logoPath = "/uploads/<%= config.logo_path %>"; 
         const namaToko = "<%= config.nama_perusahaan %>";
+        const alamatToko = `<%= config.alamat %>`.replace(/\n/g, ' ');
         const waToko = "<%= config.no_hp %>";
-        const alamatToko = `<%- (config.alamat || '').replace(/\r?\n|\r/g, ' ') %>`;
 
         let htmlItem = "";
         let total = 0;
@@ -135,70 +110,53 @@
                 total += sub;
                 htmlItem += `
                     <tr>
-                        <td>${nama}</td>
-                        <td style="text-align: center;">${qty}</td>
-                        <td style="text-align: right;">${hrg.toLocaleString('id-ID')}</td>
-                        <td style="text-align: right; font-weight: bold;">${sub.toLocaleString('id-ID')}</td>
+                        <td style="padding: 4px 0; border-bottom: 1px solid #eee; font-size: 10px;">${nama}</td>
+                        <td style="text-align: center; border-bottom: 1px solid #eee; font-size: 10px;">${qty}</td>
+                        <td style="text-align: right; border-bottom: 1px solid #eee; font-size: 10px;">${hrg.toLocaleString('id-ID')}</td>
+                        <td style="text-align: right; border-bottom: 1px solid #eee; font-size: 10px; font-weight: bold;">${sub.toLocaleString('id-ID')}</td>
                     </tr>`;
             }
         });
 
-        if (total === 0) { alert("Isi item dan harga terlebih dahulu!"); return; }
+        if (total === 0) return alert("Isi data barang dulu!");
 
+        // 2. Buat Template tunggal
         const template = `
-            <div class="nota-box">
-                <img src="${logoPath}" class="watermark">
+            <div style="position: relative; height: 100%; display: flex; flex-direction: column; color: #333;">
+                <img src="${logoPath}" style="position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%) rotate(-30deg); opacity: 0.05; width: 180px; z-index: 0;">
                 
-                <div class="header-container">
-                    <img src="${logoPath}" class="logo-header">
-                    <div class="company-info">
-                        <h2>${namaToko}</h2>
-                        <p>${alamatToko}</p>
-                        <p><strong>WA: ${waToko}</strong></p>
-                    </div>
-                    <div class="label-nota">
-                        <h3>NOTA PESANAN</h3>
-                        <p>Tgl: ${new Date().toLocaleDateString('id-ID')}</p>
-                        <p>Cust: <strong>${cust}</strong></p>
+                <div style="display: flex; align-items: center; border-bottom: 2px solid #333; padding-bottom: 8px; margin-bottom: 10px; z-index: 1;">
+                    <img src="${logoPath}" style="width: 45px; height: 45px; margin-right: 10px; object-fit: contain;">
+                    <div style="flex-grow:1">
+                        <h2 style="margin:0; font-size: 14px; text-transform: uppercase;">${namaToko}</h2>
+                        <p style="margin:1px 0; font-size: 9px;">${alamatToko}</p>
+                        <p style="margin:1px 0; font-size: 9px; font-weight: bold;">WA: ${waToko}</p>
                     </div>
                 </div>
 
-                <div class="content-area">
-                    <table class="nota-table">
+                <div style="display: flex; justify-content: space-between; font-size: 11px; margin-bottom: 10px; z-index: 1;">
+                    <span>Cust: <b>${cust}</b></span>
+                    <span>Tgl: ${new Date().toLocaleDateString('id-ID')}</span>
+                </div>
+
+                <div style="flex-grow: 1; z-index: 1;">
+                    <table style="width: 100%; border-collapse: collapse;">
                         <thead>
-                            <tr>
-                                <th>Item / Jasa</th>
-                                <th style="text-align: center;">Qty</th>
-                                <th style="text-align: right;">Harga</th>
-                                <th style="text-align: right;">Total</th>
+                            <tr style="border-bottom: 1px solid #333; text-align: left; font-size: 10px;">
+                                <th>Item</th><th style="text-align:center">Qty</th><th style="text-align:right">Harga</th><th style="text-align:right">Total</th>
                             </tr>
                         </thead>
                         <tbody>${htmlItem}</tbody>
                     </table>
                 </div>
 
-                <div class="footer-nota">
-                    <div class="total-box">
-                        <div class="total-row">
-                            <span>GRAND TOTAL:</span>
-                            <span>Rp ${total.toLocaleString('id-ID')}</span>
-                        </div>
+                <div style="z-index: 1; margin-top: auto; border-top: 1px solid #333; padding-top: 5px;">
+                    <div style="display: flex; justify-content: space-between; font-weight: bold; font-size: 13px;">
+                        <span>TOTAL:</span><span>Rp ${total.toLocaleString('id-ID')}</span>
                     </div>
-
-                    <div class="ttd-section">
-                        <div class="ttd-box">
-                            Penerima,
-                            <div class="ttd-space"></div>
-                            ( ............................ )
-                        </div>
-                        <div class="ttd-box">
-                            Hormat Kami,
-                            <div class="ttd-space"></div>
-                            ( ............................ )
-                        </div>
-                    </div>
-                    <div class="warning-box">
-                        * Barang yang sudah dibeli tidak dapat ditukar/dikembalikan.
+                    <div style="margin-top: 15px; display: flex; justify-content: space-between; font-size: 9px; text-align: center;">
+                        <div style="width: 45%;">Penerima<br><br><br>( ............ )</div>
+                        <div style="width: 45%;">Hormat Kami<br><br><br>( ............ )</div>
                     </div>
                 </div>
             </div>
@@ -208,14 +166,7 @@
         document.getElementById('modalPreview').style.display = 'block';
     }
 
-    function tutupPreview() {
-        document.getElementById('modalPreview').style.display = 'none';
-    }
-
-    function eksekusiCetak() {
-        window.print();
-    }
+    function tutupPreview() { document.getElementById('modalPreview').style.display = 'none'; }
 </script>
-
 </body>
 </html>
