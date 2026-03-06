@@ -228,18 +228,24 @@ app.post('/save-settings-all', upload.single('logo'), async (req, res) => {
     const tId = req.session.tenantId;
     if (!tId) return res.redirect('/');
 
+    // Ambil data dari form (pastikan name di EJS sesuai)
     const { 
-        nama_perusahaan, alamat, no_hp, nominal_buffer, 
-        target_bonus, nominal_bonus_dasar, beban_tetap 
+        nama_perusahaan, 
+        alamat, 
+        no_hp, 
+        nominal_buffer, 
+        target_bonus, 
+        nominal_bonus_dasar, 
+        beban_tetap,
+        nama_mesin_baru // Tambahan dari form mesin
     } = req.body;
-console.log("Mencoba update settings untuk Tenant ID:", tId);
+
     try {
         let logoUrl = null;
 
-        // 1. Proses Upload Logo ke Supabase (Jika ada file)
+        // 1. Logika Upload Logo ke Supabase Storage
         if (req.file) {
             const fileName = `logo-${tId}-${Date.now()}${path.extname(req.file.originalname)}`;
-            
             const { data, error } = await supabase.storage
                 .from('uploads')
                 .upload(fileName, req.file.buffer, {
@@ -248,15 +254,21 @@ console.log("Mencoba update settings untuk Tenant ID:", tId);
                 });
 
             if (error) throw error;
-
-            const { data: publicData } = supabase.storage
-                .from('uploads')
-                .getPublicUrl(fileName);
-            
+            const { data: publicData } = supabase.storage.from('uploads').getPublicUrl(fileName);
             logoUrl = publicData.publicUrl;
         }
 
-        // 2. Susun Parameter Dasar (Selalu Ada)
+        // 2. Transaksi Update Settings
+        // Kita gunakan urutan parameter yang konsisten
+        let sql = `UPDATE settings SET 
+                    nama_perusahaan = $1, 
+                    alamat = $2, 
+                    no_hp = $3, 
+                    nominal_buffer = $4, 
+                    target_bonus = $5, 
+                    nominal_bonus_dasar = $6, 
+                    beban_tetap = $7`;
+        
         let params = [
             nama_perusahaan, 
             alamat, 
@@ -267,33 +279,29 @@ console.log("Mencoba update settings untuk Tenant ID:", tId);
             parseFloat(beban_tetap) || 0
         ];
 
-        // 3. Susun Query SQL
-        let sql = `UPDATE settings SET 
-                    nama_perusahaan = $1, 
-                    alamat = $2, 
-                    no_hp = $3, 
-                    nominal_buffer = $4, 
-                    target_bonus = $5, 
-                    nominal_bonus_dasar = $6, 
-                    beban_tetap = $7`;
-
         if (logoUrl) {
-            // Jika ada logo, logo_path jadi $8, tenant_id jadi $9
             sql += `, logo_path = $8 WHERE tenant_id = $9`;
             params.push(logoUrl, tId);
         } else {
-            // Jika tidak ada logo, tenant_id jadi $8
             sql += ` WHERE tenant_id = $8`;
             params.push(tId);
         }
 
         await db.query(sql, params);
-        res.send("<script>alert('Pengaturan Berhasil Disimpan!'); window.location='/dashboard';</script>");
+
+        // 3. Logika Tambah Mesin Baru (Jika diisi)
+        if (nama_mesin_baru && nama_mesin_baru.trim() !== "") {
+            await db.query(
+                "INSERT INTO mesin (tenant_id, nama_mesin) VALUES ($1, $2)",
+                [tId, nama_mesin_baru]
+            );
+        }
+
+        res.send("<script>alert('Update Berhasil!'); window.location='/setup';</script>");
 
     } catch (err) {
-        console.error("🔥 Save Settings Error:", err.message);
-        // Tip: Pastikan bucket 'uploads' sudah ada di Supabase Storage dan aksesnya PUBLIC
-        res.status(500).send("Gagal menyimpan pengaturan: " + err.message);
+        console.error("🔥 Setup Save Error:", err.message);
+        res.status(500).send("Gagal simpan: " + err.message);
     }
 });
 
