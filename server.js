@@ -226,24 +226,17 @@ app.get('/dashboard', async (req, res) => {
 
 app.post('/save-settings-all', upload.single('logo'), async (req, res) => {
     const tId = req.session.tenantId;
-    if (!tId) return res.redirect('/');
+    if (!tId) return res.send("<script>alert('Sesi habis, silakan login kembali'); window.location='/';</script>");
 
-    // Ambil data dari form (pastikan name di EJS sesuai)
     const { 
-        nama_perusahaan, 
-        alamat, 
-        no_hp, 
-        nominal_buffer, 
-        target_bonus, 
-        nominal_bonus_dasar, 
-        beban_tetap,
-        nama_mesin_baru // Tambahan dari form mesin
+        nama_perusahaan, alamat, no_hp, nominal_buffer, 
+        target_bonus, nominal_bonus_dasar, beban_tetap, nama_mesin_baru 
     } = req.body;
 
     try {
         let logoUrl = null;
 
-        // 1. Logika Upload Logo ke Supabase Storage
+        // 1. Upload Logo (Pastikan bucket 'uploads' sudah PUBLIC di Supabase)
         if (req.file) {
             const fileName = `logo-${tId}-${Date.now()}${path.extname(req.file.originalname)}`;
             const { data, error } = await supabase.storage
@@ -258,21 +251,16 @@ app.post('/save-settings-all', upload.single('logo'), async (req, res) => {
             logoUrl = publicData.publicUrl;
         }
 
-        // 2. Transaksi Update Settings
-        // Kita gunakan urutan parameter yang konsisten
+        // 2. Update Settings
         let sql = `UPDATE settings SET 
-                    nama_perusahaan = $1, 
-                    alamat = $2, 
-                    no_hp = $3, 
-                    nominal_buffer = $4, 
-                    target_bonus = $5, 
-                    nominal_bonus_dasar = $6, 
-                    beban_tetap = $7`;
+                    nama_perusahaan = $1, alamat = $2, no_hp = $3, 
+                    nominal_buffer = $4, target_bonus = $5, 
+                    nominal_bonus_dasar = $6, beban_tetap = $7`;
         
         let params = [
-            nama_perusahaan, 
-            alamat, 
-            no_hp, 
+            nama_perusahaan || 'Tatriz Unit', 
+            alamat || '', 
+            no_hp || '', 
             parseFloat(nominal_buffer) || 0, 
             parseFloat(target_bonus) || 0, 
             parseFloat(nominal_bonus_dasar) || 0, 
@@ -289,22 +277,21 @@ app.post('/save-settings-all', upload.single('logo'), async (req, res) => {
 
         await db.query(sql, params);
 
-        // 3. Logika Tambah Mesin Baru (Jika diisi)
+        // 3. Tambah Mesin Baru
         if (nama_mesin_baru && nama_mesin_baru.trim() !== "") {
             await db.query(
                 "INSERT INTO mesin (tenant_id, nama_mesin) VALUES ($1, $2)",
-                [tId, nama_mesin_baru]
+                [tId, nama_mesin_baru.trim()]
             );
         }
 
-        res.send("<script>alert('Update Berhasil!'); window.location='/setup';</script>");
+        res.send("<script>alert('Semua perubahan berhasil disimpan!'); window.location='/setup';</script>");
 
     } catch (err) {
-        console.error("🔥 Setup Save Error:", err.message);
+        console.error("🔥 Setup Save Error Detail:", err);
         res.status(500).send("Gagal simpan: " + err.message);
     }
 });
-
 // Menampilkan Halaman Register
 app.get('/register', (req, res) => {
     res.render('register');
