@@ -684,61 +684,60 @@ app.get('/print-nota-gabungan', async (req, res) => {
 });
 
 // 1. Halaman Daftar Piutang
-app.get('/piutang-customer', async (req, res) => {
+app.get('/piutang-customer', isAdmin, async (req, res) => {
     const tId = req.session.tenantId;
-    if (!tId) return res.redirect('/');
+
+    const sql = `
+        SELECT 
+            p.customer, 
+            COUNT(p.id) as total_po_aktif, 
+            SUM(p.total_harga_customer) as total_nilai_po,
+            SUM(COALESCE(bayar.total, 0)) as total_telah_dibayar,
+            SUM(p.total_harga_customer - COALESCE(bayar.total, 0)) as sisa_piutang_customer
+        FROM po_utama p
+        LEFT JOIN (
+            SELECT po_id, SUM(jumlah) as total 
+            FROM arus_kas 
+            WHERE kategori IN ('PEMBAYARAN BORDIR', 'PELUNASAN', 'DP/CICILAN') 
+            GROUP BY po_id
+        ) bayar ON p.id = bayar.po_id
+        WHERE p.status NOT IN ('Lunas', 'Design') AND p.tenant_id = $1
+        GROUP BY p.customer 
+        HAVING SUM(p.total_harga_customer - COALESCE(bayar.total, 0)) > 0
+        ORDER BY sisa_piutang_customer DESC`;
 
     try {
-        const daftar = await db.all(`
-            SELECT 
-                customer, 
-                COUNT(id) as total_po_aktif,
-                SUM(COALESCE(total_harga_customer, 0)) - SUM(COALESCE(total_bayar, 0)) as sisa_piutang_customer
-            FROM po_utama 
-            WHERE tenant_id = $1 AND status != 'Lunas'
-            GROUP BY customer
-            HAVING (SUM(COALESCE(total_harga_customer, 0)) - SUM(COALESCE(total_bayar, 0))) > 0
-            ORDER BY sisa_piutang_customer DESC
-        `, [tId]);
-
-        // Pastikan angka dikirim sebagai Number, bukan String
-        const daftarFormatted = daftar.map(item => ({
-            ...item,
-            total_po_aktif: parseInt(item.total_po_aktif),
-            sisa_piutang_customer: parseFloat(item.sisa_piutang_customer)
-        }));
-
-        res.render('piutang-customer', { daftar: daftarFormatted });
+        const rows = await db.all(sql, [tId]);
+        res.render('piutang-customer', { daftar: rows || [] });
     } catch (err) {
-        console.error("🔥 Piutang Page Error:", err.message);
-        // Cek log Vercel, jika muncul "column total_bayar does not exist", jalankan ALTER TABLE
-        res.status(500).send("Gagal memuat daftar piutang: " + err.message);
+        console.error("🔥 Error Piutang List:", err.message);
+        res.status(500).send("Error memuat piutang.");
     }
 });
 
 // 2. API Detail PO per Customer (Untuk Modal)
-app.get('/api/piutang-detail/:customer', async (req, res) => {
+app.get('/api/piutang-detail/:customer', isAdmin, async (req, res) => {
     const tId = req.session.tenantId;
-    const customer = req.params.customer;
-    if (!tId) return res.status(401).json({ error: "Unauthorized" });
+    const customerName = req.params.customer;
+
+    const sql = `
+        SELECT 
+            p.id, p.nama_po, p.tanggal, p.total_harga_customer,
+            COALESCE(SUM(ak.jumlah), 0) as telah_bayar
+        FROM po_utama p
+        LEFT JOIN arus_kas ak ON p.id = ak.po_id 
+             AND ak.kategori IN ('PEMBAYARAN BORDIR', 'PELUNASAN', 'DP/CICILAN')
+        WHERE p.customer = $1 AND p.tenant_id = $2 AND p.status != 'Lunas'
+        GROUP BY p.id, p.nama_po, p.tanggal, p.total_harga_customer
+        HAVING (p.total_harga_customer - COALESCE(SUM(ak.jumlah), 0)) > 0
+    `;
 
     try {
-        const details = await db.all(`
-            SELECT 
-                id, 
-                nama_po, 
-                tanggal, 
-                COALESCE(total_harga_customer, 0) as total_harga_customer, 
-                COALESCE(total_bayar, 0) as telah_bayar
-            FROM po_utama 
-            WHERE tenant_id = $1 AND customer = $2 AND status != 'Lunas'
-            ORDER BY tanggal DESC
-        `, [tId, customer]);
-
-        res.json(details);
+        const rows = await db.all(sql, [customerName, tId]);
+        res.json(rows);
     } catch (err) {
-        console.error("🔥 API Piutang Error:", err.message);
-        res.status(500).json({ error: err.message });
+        console.error("🔥 Error Piutang Detail API:", err.message);
+        res.status(500).json([]);
     }
 });
 
