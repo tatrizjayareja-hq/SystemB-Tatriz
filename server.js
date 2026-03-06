@@ -689,24 +689,30 @@ app.get('/piutang-customer', async (req, res) => {
     if (!tId) return res.redirect('/');
 
     try {
-        // Query ini menghitung Sisa Piutang: (Total Harga PO) - (Total Bayar)
-        // Hanya menampilkan customer yang masih punya hutang (> 0)
         const daftar = await db.all(`
             SELECT 
                 customer, 
                 COUNT(id) as total_po_aktif,
-                SUM(total_harga_customer) - SUM(COALESCE(total_bayar, 0)) as sisa_piutang_customer
+                SUM(COALESCE(total_harga_customer, 0)) - SUM(COALESCE(total_bayar, 0)) as sisa_piutang_customer
             FROM po_utama 
             WHERE tenant_id = $1 AND status != 'Lunas'
             GROUP BY customer
-            HAVING (SUM(total_harga_customer) - SUM(COALESCE(total_bayar, 0))) > 0
+            HAVING (SUM(COALESCE(total_harga_customer, 0)) - SUM(COALESCE(total_bayar, 0))) > 0
             ORDER BY sisa_piutang_customer DESC
         `, [tId]);
 
-        res.render('piutang-customer', { daftar });
+        // Pastikan angka dikirim sebagai Number, bukan String
+        const daftarFormatted = daftar.map(item => ({
+            ...item,
+            total_po_aktif: parseInt(item.total_po_aktif),
+            sisa_piutang_customer: parseFloat(item.sisa_piutang_customer)
+        }));
+
+        res.render('piutang-customer', { daftar: daftarFormatted });
     } catch (err) {
         console.error("🔥 Piutang Page Error:", err.message);
-        res.status(500).send("Gagal memuat daftar piutang.");
+        // Cek log Vercel, jika muncul "column total_bayar does not exist", jalankan ALTER TABLE
+        res.status(500).send("Gagal memuat daftar piutang: " + err.message);
     }
 });
 
@@ -714,7 +720,6 @@ app.get('/piutang-customer', async (req, res) => {
 app.get('/api/piutang-detail/:customer', async (req, res) => {
     const tId = req.session.tenantId;
     const customer = req.params.customer;
-
     if (!tId) return res.status(401).json({ error: "Unauthorized" });
 
     try {
@@ -723,7 +728,7 @@ app.get('/api/piutang-detail/:customer', async (req, res) => {
                 id, 
                 nama_po, 
                 tanggal, 
-                total_harga_customer, 
+                COALESCE(total_harga_customer, 0) as total_harga_customer, 
                 COALESCE(total_bayar, 0) as telah_bayar
             FROM po_utama 
             WHERE tenant_id = $1 AND customer = $2 AND status != 'Lunas'
@@ -733,7 +738,7 @@ app.get('/api/piutang-detail/:customer', async (req, res) => {
         res.json(details);
     } catch (err) {
         console.error("🔥 API Piutang Error:", err.message);
-        res.status(500).json({ error: "Gagal ambil detail" });
+        res.status(500).json({ error: err.message });
     }
 });
 
