@@ -113,58 +113,56 @@
     function bukaPreview() {
         const cust = document.getElementById('cust').value || "Umum";
         const rows = document.querySelectorAll("#tabelItem tbody tr");
+        
+        // Ambil data dari server (EJS) ke variabel JS dengan aman
+        const pathLogo = "/uploads/<%= config.logo_path %>"; 
+        const namaToko = "<%= config.nama_perusahaan %>";
+        const waToko = "<%= config.no_hp %>";
+        // Gunakan JSON.stringify untuk alamat agar aman dari baris baru/tanda kutip
+        const alamatToko = `<%- (config.alamat || '').replace(/\r?\n|\r/g, ' ') %>`;
+
         let htmlItem = "";
         let total = 0;
 
         rows.forEach(row => {
             const nama = row.querySelector('.nama').value;
-            const qty = row.querySelector('.qty').value;
-            const hrg = row.querySelector('.hrg').value;
-            const pathLogo = "/uploads/<%= config.logo_path %>"; 
-            const namaToko = "<%= config.nama_perusahaan %>";
-            const alamatToko = `<%= config.alamat %>`.replace(/\n/g, ' ');
-            const waToko = "<%= config.no_hp %>";
+            const qty = parseFloat(row.querySelector('.qty').value) || 0;
+            const hrg = parseFloat(row.querySelector('.hrg').value) || 0;
             
-            if(nama && hrg) {
+            if(nama && hrg > 0) {
                 const sub = qty * hrg;
                 total += sub;
                 htmlItem += `
                     <tr>
                         <td style="padding: 5px 0; border-bottom: 1px solid #eee;">${nama}</td>
                         <td style="padding: 5px 0; border-bottom: 1px solid #eee; text-align: center;">${qty}</td>
-                        <td style="padding: 5px 0; border-bottom: 1px solid #eee; text-align: right;">${parseInt(hrg).toLocaleString('id-ID')}</td>
+                        <td style="padding: 5px 0; border-bottom: 1px solid #eee; text-align: right;">${hrg.toLocaleString('id-ID')}</td>
                         <td style="padding: 5px 0; border-bottom: 1px solid #eee; text-align: right;">${sub.toLocaleString('id-ID')}</td>
                     </tr>`;
             }
         });
 
-        // Set Nama File PDF via Title
-        const tgl = new Date().toLocaleDateString('id-ID').replace(/\//g, '-');
-        document.title = "Nota_Manual_" + cust.replace(/\s+/g, '_') + "_" + tgl;
-        const alamatToko = `<%= config.alamat %>`.replace(/\n/g, ' ');
+        if (total === 0) {
+            alert("Mohon isi minimal satu barang dengan harga.");
+            return;
+        }
+
+        // Set Nama File PDF via Title browser
+        const tglStr = new Date().toLocaleDateString('id-ID').replace(/\//g, '-');
+        document.title = "Nota_" + cust.replace(/\s+/g, '_') + "_" + tglStr;
+
         const template = `
-        <div style="position: relative; height: 100%; display: flex; flex-direction: column; color: #333;">
-            <img src="/uploads/<%= config.logo_path %>" style="position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%) rotate(-30deg); opacity: 0.05; width: 180px; z-index: 0;">
-            <div style="position: relative; height: 100%; display: flex; flex-direction: column; color: #333;">
-            <img src="${pathLogo}" style="position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%) rotate(-30deg); opacity: 0.05; width: 180px; z-index: 0;">
-            
-            <div style="display: flex; align-items: center; border-bottom: 2px solid #333; padding-bottom: 8px; margin-bottom: 10px; z-index: 1;">
-                <img src="${pathLogo}" style="width: 45px; height: 45px; margin-right: 10px; object-fit: contain;">
+            <div style="position: relative; height: 100%; display: flex; flex-direction: column; color: #333; font-family: 'Segoe UI', sans-serif;">
+                <img src="${pathLogo}" style="position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%) rotate(-30deg); opacity: 0.05; width: 180px; z-index: 0;">
                 
-                <div style="flex-grow:1">
-                    <h2 style="margin:0; font-size: 14px; text-transform: uppercase;">${namaToko}</h2>
-                    <p style="margin:1px 0; font-size: 9px;">${alamatToko}</p>
-                    <p style="margin:1px 0; font-size: 9px; font-weight: bold;">WA: ${waToko}</p>
+                <div style="display: flex; align-items: center; border-bottom: 2px solid #333; padding-bottom: 8px; margin-bottom: 10px; z-index: 1;">
+                    <img src="${pathLogo}" style="width: 45px; height: 45px; margin-right: 10px; object-fit: contain;">
+                    <div style="flex-grow:1">
+                        <h2 style="margin:0; font-size: 14px; text-transform: uppercase;">${namaToko}</h2>
+                        <p style="margin:1px 0; font-size: 9px;">${alamatToko}</p>
+                        <p style="margin:1px 0; font-size: 9px; font-weight: bold;">WA: ${waToko}</p>
+                    </div>
                 </div>
-            </div>
-            <div style="display: flex; align-items: center; border-bottom: 2px solid #333; padding-bottom: 8px; margin-bottom: 10px; z-index: 1;">
-                <img src="/uploads/<%= config.logo_path %>" style="width: 45px; height: 45px; margin-right: 10px; object-fit: contain;">
-                <div style="flex-grow:1">
-                    <h2 style="margin:0; font-size: 14px; text-transform: uppercase;"><%= config.nama_perusahaan %></h2>
-                    <p style="margin:1px 0; font-size: 9px;">${alamatToko}</p>
-                    <p style="margin:1px 0; font-size: 9px; font-weight: bold;">WA: <%= config.no_hp %></p>
-                </div>
-            </div>
 
                 <div style="display: flex; justify-content: space-between; font-size: 11px; margin-bottom: 10px; z-index: 1;">
                     <span>Cust: <b>${cust}</b></span>
@@ -175,10 +173,10 @@
                     <table style="width: 100%; border-collapse: collapse; font-size: 10px;">
                         <thead>
                             <tr style="border-bottom: 1px solid #333; text-align: left;">
-                                <th style="padding: 5px 0; width: 40%;">Item</th>
+                                <th style="padding: 5px 0; width: 45%;">Item</th>
                                 <th style="padding: 5px 0; text-align:center; width: 10%;">Qty</th>
                                 <th style="padding: 5px 0; text-align:right; width: 20%;">Harga</th>
-                                <th style="padding: 5px 0; text-align:right; width: 30%;">Total</th>
+                                <th style="padding: 5px 0; text-align:right; width: 25%;">Total</th>
                             </tr>
                         </thead>
                         <tbody>${htmlItem}</tbody>
