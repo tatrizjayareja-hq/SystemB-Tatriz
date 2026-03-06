@@ -652,7 +652,7 @@ app.get('/edit-po/:id', async (req, res) => {
     }
 });
 
-app.get('/nota-gabungan', async (req, res) => {
+app.get('/print-nota-gabungan', async (req, res) => {
     const tId = req.session.tenantId;
     const { customer } = req.query; // Panggil via /nota-gabungan?customer=NamaCustomer
 
