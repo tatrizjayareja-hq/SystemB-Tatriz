@@ -905,6 +905,33 @@ app.get('/input-kas', async (req, res) => { // 1. Tambahkan async
     }
 });
 
+async function updateStatusPO(poId) {
+    try {
+        // 1. Hitung total tagihan vs total bayar
+        const data = await db.get(`
+            SELECT 
+                p.total_harga_customer,
+                COALESCE(SUM(ak.jumlah), 0) as total_masuk
+            FROM po_utama p
+            LEFT JOIN arus_kas ak ON p.id = ak.po_id
+            WHERE p.id = $1
+            GROUP BY p.id`, [poId]);
+
+        if (data) {
+            // 2. Jika bayar >= tagihan, set Lunas. Jika ada bayar tapi kurang, set DP/Cicil.
+            let statusBaru = 'Produksi'; // Default
+            if (data.total_masuk >= data.total_harga_customer) {
+                statusBaru = 'Lunas';
+            } else if (data.total_masuk > 0) {
+                statusBaru = 'DP/Cicil';
+            }
+            
+            await db.query("UPDATE po_utama SET status = $1 WHERE id = $2", [statusBaru, poId]);
+        }
+    } catch (err) {
+        console.error("🔥 Error Update Status PO:", err.message);
+    }
+}
 
 
 
