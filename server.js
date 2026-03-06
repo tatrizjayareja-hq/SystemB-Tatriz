@@ -652,34 +652,53 @@ app.get('/edit-po/:id', async (req, res) => {
     }
 });
 
-app.get('/print-nota-gabungan', async (req, res) => {
+app.get('/cetak-nota-gabungan', isAdmin, async (req, res) => {
     const tId = req.session.tenantId;
-    const { customer, ids } = req.query; // 'ids' adalah array dari checkbox
-
-    if (!tId) return res.redirect('/');
+    let ids = req.query.ids; // Menangkap array ID dari checkbox modal
     
-    // Pastikan ids berupa array
-    const idList = Array.isArray(ids) ? ids : [ids];
+    if (!ids) return res.send("Tidak ada PO yang dipilih.");
+    
+    // Pastikan ids dalam bentuk array angka
+    if (!Array.isArray(ids)) ids = [ids];
+    const idList = ids.map(id => parseInt(id));
 
     try {
+        // 1. Ambil Setting Perusahaan untuk Header (Logo, Nama Toko, Alamat)
         const config = await db.get("SELECT * FROM settings WHERE tenant_id = $1", [tId]);
 
-        // Ambil hanya PO yang dicentang saja
-        const orders = await db.all(`
-            SELECT *, COALESCE(total_bayar, 0) as total_bayar 
-            FROM po_utama 
-            WHERE tenant_id = $1 AND id = ANY($2::int[])
-        `, [tId, idList.map(id => parseInt(id))]);
+        // 2. Query Header PO-PO yang dipilih
+        // Menggunakan ANY($1) untuk menangani array ID di PostgreSQL
+        const sqlOrders = `
+            SELECT p.*, COALESCE(bayar.total, 0) as total_bayar 
+            FROM po_utama p
+            LEFT JOIN (
+                SELECT po_id, SUM(jumlah) as total 
+                FROM arus_kas 
+                GROUP BY po_id
+            ) bayar ON p.id = bayar.po_id
+            WHERE p.id = ANY($1::int[]) AND p.tenant_id = $2
+        `;
 
-        const details = await db.all(`
-            SELECT * FROM po_detail 
-            WHERE po_id = ANY($1::int[])
-        `, [idList.map(id => parseInt(id))]);
+        const orders = await db.all(sqlOrders, [idList, tId]);
 
-        res.render('nota-gabungan', { orders, details, config: config || {} });
+        if (!orders || orders.length === 0) {
+            return res.send("Data PO tidak ditemukan.");
+        }
+
+        // 3. Ambil rincian detail untuk semua PO tersebut
+        const sqlDetails = `SELECT * FROM po_detail WHERE po_id = ANY($1::int[])`;
+        const details = await db.all(sqlDetails, [idList]);
+
+        // 4. Render halaman EJS (Pastikan nama file sesuai: print-nota-gabungan.ejs)
+        res.render('print-nota-gabungan', { 
+            orders, 
+            details, 
+            config: config || {} 
+        });
+
     } catch (err) {
-        console.error("🔥 Cetak Gabungan Error:", err.message);
-        res.status(500).send("Gagal mencetak nota gabungan.");
+        console.error("🔥 Error Cetak Gabungan:", err.message);
+        res.status(500).send("Gagal memproses cetak nota: " + err.message);
     }
 });
 
