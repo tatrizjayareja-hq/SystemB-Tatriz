@@ -1590,6 +1590,45 @@ app.post('/proses-print-gaji', isAdmin, (req, res) => {
     });
 });
 
+app.get('/cetak-nota/:id', isAdmin, (req, res) => {
+    const tId = req.session.tenantId;
+    const poId = req.params.id;
+
+    // 1. Ambil Pengaturan Toko (Logo, Alamat, Nama Perusahaan)
+    db.get("SELECT * FROM settings WHERE tenant_id = ?", [tId], (err, configRow) => {
+        const config = configRow || { 
+            nama_perusahaan: "Tatriz System", 
+            alamat: "Alamat belum diatur", 
+            no_hp: "-", 
+            logo_path: "default-logo.png" 
+        };
+
+        // 2. Ambil Data PO dan Hitung Total Bayar dari Arus Kas
+        const sqlPO = `
+            SELECT p.*, 
+            (SELECT SUM(jumlah) FROM arus_kas WHERE po_id = p.id AND jenis = 'PEMASUKAN') as total_bayar 
+            FROM po_utama p 
+            WHERE p.id = ? AND p.tenant_id = ?`;
+
+        db.get(sqlPO, [poId, tId], (err, po) => {
+            if (err || !po) return res.status(404).send("Data PO tidak ditemukan.");
+
+            // 3. Ambil Detail Desain/Barang dalam PO tersebut
+            db.all("SELECT * FROM po_detail WHERE po_id = ?", [poId], (err, details) => {
+                if (err) return res.status(500).send("Gagal mengambil detail PO.");
+
+                // 4. Render ke file EJS (Pastikan foldernya benar: admin/cetak-nota)
+                res.render('admin/cetak-nota', { 
+                    po, 
+                    details, 
+                    config,
+                    tgl_sekarang: new Date().toLocaleDateString('id-ID')
+                });
+            });
+        });
+    });
+});
+
 
 
 
