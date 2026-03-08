@@ -109,31 +109,17 @@
 <body>
 
     <div class="nota-box">
-
         <img src="<%= config.logo_path %>" class="watermark">
-
-
-
         <div class="header-container">
-
             <img src="<%= config.logo_path %>" class="logo-header">
-
             <div class="company-info">
-
                 <h2><%= config.nama_perusahaan %></h2>
-
                 <p><%= config.alamat.replace(/\n/g, ' ') %></p>
-
                 <p><strong>WA: <%= config.no_hp %></strong></p>
-
             </div>
-
             <div class="label-nota">
-
                 <h3>NOTA RESMI</h3>
-
                 <p>Tgl: <%= new Date().toLocaleDateString('id-ID') %></p>
-
                 <p>Cust: <strong><%= orders[0].customer %></strong></p>
 
             </div>
