@@ -71,9 +71,11 @@
                 %>
                 <tr class="row-tanggal" onclick="toggleLaci('<%= index %>')">
                     <td>
-                        <span class="tgl-text"><%= tgl %></span>
-                        <% if(bonusHarian > 0) { %>
-                            <span class="bonus-tag">🎁 Bonus Rp <%= bonusHarian.toLocaleString() %></span>
+                        <span class="tgl-text">
+                            <%= new Date(tgl).toLocaleDateString('id-ID', { day: '2-digit', month: 'long', year: 'numeric' }) %>
+                        </span>
+                            <% if(bonusHarian > 0) { %>
+                        <span class="bonus-tag">🎁 Bonus Rp <%= bonusHarian.toLocaleString() %></span>
                         <% } %>
                         <span class="arrow" id="arrow-<%= index %>">▼</span>
                     </td>

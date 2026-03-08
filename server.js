@@ -1085,33 +1085,27 @@ app.get('/hapus-karyawan/:id', isAdmin, async (req, res) => {
 
 app.get('/operator', async (req, res) => {
     if (!req.session.userId) return res.redirect('/');
-    if (req.session.role === 'admin') return res.redirect('/dashboard');
+    
     const userId = req.session.userId;
     const tId = req.session.tenantId;
-    const tglHariIni = new Intl.DateTimeFormat('en-CA', { 
-    timeZone: 'Asia/Jakarta' }).format(new Date()); // Menghasilkan "YYYY-MM-DD"
+    const tglHariIni = new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Jakarta' }).format(new Date());
+
     try {
-        // 1. Ambil PO yang statusnya 'Produksi' dan setorannya BELUM memenuhi target
-        // PostgreSQL menggunakan HAVING dengan perhitungan manual karena alias kadang bermasalah
+        // Ambil PO Aktif
         const sqlPO = `
             SELECT p.id, p.nama_po 
             FROM po_utama p
-            JOIN po_detail d ON p.id = d.po_id
-            LEFT JOIN hasil_kerja h ON d.id = h.detail_id
             WHERE p.status = 'Produksi' AND p.tenant_id = $1
-            GROUP BY p.id, p.nama_po
-            HAVING SUM(d.jumlah) > COALESCE(SUM(h.jumlah_setor), 0)
         `;
         const active_pos = await db.all(sqlPO, [tId]);
 
-        // 2. Ambil Daftar Mesin
+        // Ambil Mesin
         const daftarMesin = await db.all("SELECT id, nama_mesin FROM mesin WHERE tenant_id = $1 ORDER BY nama_mesin ASC", [tId]);
 
-        // 3. Ambil Target Bonus dari Config
+        // Hitung Pencapaian & Bonus
         const config = await db.get("SELECT target_bonus FROM settings WHERE tenant_id = $1", [tId]);
         const targetBonus = parseFloat(config?.target_bonus || 500000);
 
-        // 4. Hitung Pencapaian Operator hari ini
         const sqlCekHasil = `
             SELECT SUM(h.jumlah_setor * d.harga_operator) as total_upah
             FROM hasil_kerja h
@@ -1120,23 +1114,23 @@ app.get('/operator', async (req, res) => {
         `;
         const row = await db.get(sqlCekHasil, [userId, tglHariIni]);
         const totalHariIni = parseFloat(row?.total_upah || 0);
-        
-        let kurangnya = Math.max(0, targetBonus - totalHariIni);
+        const kurangnya = Math.max(0, targetBonus - totalHariIni);
 
         res.render('operator', { 
-            user: req.session,
-            active_pos: active_pos || [],
-            daftarMesin: daftarMesin || [],
-            kurangnya: kurangnya
+            user: { nama: req.session.nama_lengkap }, // Sesuaikan dengan EJS Anda yang memanggil user.nama
+            active_pos,
+            daftarMesin,
+            kurangnya
         });
-
     } catch (err) {
-        console.error("🔥 Error Load Operator Page:", err.message);
-        res.status(500).send("Gagal memuat halaman operator.");
+        res.status(500).send("Server Error");
     }
 });
 
-app.get('/api/po-details/:id', isAdmin, async (req, res) => {
+// --- API UNTUK DROPDOWN OTOMATIS (Akses untuk semua role yang sudah login) ---
+app.get('/api/po-details/:id', async (req, res) => {
+    if (!req.session.userId) return res.status(401).json({ error: "Unauthorized" });
+
     const poId = req.params.id;
     // Menghitung sisa per item desain secara real-time
     const sql = `
@@ -1155,39 +1149,42 @@ app.get('/api/po-details/:id', isAdmin, async (req, res) => {
 });
 
 app.post('/simpan-kerja', async (req, res) => {
+    if (!req.session.userId) return res.redirect('/');
+    
     const { tanggal, shift, po_id, detail_id, jumlah_setor, mesin_id } = req.body;
     const userId = req.session.userId;
     const tId = req.session.tenantId;
 
+    // Validasi input
     if (!jumlah_setor || parseInt(jumlah_setor) <= 0) {
-        return res.send("<script>alert('Jumlah tidak valid!'); window.history.back();</script>");
+        return res.send("<script>alert('Jumlah setoran harus lebih dari 0!'); window.history.back();</script>");
     }
 
     try {
-        // 1. Simpan Log Kerja
+        // 1. Simpan Hasil Kerja
         const sqlInsert = `
             INSERT INTO hasil_kerja (tenant_id, operator_id, po_id, detail_id, mesin_id, tanggal, shift, jumlah_setor) 
             VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
         `;
         await db.query(sqlInsert, [tId, userId, po_id, detail_id, mesin_id, tanggal, shift, parseInt(jumlah_setor)]);
 
-        // 2. AUTO-UPDATE STATUS KE QC
-        // Cek apakah akumulasi setoran sudah mencapai target PO
+        // 2. LOGIKA AUTO-QC (Cek apakah target PO sudah terpenuhi semuanya)
         const sqlCheck = `
             SELECT 
                 (SELECT SUM(jumlah) FROM po_detail WHERE po_id = $1) as target,
                 (SELECT SUM(jumlah_setor) FROM hasil_kerja WHERE po_id = $1) as realisasi
         `;
-        const row = await db.get(sqlCheck, [po_id]);
+        const check = await db.get(sqlCheck, [po_id]);
         
-        if (row && parseFloat(row.realisasi) >= parseFloat(row.target)) {
-            await db.query("UPDATE po_utama SET status = 'QC' WHERE id = $1", [po_id]);
+        if (check && parseFloat(check.realisasi) >= parseFloat(check.target)) {
+            // Jika setoran kumulatif >= target, pindahkan ke status QC
+            await db.query("UPDATE po_utama SET status = 'QC' WHERE id = $1 AND tenant_id = $2", [po_id, tId]);
         }
 
-        res.redirect('/hasil-saya');
+        res.send("<script>alert('Data berhasil disimpan!'); window.location='/operator';</script>");
     } catch (err) {
         console.error("🔥 Error Simpan Kerja:", err.message);
-        res.status(500).send("Gagal menyimpan data.");
+        res.status(500).send("Gagal menyimpan data. Pastikan semua field terisi.");
     }
 });
 
@@ -1201,22 +1198,22 @@ app.get('/hasil-saya', async (req, res) => {
 
     // 2. Query Riwayat Kerja (Join PO Utama & Detail)
     const sql = `
-        SELECT 
-            h.id, 
-            h.tanggal, 
-            h.shift, 
-            h.jumlah_setor,
-            p.nama_po, 
-            d.jenis_bordir, 
-            d.nama_desain, 
-            COALESCE(d.harga_operator, 0) as harga_operator,
-            (h.jumlah_setor * COALESCE(d.harga_operator, 0)) as subtotal_upah
-        FROM hasil_kerja h
-        JOIN po_utama p ON h.po_id = p.id
-        JOIN po_detail d ON h.detail_id = d.id
-        WHERE h.operator_id = $1 AND h.tenant_id = $2
-        ORDER BY h.tanggal DESC, h.id DESC
-    `;
+    SELECT 
+        h.id as log_id, 
+        h.tanggal, 
+        h.shift, 
+        h.jumlah_setor,
+        p.nama_po, 
+        d.jenis_bordir, 
+        d.nama_desain, 
+        COALESCE(d.harga_operator, 0) as harga,
+        (h.jumlah_setor * COALESCE(d.harga_operator, 0))::NUMERIC as subtotal_upah
+    FROM hasil_kerja h
+    JOIN po_utama p ON h.po_id = p.id
+    JOIN po_detail d ON h.detail_id = d.id
+    WHERE h.operator_id = $1 AND h.tenant_id = $2
+    ORDER BY h.tanggal DESC, h.id DESC
+`;
 
     try {
         const rows = await db.all(sql, [userId, tId]);
