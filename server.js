@@ -1998,6 +1998,96 @@ app.get('/backup-database', isAdmin, async (req, res) => {
     }
 });
 
+// --- HALAMAN MASTER USERS + LOG ---
+app.get('/master-users', isAdmin, async (req, res) => {
+    if (req.session.tenantId !== 1) {
+        return res.status(403).send("Akses Ditolak: Fitur Khusus Developer!");
+    }
+
+    try {
+        // Ambil Data User & Tenant
+        const userSql = `
+            SELECT u.id, u.username, u.nama_lengkap, u.role, u.tenant_id, 
+                   s.nama_perusahaan, s.level 
+            FROM users u 
+            LEFT JOIN settings s ON u.tenant_id = s.tenant_id 
+            ORDER BY u.tenant_id ASC
+        `;
+        const users = await db.query(userSql);
+
+        // Ambil 10 Log Terakhir
+        const logSql = `
+            SELECT l.*, u.username as admin_name 
+            FROM dev_logs l
+            JOIN users u ON l.admin_id = u.id
+            ORDER BY l.created_at DESC LIMIT 10
+        `;
+        const logs = await db.query(logSql);
+
+        res.render('admin/master-users', { 
+            users: users.rows || [],
+            devLogs: logs.rows || []
+        });
+    } catch (err) {
+        console.error(err);
+        res.status(500).send("Gagal memuat data master.");
+    }
+});
+
+// --- UPDATE LEVEL TENANT + LOG ---
+app.get('/update-level/:tId/:newLevel', isAdmin, async (req, res) => {
+    if (req.session.tenantId !== 1) return res.status(403).send("Ditolak!");
+    const { tId, newLevel } = req.params;
+
+    try {
+        await db.query("UPDATE settings SET level = $1 WHERE tenant_id = $2", [newLevel, tId]);
+        
+        // Catat Log
+        await db.query("INSERT INTO dev_logs (admin_id, aksi, target_info, keterangan) VALUES ($1, $2, $3, $4)", 
+            [req.session.userId, 'UPDATE_LEVEL', `Tenant #${tId}`, `Level diubah ke ${newLevel == 2 ? 'PRO' : 'STD'}`]);
+
+        res.redirect('/master-users');
+    } catch (err) {
+        res.status(500).send("Gagal update level.");
+    }
+});
+
+// --- RESET PASSWORD MASTER + LOG ---
+app.get('/developer/reset-pass/:uId/:newPass', isAdmin, async (req, res) => {
+    if (req.session.tenantId !== 1) return res.status(403).send("Ditolak!");
+    const { uId, newPass } = req.params;
+
+    try {
+        const user = await db.query("SELECT username FROM users WHERE id = $1", [uId]);
+        await db.query("UPDATE users SET password = $1 WHERE id = $2", [newPass, uId]);
+
+        await db.query("INSERT INTO dev_logs (admin_id, aksi, target_info, keterangan) VALUES ($1, $2, $3, $4)", 
+            [req.session.userId, 'RESET_PASSWORD', user.rows[0].username, `Password baru diset.`]);
+
+        res.send("<script>alert('Sukses Reset Password!'); window.location='/master-users';</script>");
+    } catch (err) {
+        res.status(500).send("Gagal reset password.");
+    }
+});
+
+// --- RESET KODE AKTIVASI + LOG ---
+// Diasumsikan kode aktivasi disimpan di tabel settings kolom 'registration_secret'
+app.get('/developer/reset-kode/:tId/:newCode', isAdmin, async (req, res) => {
+    if (req.session.tenantId !== 1) return res.status(403).send("Ditolak!");
+    const { tId, newCode } = req.params;
+
+    try {
+        await db.query("UPDATE settings SET registration_secret = $1 WHERE tenant_id = $2", [newCode, tId]);
+
+        await db.query("INSERT INTO dev_logs (admin_id, aksi, target_info, keterangan) VALUES ($1, $2, $3, $4)", 
+            [req.session.userId, 'RESET_KODE', `Tenant #${tId}`, `Kode baru: ${newCode}`]);
+
+        res.send("<script>alert('Kode Aktivasi Berhasil Diubah!'); window.location='/master-users';</script>");
+    } catch (err) {
+        res.status(500).send("Gagal reset kode.");
+    }
+});
+
 
 
 

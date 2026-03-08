@@ -9,101 +9,53 @@
     <style>
         .level-standard { background-color: #f1f2f6; color: #2d3436; border: 1px solid #ddd; }
         .level-pro { background-color: #f1c40f; color: #000; border: 1px solid #d4ac0d; }
-        body { 
-            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; 
-            padding: 20px; background: #f4f7f6; color: #2d3436;
-        }
+        body { font-family: 'Segoe UI', sans-serif; padding: 20px; background: #f4f7f6; }
         .container { max-width: 1200px; margin: 0 auto; }
-        h2 { color: #195e0b; display: flex; align-items: center; gap: 10px; }
-        p.subtitle { font-size: 14px; color: #636e72; margin-bottom: 20px; }
-        
-        table { 
-            width: 100%; border-collapse: collapse; background: white; 
-            border-radius: 12px; overflow: hidden; box-shadow: 0 4px 15px rgba(0,0,0,0.05); 
-        }
-        th, td { padding: 15px; text-align: left; border-bottom: 1px solid #edf2f7; }
-        th { background: #195e0b; color: white; font-size: 13px; text-transform: uppercase; letter-spacing: 1px; }
-        
-        .badge { 
-            padding: 5px 10px; border-radius: 6px; font-size: 11px; 
-            font-weight: bold; display: inline-block;
-        }
-        .bg-admin { background: #dfe6e9; color: #2d3436; }
-
-        .btn-action {
-            text-decoration: none; font-size: 11px; font-weight: bold;
-            padding: 6px 12px; border-radius: 6px; display: inline-block;
-            transition: 0.3s; cursor: pointer; border: 1px solid transparent;
-        }
-        .btn-reset { color: #f39c12; border-color: #f39c12; }
-        .btn-reset:hover { background: #f39c12; color: white; }
-        .btn-delete-user { color: #d63031; border-color: #d63031; }
-        .btn-delete-user:hover { background: #d63031; color: white; }
-        .btn-delete-tenant { background: #e74c3c; color: white; }
-        .btn-delete-tenant:hover { background: #c0392b; }
-
-        .back-link { display: inline-block; margin-top: 25px; color: #195e0b; text-decoration: none; font-weight: bold; font-size: 14px; }
-        tr:hover { background-color: #f8f9fa; }
+        table { width: 100%; border-collapse: collapse; background: white; border-radius: 12px; overflow: hidden; box-shadow: 0 4px 15px rgba(0,0,0,0.05); margin-bottom: 20px;}
+        th, td { padding: 12px; text-align: left; border-bottom: 1px solid #edf2f7; font-size: 13px; }
+        th { background: #195e0b; color: white; text-transform: uppercase; }
+        .badge { padding: 4px 8px; border-radius: 4px; font-size: 10px; font-weight: bold; }
+        .btn-action { text-decoration: none; font-size: 10px; padding: 5px 10px; border-radius: 4px; border: 1px solid #ddd; color: #333; transition: 0.2s; }
+        .btn-action:hover { background: #eee; }
+        .log-section { background: #2d3436; color: #dfe6e9; border-radius: 12px; padding: 15px; margin-top: 30px; }
+        .log-table { width: 100%; color: #fff; font-size: 11px; }
+        .log-table th { background: #3d4446; color: #aaa; }
     </style>
 </head>
 <body>
     <div class="container">
-        <h2>🛠️ Master User Management <span style="font-size: 14px; font-weight: normal; color: #666;">(Developer Mode)</span></h2>
-        <p class="subtitle">Kelola Level, Reset Password, dan Data Perusahaan dalam ekosistem <strong>Tatriz System</strong>.</p>
+        <h2>🛠️ Master Management <span style="font-size: 14px; color: #666;">(Dev Mode)</span></h2>
         
         <table>
             <thead>
                 <tr>
-                    <th>Tenant ID</th>
+                    <th>ID</th>
                     <th>Perusahaan</th>
-                    <th>Username</th>
-                    <th>Nama Lengkap</th>
+                    <th>User</th>
                     <th>Level</th>
-                    <th style="text-align: center;">Aksi Pengelolaan</th>
+                    <th style="text-align: center;">Kontrol Sakti</th>
                 </tr>
             </thead>
             <tbody>
                 <% users.forEach(function(u) { %>
                     <tr>
-                        <td><strong>#<%= u.tenant_id %></strong></td>
-                        <td><%= u.nama_perusahaan || 'Tatriz Pusat' %></td>
-                        <td><code><%= u.username %></code></td>
-                        <td><%= u.nama_lengkap %></td>
-                        
+                        <td>#<%= u.tenant_id %></td>
+                        <td><strong><%= u.nama_perusahaan || 'Pusat' %></strong></td>
+                        <td><%= u.nama_lengkap %><br><small>@<%= u.username %></small></td>
                         <td>
-                            <div style="display: flex; flex-direction: column; gap: 5px;">
-                                <span class="badge <%= u.level >= 2 ? 'level-pro' : 'level-standard' %>">
-                                    <%= u.level >= 2 ? '🚀 PRO' : '🌱 STANDARD' %> (Lvl <%= u.level %>)
-                                </span>
-
-                                <% if (u.tenant_id !== 1) { %>
-                                    <a href="/update-level/<%= u.tenant_id %>/<%= u.level == 1 ? 2 : 1 %>" 
-                                       style="font-size: 10px; color: #3498db; text-decoration: none; font-weight: bold;">
-                                        [ <%= u.level == 1 ? '🔼 Up ke Pro' : '🔽 Down ke Std' %> ]
-                                    </a>
-                                <% } %>
-                            </div>
+                            <span class="badge <%= u.level >= 2 ? 'level-pro' : 'level-standard' %>">
+                                <%= u.level >= 2 ? 'PRO' : 'STD' %>
+                            </span>
+                            <% if (u.tenant_id !== 1) { %>
+                                <a href="/update-level/<%= u.tenant_id %>/<%= u.level == 1 ? 2 : 1 %>" style="display:block; font-size: 9px;">Ganti Level</a>
+                            <% } %>
                         </td>
-
-                        <td>
-                            <div style="display: flex; gap: 8px; justify-content: center; align-items: center;">
-                                <a href="javascript:void(0)" class="btn-action btn-reset" 
-                                   onclick="pemicuReset('<%= u.id %>', '<%= u.username %>')">
-                                    <i class="fas fa-key"></i> Reset
-                                </a>
-
-                                <a href="/delete-user-global/<%= u.id %>" class="btn-action btn-delete-user" 
-                                   onclick="return confirm('Hapus User Akun ini?')">
-                                    <i class="fas fa-user-minus"></i>
-                                </a>
-                                
+                        <td style="text-align: center;">
+                            <div style="display: flex; gap: 5px; justify-content: center;">
+                                <button onclick="pemicuReset('<%= u.id %>', '<%= u.username %>')" class="btn-action"><i class="fas fa-key"></i> Pass</button>
+                                <button onclick="pemicuResetKode('<%= u.tenant_id %>')" class="btn-action"><i class="fas fa-lock"></i> Kode</button>
                                 <% if (u.tenant_id !== 1) { %>
-                                    <a href="/delete-tenant-complete/<%= u.tenant_id %>" class="btn-action btn-delete-tenant" 
-                                       onclick="return confirm('PERINGATAN! Hapus TOTAL semua data perusahaan ini?')">
-                                        <i class="fas fa-trash-alt"></i> Hapus Toko
-                                    </a>
-                                <% } else { %>
-                                    <span style="color: #195e0b; font-weight: bold; font-size: 10px;"><i class="fas fa-crown"></i> OWNER</span>
+                                    <a href="/delete-tenant-complete/<%= u.tenant_id %>" class="btn-action" style="color: red;" onclick="return confirm('Hapus Total?')"><i class="fas fa-trash"></i></a>
                                 <% } %>
                             </div>
                         </td>
@@ -111,31 +63,60 @@
                 <% }); %>
             </tbody>
         </table>
-        
-        <a href="/dashboard" class="back-link">
-            <i class="fas fa-arrow-left"></i> Kembali ke Dashboard
-        </a>
+
+        <div class="log-section">
+            <h6><i class="fas fa-history"></i> Log Aktivitas Developer</h6>
+            <table class="log-table">
+                <thead>
+                    <tr>
+                        <th>Waktu</th>
+                        <th>Aksi</th>
+                        <th>Target</th>
+                        <th>Keterangan</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <% devLogs.forEach(log => { %>
+                        <tr>
+                            <td><%= new Date(log.created_at).toLocaleString('id-ID') %></td>
+                            <td><%= log.aksi %></td>
+                            <td><%= log.target_info %></td>
+                            <td><%= log.keterangan %></td>
+                        </tr>
+                    <% }) %>
+                </tbody>
+            </table>
+        </div>
+
+        <a href="/dashboard" style="display:block; margin-top:20px; color:#195e0b; text-decoration:none;">← Dashboard</a>
     </div>
 
     <script>
-        // FUNGSI POP-UP RESET PASSWORD
         function pemicuReset(userId, username) {
             Swal.fire({
-                title: 'Ganti Password',
-                text: 'Masukkan password baru untuk user: ' + username,
+                title: 'Reset Password',
                 input: 'text',
                 inputPlaceholder: 'Password baru...',
                 showCancelButton: true,
-                confirmButtonText: 'Simpan',
-                confirmButtonColor: '#f39c12',
-                preConfirm: (pass) => {
-                    if (!pass) { Swal.showValidationMessage('Password tidak boleh kosong!'); }
-                    return pass;
-                }
+                confirmButtonColor: '#195e0b'
             }).then((result) => {
-                if (result.isConfirmed) {
-                    // Pastikan rute ini sesuai dengan yang ada di server.js
+                if (result.isConfirmed && result.value) {
                     window.location.href = `/developer/reset-pass/${userId}/${result.value}`;
+                }
+            });
+        }
+
+        function pemicuResetKode(tId) {
+            Swal.fire({
+                title: 'Ganti Kode Aktivasi',
+                text: 'Hanya tenant ini yang akan menggunakan kode baru ini.',
+                input: 'text',
+                inputPlaceholder: 'Kode baru...',
+                showCancelButton: true,
+                confirmButtonColor: '#f39c12'
+            }).then((result) => {
+                if (result.isConfirmed && result.value) {
+                    window.location.href = `/developer/reset-kode/${tId}/${result.value}`;
                 }
             });
         }

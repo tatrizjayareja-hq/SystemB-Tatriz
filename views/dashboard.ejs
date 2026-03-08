@@ -175,6 +175,13 @@
                 <a href="/piutang-customer" style="color: var(--primary); text-decoration: none; font-size: 11px; font-weight: bold;">BUAT PENAGIHAN SEKARANG →</a>
             </div>
         <% } %>
+        <% if (user.tenantId === 1) { %>
+            <div class="mt-3">
+                <a href="/master-users" class="btn btn-dark btn-sm">
+                    <i class="fas fa-tools"></i> Developer Mode
+                </a>
+            </div>
+        <% } %>
 
         <div style="text-align: center; margin-top: 30px; opacity: 0.5; font-size: 10px;">
             &copy; 2026 <%= config.nama_perusahaan %> | Tatriz Online v2.1
