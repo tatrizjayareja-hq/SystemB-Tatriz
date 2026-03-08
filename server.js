@@ -1631,7 +1631,7 @@ app.get('/cetak-nota/:id', isAdmin, async (req, res) => {
         const details = detailsRes.rows;
 
         // 4. Render ke halaman nota
-        res.render('/cetak-nota', { 
+        res.render('cetak-nota', { 
             po, 
             details, 
             config,

@@ -176,7 +176,7 @@
                 <hr style="border: 0; border-top: 1px solid #333; margin: 4px 0;">
                 <div class="total-row" style="font-weight: bold; font-size: 13px;">
                     <span>SISA:</span>
-                    <span>Rp <%= (po.total_harga_customer - (po.total_bayar || 0)).toLocaleString('id-ID') %></span>
+                    <span>Rp <%= (Number(po.total_harga_customer || 0) - Number(po.total_bayar || 0)).toLocaleString('id-ID') %></span>
                 </div>
             </div>
 
