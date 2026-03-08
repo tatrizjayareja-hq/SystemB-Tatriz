@@ -1,11 +1,12 @@
 require('dotenv').config();
 const express = require('express');
 const { Pool } = require('pg');
-const { createClient } = require('@supabase/supabase-js');
 const path = require('path');
 const bodyParser = require('body-parser');
 const multer = require('multer');
 const session = require('express-session');
+// --- PENTING: Import pgSession di sini ---
+const pgSession = require('connect-pg-simple')(session);
 
 const app = express();
 const port = process.env.PORT || 3000;
@@ -36,46 +37,45 @@ pool.on('error', (err) => {
 // --- 2. KONEKSI STORAGE (Supabase SDK) ---
 const supabaseUrl = process.env.SUPABASE_URL;
 const supabaseKey = process.env.SUPABASE_ANON_KEY;
-
 let supabase = null;
+
 if (supabaseUrl && supabaseKey) {
     const { createClient } = require('@supabase/supabase-js');
     supabase = createClient(supabaseUrl, supabaseKey);
-} else {
-    console.warn("⚠️ Supabase URL/Key tidak ditemukan. Fitur Storage mungkin tidak jalan.");
 }
-// --- 3. KONFIGURASI MULTER (Memory Storage) ---
-// File tidak disimpan di disk Vercel, tapi ditampung di RAM untuk diteruskan ke Supabase
+
+// --- 3. KONFIGURASI MULTER ---
 const storage = multer.memoryStorage();
 const upload = multer({ 
     storage: storage,
-    limits: { fileSize: 2 * 1024 * 1024 } // Batas 2MB
+    limits: { fileSize: 2 * 1024 * 1024 } 
 });
 
-// --- 4. MIDDLEWARE DASAR ---
+// --- 4. MIDDLEWARE DASAR & PROXY ---
 app.set('view engine', 'ejs');
 app.set('views', path.join(__dirname, 'views'));
 app.use(express.static(path.join(__dirname, 'public')));
 app.use(bodyParser.urlencoded({ extended: true }));
 app.use(express.json());
 
-const pgSession = require('connect-pg-simple')(session);
+// WAJIB UNTUK VERCEL agar session secure bisa terbaca
+app.set('trust proxy', 1); 
 
+// --- 5. KONFIGURASI SESSION (FIXED) ---
 app.use(session({
     store: new pgSession({
         pool : pool,                
         tableName : 'session',
-        createTableIfMissing: false // Kita sudah buat tabelnya manual di Supabase
+        createTableIfMissing: false 
     }),
     secret: process.env.SESSION_SECRET || 'kunci-rahasia-tatriz',
-    resave: false,
+    resave: true, 
     saveUninitialized: false,       
     cookie: { 
-        maxAge: 12 * 60 * 60 * 1000, // Tepat 12 Jam
-        // Vercel menggunakan HTTPS, jadi secure harus true di production
-        secure: true, 
+        maxAge: 12 * 60 * 60 * 1000, // 12 Jam
+        secure: true,                // HTTPS di Vercel
         httpOnly: true,
-        sameSite: 'lax' // Menjaga sesi tetap aman saat navigasi antar halaman
+        sameSite: 'lax'
     }
 }));
 
