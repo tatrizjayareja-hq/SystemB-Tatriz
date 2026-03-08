@@ -61,13 +61,9 @@
         </thead>
         <tbody>
     <% orders.forEach(po => { %>
-        <% 
-            // Ambil detail untuk PO ini
-            let subDetails = details.filter(d => d.po_id === po.id);
-            
-            // Hitung akumulasi biaya CMT (Jumlah x Harga CMT)
-            let totalBiayaCMT = subDetails.reduce((sum, sub) => sum + (sub.jumlah * sub.harga_cmt), 0);
-        %>
+        <% let subDetails = details.filter(d => Number(d.po_id) === Number(po.id)); %>
+        <% subDetails.forEach(sub => { %>
+        <% }) %>
         
         <tr class="clickable-row" onclick="toggleDetail('<%= po.id %>')">
             <td class="check-col" onclick="event.stopPropagation()">
@@ -107,13 +103,14 @@
                             </tr>
                         </thead>
                         <tbody>
-                            <% subDetails.forEach(sub => { %>
-                                <tr>
+                            <% subDetails.forEach(sub => { %> <tr>
                                     <td><%= sub.nama_desain %> (<%= sub.jenis_bordir %>)</td>
                                     <td><%= sub.jumlah %></td>
-                                    <td>Rp <%= sub.harga_cmt.toLocaleString('id-ID') %></td>
-                                    <td>Rp <%= sub.harga_customer.toLocaleString('id-ID') %></td>
-                                    <td class="untung-text">Rp <%= (sub.jumlah * (sub.harga_customer - sub.harga_cmt)).toLocaleString('id-ID') %></td>
+                                    <td>Rp <%= Number(sub.harga_cmt).toLocaleString('id-ID') %></td>
+                                    <td>Rp <%= Number(sub.harga_customer).toLocaleString('id-ID') %></td>
+                                    <td class="untung-text">
+                                        Rp <%= (Number(sub.jumlah) * (Number(sub.harga_customer) - Number(sub.harga_cmt))).toLocaleString('id-ID') %>
+                                    </td>
                                 </tr>
                             <% }) %>
                         </tbody>

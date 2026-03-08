@@ -1818,73 +1818,62 @@ app.get('/cek-balance', isAdmin, async (req, res) => {
     const bulanIni = req.query.bulan || new Date().toISOString().slice(0, 7);
 
     try {
-        // 1. Ambil Pengaturan Beban Tetap (Kontrakan/Sewa)
         const configRes = await db.query("SELECT * FROM settings WHERE tenant_id = $1", [tId]);
         const conf = configRes.rows[0] || { beban_tetap: 0 };
 
-        // 2. Query Audit Terpusat (Placeholder $1, $2)
-        // PostgreSQL: Gunakan TO_CHAR untuk filter bulan dan COALESCE untuk menangani nilai NULL
+        // Perbaikan Query: Gunakan COALESCE dan Casting ::DATE yang tepat
         const sqlAudit = `
             SELECT 
-                -- ASET RIIL
-                (SELECT COALESCE(SUM(CASE WHEN jenis = 'PEMASUKAN' THEN jumlah ELSE -jumlah END), 0) FROM arus_kas WHERE tenant_id = $1) as s_laci,
-                
+                (SELECT COALESCE(SUM(CASE WHEN jenis = 'PEMASUKAN' THEN jumlah ELSE -jumlah END), 0) 
+                 FROM arus_kas WHERE tenant_id = $1) AS s_laci,
+
                 (SELECT COALESCE(SUM(h.jumlah_setor * d.harga_customer), 0) 
                  FROM hasil_kerja h 
                  JOIN po_detail d ON h.detail_id = d.id 
-                 WHERE TO_CHAR(h.tanggal, 'YYYY-MM') = $2 AND h.tenant_id = $1) as p_prod,
-                
-                (SELECT COALESCE(SUM(jumlah), 0) FROM arus_kas 
+                 WHERE TO_CHAR(h.tanggal::DATE, 'YYYY-MM') = $2 AND h.tenant_id = $1) AS p_prod,
+
+                (SELECT COALESCE(SUM(jumlah), 0) 
+                 FROM arus_kas 
                  WHERE kategori IN ('PEMBAYARAN BORDIR', 'PELUNASAN', 'DP/CICILAN') 
-                 AND TO_CHAR(tanggal, 'YYYY-MM') = $2 AND tenant_id = $1) as p_kas,
-                
+                 AND TO_CHAR(tanggal::DATE, 'YYYY-MM') = $2 AND tenant_id = $1) AS p_kas,
+
                 (SELECT COALESCE(SUM(CASE WHEN kategori = 'PIUTANG' THEN jumlah WHEN kategori = 'SARUTANGAN' THEN -jumlah ELSE 0 END), 0) 
-                 FROM arus_kas WHERE tenant_id = $1) as k_kry,
-                
-                -- KEWAJIBAN
+                 FROM arus_kas WHERE tenant_id = $1) AS k_kry,
+
                 (SELECT COALESCE(SUM(CASE WHEN kategori = 'HUTANG' THEN jumlah WHEN kategori = 'BAYAR HUTANG' THEN -jumlah ELSE 0 END), 0) 
-                 FROM arus_kas WHERE tenant_id = $1) as s_hutang,
-                
-                (SELECT COALESCE(SUM(jumlah), 0) FROM arus_kas 
-                WHERE kategori = 'BIAYA KONTRAKAN' 
-                AND TO_CHAR(tanggal::DATE, 'YYYY-MM') = $2 AND tenant_id = $1) as k_bayar
-                
-                (SELECT COALESCE(SUM(jumlah), 0) FROM arus_kas 
-                 WHERE kategori = 'JATAH PROFIT OWNER' AND TO_CHAR(tanggal, 'YYYY-MM') = $2 AND tenant_id = $1) as j_owner
+                 FROM arus_kas WHERE tenant_id = $1) AS s_hutang,
+
+                (SELECT COALESCE(SUM(jumlah), 0) 
+                 FROM arus_kas 
+                 WHERE kategori = 'BIAYA KONTRAKAN' 
+                 AND TO_CHAR(tanggal::DATE, 'YYYY-MM') = $2 AND tenant_id = $1) AS k_bayar,
+
+                (SELECT COALESCE(SUM(jumlah), 0) 
+                 FROM arus_kas 
+                 WHERE kategori = 'JATAH PROFIT OWNER' 
+                 AND TO_CHAR(tanggal::DATE, 'YYYY-MM') = $2 AND tenant_id = $1) AS j_owner
         `;
 
         const auditRes = await db.query(sqlAudit, [tId, bulanIni]);
         const row = auditRes.rows[0];
 
-        // 3. Logika Perhitungan Finansial
-        const saldoLaci = parseFloat(row.s_laci);
-        const piutangBulanIni = parseFloat(row.p_prod) - parseFloat(row.p_kas);
-        const kasbonKaryawan = parseFloat(row.k_kry);
-        const sisaHutang = parseFloat(row.s_hutang);
-        const jatahOwner = parseFloat(row.j_owner);
-        const kontrakanTerbayar = parseFloat(row.k_bayar);
-
-        const totalUangAda = saldoLaci + piutangBulanIni + kasbonKaryawan;
-        const bebanTetap = parseFloat(conf.beban_tetap || 0);
-        const sisaKontrakan = (bebanTetap - kontrakanTerbayar) < 0 ? 0 : (bebanTetap - kontrakanTerbayar);
-        
-        // Sisa Profit Bersih = Aset Riil - Semua Kewajiban
-        const profitBersih = totalUangAda - sisaHutang - sisaKontrakan - jatahOwner;
-
-        const auditData = {
-            saldoLaci,
-            piutangProduksi: piutangBulanIni,
-            kasbonKaryawan,
-            totalUangAda,
-            sisaHutang,
-            kontrakan: sisaKontrakan,
-            kontrakan_terbayar: kontrakanTerbayar,
-            jatahSudahDiambil: jatahOwner,
-            sisaProfitBersih: profitBersih
+        // Pastikan konversi ke Number/Float dilakukan di sini
+        const data = {
+            saldoLaci: parseFloat(row.s_laci || 0),
+            piutangProduksi: parseFloat(row.p_prod || 0) - parseFloat(row.p_kas || 0),
+            kasbonKaryawan: parseFloat(row.k_kry || 0),
+            sisaHutang: parseFloat(row.s_hutang || 0),
+            kontrakan_terbayar: parseFloat(row.k_bayar || 0),
+            jatahSudahDiambil: parseFloat(row.j_owner || 0)
         };
 
+        const totalUangAda = data.saldoLaci + data.piutangProduksi + data.kasbonKaryawan;
+        const bebanTetap = parseFloat(conf.beban_tetap || 0);
+        const sisaKontrakan = Math.max(0, bebanTetap - data.kontrakan_terbayar);
+        const profitBersih = totalUangAda - data.sisaHutang - sisaKontrakan - data.jatahSudahDiambil;
+
         res.render('cek-balance', { 
-            data: auditData, 
+            data: { ...data, totalUangAda, kontrakan: sisaKontrakan, sisaProfitBersih: profitBersih }, 
             bulanIni: bulanIni 
         });
 
