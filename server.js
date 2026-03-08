@@ -631,63 +631,90 @@ app.get('/delete-po/:id', isAdmin, async (req, res) => {
     }
 });
 
-app.post('/update-po/:id', async (req, res) => {
+app.post('/update-po/:id', isAdmin, async (req, res) => {
     const poId = req.params.id;
     const tId = req.session.tenantId;
+    const tLevel = req.session.tenantLevel; // Ambil level untuk pengecekan
+
     if (!tId) return res.redirect('/');
 
-    const { 
+    let { 
         tanggal, nama_po, customer, status, 
-        jenis_bordir, nama_desain, jumlah, 
-        harga_cmt, harga_operator, harga_customer 
+        detail_ids, jenis_bordir, nama_desain, 
+        jumlah, harga_cmt, harga_operator, harga_customer 
     } = req.body;
 
+    // 1. Pastikan semua input rincian menjadi Array
+    const idList = Array.isArray(detail_ids) ? detail_ids : (detail_ids ? [detail_ids] : []);
+    const jbList = Array.isArray(jenis_bordir) ? jenis_bordir : (jenis_bordir ? [jenis_bordir] : []);
+    const dsList = Array.isArray(nama_desain) ? nama_desain : [nama_desain];
+    const jmlList = Array.isArray(jumlah) ? jumlah : [jumlah];
+    const hrgCmtList = Array.isArray(harga_cmt) ? harga_cmt : [harga_cmt];
+    const hrgOpList = Array.isArray(harga_operator) ? harga_operator : [harga_operator];
+    const hrgCuList = Array.isArray(harga_customer) ? harga_customer : [harga_customer];
+
     try {
+        // Gunakan TRANSACTION agar jika satu gagal, semua batal (Aman)
         await db.query("BEGIN");
 
-        // 1. Hitung ulang total (Sama seperti kode Anda)
-        let totalHargaCust = 0;
-        const jmlArray = Array.isArray(jumlah) ? jumlah : [jumlah];
-        const hrgCustArray = Array.isArray(harga_customer) ? harga_customer : [harga_customer];
-        
-        jmlArray.forEach((qty, i) => {
-            totalHargaCust += (parseFloat(qty) || 0) * (parseFloat(hrgCustArray[i]) || 0);
-        });
-
         // 2. Update Header PO
-        await db.query(`
-            UPDATE po_utama SET 
-                tanggal = $1, nama_po = $2, customer = $3, 
-                status = $4, total_harga_customer = $5 
-            WHERE id = $6 AND tenant_id = $7`,
-            [tanggal, nama_po, customer, status, totalHargaCust, poId, tId]
+        await db.query(
+            `UPDATE po_utama SET tanggal=$1, nama_po=$2, customer=$3, status=$4 
+             WHERE id=$5 AND tenant_id=$6`, 
+            [tanggal, nama_po, customer, status, poId, tId]
         );
 
-        // --- VALIDASI SEBELUM HAPUS ---
-        // Cek apakah sudah ada setoran di po_detail ini
-        const checkWork = await db.get(`
-            SELECT h.id FROM hasil_kerja h 
-            JOIN po_detail d ON h.detail_id = d.id 
-            WHERE d.po_id = $1 LIMIT 1`, [poId]);
+        let totalTagihanBaru = 0;
 
-        if (checkWork) {
-            // Jika sudah ada kerjaan, jangan gunakan metode DELETE. 
-            // Lempar error agar admin tahu harus edit lewat database atau hati-hati.
-            throw new Error("PO ini sudah memiliki riwayat kerja operator. Tidak bisa di-update dengan metode hapus-input.");
+        // 3. Olah Rincian Item secara berurutan
+        for (let i = 0; i < jbList.length; i++) {
+            if (!jbList[i] || jbList[i].trim() === "") continue;
+
+            const qty = Number(jmlList[i]) || 0;
+            const hCu = Number(hrgCuList[i]) || 0;
+            
+            // --- LOGIKA TRIK OTOMATISASI ---
+            let finalHOp, finalHCmt;
+            if (tId !== 1 && tLevel < 2) {
+                finalHOp = hCu;   // Disamakan dengan harga jual (Level 1)
+                finalHCmt = 0;    // Tidak pakai CMT
+            } else {
+                finalHOp = Number(hrgOpList[i]) || 0;
+                finalHCmt = Number(hrgCmtList[i]) || 0;
+            }
+
+            totalTagihanBaru += (qty * hCu);
+
+            if (idList[i] && idList[i] !== "") {
+                // UPDATE: Baris rincian yang sudah ada
+                await db.query(
+                    `UPDATE po_detail SET 
+                        jenis_bordir=$1, nama_desain=$2, jumlah=$3, 
+                        harga_cmt=$4, harga_operator=$5, harga_customer=$6 
+                    WHERE id=$7 AND po_id=$8`,
+                    [jbList[i], dsList[i], qty, finalHCmt, finalHOp, hCu, idList[i], poId]
+                );
+            } else {
+                // INSERT: Baris rincian baru
+                await db.query(
+                    `INSERT INTO po_detail (po_id, jenis_bordir, nama_desain, jumlah, harga_cmt, harga_operator, harga_customer) 
+                    VALUES ($1, $2, $3, $4, $5, $6, $7)`,
+                    [poId, jbList[i], dsList[i], qty, finalHCmt, finalHOp, hCu]
+                );
+            }
         }
-
-        // 3. Jika belum ada kerjaan, hapus dan input ulang (Aman)
-        await db.query("DELETE FROM po_detail WHERE po_id = $1", [poId]);
-
-        // ... Sisa kode INSERT Anda sudah benar (Looping Array) ...
-
+        
+        // 4. Sinkronisasi Total Tagihan di Header
+        await db.query(`UPDATE po_utama SET total_harga_customer = $1 WHERE id = $2`, [totalTagihanBaru, poId]);
+        
         await db.query("COMMIT");
-        res.send("<script>alert('PO Berhasil Diperbarui!'); window.location='/po-data';</script>");
+        console.log(`✅ PO #${poId} updated via PostgreSQL.`);
+        res.redirect('/po-data');
 
     } catch (err) {
         await db.query("ROLLBACK").catch(() => {});
         console.error("🔥 Update PO Error:", err.message);
-        res.send(`<script>alert('Gagal: ${err.message}'); window.history.back();</script>`);
+        res.status(500).send("Gagal update PO: " + err.message);
     }
 });
 

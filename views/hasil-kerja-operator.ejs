@@ -43,6 +43,29 @@
         <a href="/operator" style="margin-top: 20px; text-align:right;background: #0984e3; color: white; padding: 5px 10px; border-radius: 8px; text-decoration: none; font-weight: bold;">+ Input Hasil Lagi</a>
         <a href="/logout" style="margin-top: 20px; text-align:right;background: #e30909; color: white; padding: 5px 10px; border-radius: 8px; text-decoration: none; font-weight: bold;">🚪 Keluar</a>
     </div>
+    <% 
+        let totalGajiMingguIni = 0;
+        
+        // Ambil tanggal hari ini dan tentukan awal minggu (Senin)
+        const sekarang = new Date();
+        const day = sekarang.getDay(); // 0 (Minggu) s/d 6 (Sabtu)
+        const diff = sekarang.getDate() - day + (day === 0 ? -6 : 1); // Penyesuaian ke Senin
+        const awalMinggu = new Date(sekarang.setDate(diff));
+        awalMinggu.setHours(0,0,0,0);
+
+        rows.forEach(r => {
+            const tglData = new Date(r.tanggal);
+            // Jika tanggal data lebih besar atau sama dengan hari Senin minggu ini
+            if(tglData >= awalMinggu) {
+                totalGajiMingguIni += (Number(r.jumlah_setor) * Number(r.harga_operator));
+            }
+        });
+        %>
+
+        <div class="header-box" style="background: #27ae60; color: white; text-align: center;">
+            <small style="opacity: 0.9;">Estimasi Gaji Minggu Ini (Senin - Sekarang):</small>
+            <h2 style="margin: 5px 0 0 0;">Rp <%= totalGajiMingguIni.toLocaleString('id-ID') %></h2>
+        </div>
 
     <div class="rekap-container">
         <table>
