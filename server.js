@@ -2096,6 +2096,73 @@ app.get('/developer/reset-kode/:tId/:newCode', isAdmin, async (req, res) => {
     }
 });
 
+// --- PROSES HAPUS USER GLOBAL + LOG ---
+app.get('/delete-user-global/:id', isAdmin, async (req, res) => {
+    const userId = req.params.id;
+
+    // Proteksi: Hanya Tenant 1 & Jangan hapus diri sendiri
+    if (req.session.tenantId !== 1) return res.status(403).send("Ditolak!");
+    if (userId == req.session.userId) {
+        return res.send("<script>alert('Bahaya! Jangan hapus akun sendiri.'); window.history.back();</script>");
+    }
+
+    try {
+        // Ambil info username untuk log
+        const userRes = await db.query("SELECT username FROM users WHERE id = $1", [userId]);
+        const targetUser = userRes.rows[0]?.username || "Unknown";
+
+        // Eksekusi Hapus
+        await db.query("DELETE FROM users WHERE id = $1", [userId]);
+
+        // Catat ke Log Developer
+        await db.query(`
+            INSERT INTO dev_logs (admin_id, aksi, target_info, keterangan) 
+            VALUES ($1, $2, $3, $4)`, 
+            [req.session.userId, 'DELETE_USER', targetUser, `Akun user id ${userId} dihapus permanen.`]
+        );
+
+        res.redirect('/master-users');
+    } catch (err) {
+        console.error(err);
+        res.status(500).send("Gagal menghapus user.");
+    }
+});
+
+// --- FITUR HAPUS TOTAL DATA TENANT (TOKO) + LOG ---
+app.get('/delete-tenant-complete/:tId', isAdmin, async (req, res) => {
+    const targetId = req.params.tId;
+
+    // Proteksi: Hanya Tenant 1 & Jangan hapus pusat
+    if (req.session.tenantId !== 1 || targetId == 1) return res.status(403).send("Akses Ditolak!");
+
+    try {
+        // Ambil nama perusahaan untuk log
+        const settingRes = await db.query("SELECT nama_perusahaan FROM settings WHERE tenant_id = $1", [targetId]);
+        const targetStore = settingRes.rows[0]?.nama_perusahaan || `Tenant #${targetId}`;
+
+        // Hapus berantai (Sesuai urutan relasi agar tidak error foreign key)
+        await db.query("DELETE FROM hasil_kerja WHERE tenant_id = $1", [targetId]);
+        await db.query("DELETE FROM arus_kas WHERE tenant_id = $1", [targetId]);
+        // Hapus detail PO dulu sebelum hapus PO Utama
+        await db.query("DELETE FROM po_detail WHERE po_id IN (SELECT id FROM po_utama WHERE tenant_id = $1)", [targetId]);
+        await db.query("DELETE FROM po_utama WHERE tenant_id = $1", [targetId]);
+        await db.query("DELETE FROM users WHERE tenant_id = $1", [targetId]);
+        await db.query("DELETE FROM settings WHERE tenant_id = $1", [targetId]);
+
+        // Catat ke Log Developer
+        await db.query(`
+            INSERT INTO dev_logs (admin_id, aksi, target_info, keterangan) 
+            VALUES ($1, $2, $3, $4)`, 
+            [req.session.userId, 'DELETE_TENANT_TOTAL', targetStore, `Seluruh data toko ID ${targetId} dimusnahkan.`]
+        );
+
+        res.redirect('/master-users');
+    } catch (err) {
+        console.error("🔥 Error Hapus Tenant:", err.message);
+        res.status(500).send("Gagal membersihkan data tenant secara total.");
+    }
+});
+
 
 
 
