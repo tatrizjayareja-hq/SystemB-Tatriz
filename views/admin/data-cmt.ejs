@@ -55,15 +55,20 @@
                 <th class="check-col"><input type="checkbox" onclick="pilihSemua(this)"></th>
                 <th>Tgl</th>
                 <th>Nama PO & Customer</th>
-                <th>Total Keuntungan</th>
+                <th>Total Biaya CMT</th>
+                <th>Laba Bersih</th>
                 <th style="text-align: center;">Aksi</th>
             </tr>
         </thead>
         <tbody>
-    <% orders.forEach(po => { %>
-        <% let subDetails = details.filter(d => Number(d.po_id) === Number(po.id)); %>
-        <% subDetails.forEach(sub => { %>
-        <% }) %>
+        <% orders.forEach(po => { %>
+            <% 
+                // Filter detail khusus untuk PO ini
+                let subDetails = details.filter(d => Number(d.po_id) === Number(po.id)); 
+                
+                // Hitung akumulasi biaya CMT sebelum merender baris
+                let totalBiayaCMT = subDetails.reduce((sum, sub) => sum + (Number(sub.jumlah) * Number(sub.harga_cmt)), 0);
+            %>
         
         <tr class="clickable-row" onclick="toggleDetail('<%= po.id %>')">
             <td class="check-col" onclick="event.stopPropagation()">
@@ -82,16 +87,18 @@
 
             <td class="untung-text">
                 <small style="color: #999; font-weight: normal; font-size: 10px; display: block;">Laba Bersih:</small>
-                Rp <%= Number(po.total_untung).toLocaleString('id-ID') %>
+                Rp <%= Number(po.total_untung || 0).toLocaleString('id-ID') %>
             </td>
 
-            <td class="untung-text">
-                Rp <%= (Number(sub.jumlah) * (Number(sub.harga_customer) - Number(sub.harga_cmt))).toLocaleString('id-ID') %>
+            <td style="text-align: center;" onclick="event.stopPropagation()">
+                <button class="btn-quick qc" onclick="updateStatus('<%= po.id %>', 'QC')">SET QC</button>
+                <button class="btn-quick lunas" onclick="updateStatus('<%= po.id %>', 'Lunas')">LUNAS</button>
             </td>
         </tr>
 
         <tr id="detail-<%= po.id %>" class="detail-row">
-            <td colspan="6"> <div class="detail-content">
+            <td colspan="6"> 
+                <div class="detail-content">
                     <table style="width: 100%; font-size: 12px; background: none; box-shadow: none; border-radius: 0;">
                         <thead style="background: #eee;">
                             <tr>
@@ -103,7 +110,8 @@
                             </tr>
                         </thead>
                         <tbody>
-                            <% subDetails.forEach(sub => { %> <tr>
+                            <% subDetails.forEach(sub => { %> 
+                                <tr>
                                     <td><%= sub.nama_desain %> (<%= sub.jenis_bordir %>)</td>
                                     <td><%= sub.jumlah %></td>
                                     <td>Rp <%= Number(sub.harga_cmt).toLocaleString('id-ID') %></td>
@@ -120,6 +128,7 @@
         </tr>
     <% }) %>
 </tbody>
+</table>
 
     <script>
         function toggleDetail(id) {
@@ -149,7 +158,6 @@
             });
         }
 
-        // --- Logika Checkbox & Nota Gabungan (Sama seperti po-data) ---
         function updateCounter() {
             const checked = document.querySelectorAll('.po-checkbox:checked');
             document.getElementById('bulkActionArea').style.display = checked.length > 0 ? 'flex' : 'none';
