@@ -122,8 +122,13 @@
                 <tbody>
                     <% rincianKas.forEach(item => { %>
                         <tr class="<%= item.jenis === 'PEMASUKAN' ? 'row-pemasukan' : 'row-pengeluaran' %>">
-                            <td style="font-size: 10px;"><%= item.tanggal.split('-').reverse().join('/') %></td>
-                            <td>
+                            <td style="font-size: 10px;">
+                                <% if (item.tanggal) { %>
+                                    <%= new Date(item.tanggal).toLocaleDateString('id-ID') %>
+                                <% } else { %>
+                                    -
+                                <% } %>
+                            </td>
                                 <strong><%= item.kategori %></strong><br>
                                 <small class="text-muted" style="font-size: 10px;"><%= item.keterangan %></small>
                                 <% if (item.customer) { %>
