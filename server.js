@@ -66,6 +66,18 @@ app.use(session({
     cookie: { maxAge: 3600000 }
 }));
 
+app.use((req, res, next) => {
+    // res.locals membuat variabel 'user' otomatis tersedia di SEMUA file .ejs
+    res.locals.user = req.session.userId ? {
+        id: req.session.userId,
+        username: req.session.username,
+        nama_lengkap: req.session.nama_lengkap,
+        role: req.session.role,
+        tenantId: req.session.tenantId
+    } : null;
+    next(); // Sangat penting agar request berlanjut ke rute di bawahnya
+});
+
 // --- RUTE HALAMAN LOGIN ---
 app.get('/', async (req, res) => {
     try {
@@ -85,41 +97,44 @@ app.get('/', async (req, res) => {
 // --- PROSES LOGIN ---
 app.post('/login', async (req, res) => {
     const { username, password } = req.body;
-    // Di dalam rute app.post('/login', ...)
-    const checkStatus = await db.query("SELECT is_active FROM settings WHERE tenant_id = $1", [user.tenant_id]);
 
-    if (checkStatus.rows[0] && checkStatus.rows[0].is_active === false) {
-        return res.send("<script>alert('Akses Ditangguhkan! Harap hubungi Admin Tatriz SystemB.'); window.history.back();</script>");
-    }
-    
     try {
-        const sql = `
-            SELECT u.*, s.level, s.password_admin 
-            FROM users u 
-            LEFT JOIN settings s ON u.tenant_id = s.tenant_id 
-            WHERE u.username = $1
-        `;
-        
-        const user = await db.get(sql, [username]);
+        // 1. Cari user berdasarkan username & password
+        const result = await db.query(
+            "SELECT * FROM users WHERE username = $1 AND password = $2",
+            [username, password]
+        );
 
-        if (user && user.password === password) {
-            // Simpan data ke Session
-            req.session.userId = user.id;
-            req.session.role = user.role;
-            req.session.tenantId = user.tenant_id;
-            req.session.tenantLevel = user.level || 1;
-            req.session.nama_lengkap = user.nama_lengkap;
+        if (result.rows.length > 0) {
+            const loggedInUser = result.rows[0]; // Kita beri nama variabel yang jelas
 
-            if (user.role === 'admin') {
-                return res.redirect('/dashboard');
+            // 2. CEK STATUS AKTIF TENANT (Fitur Suspend)
+            const statusRes = await db.query(
+                "SELECT is_active FROM settings WHERE tenant_id = $1",
+                [loggedInUser.tenant_id]
+            );
+
+            const settings = statusRes.rows[0];
+
+            // Jika statusnya FALSE (di-suspend), blokir aksesnya
+            if (settings && settings.is_active === false) {
+                return res.send("<script>alert('Akses Ditangguhkan! Hubungi Admin Tatriz.'); window.history.back();</script>");
             }
-            return res.redirect('/operator');
+
+            // 3. JIKA AKTIF, BUAT SESSION
+            req.session.userId = loggedInUser.id;
+            req.session.username = loggedInUser.username;
+            req.session.nama_lengkap = loggedInUser.nama_lengkap;
+            req.session.role = loggedInUser.role;
+            req.session.tenantId = loggedInUser.tenant_id;
+
+            res.redirect('/dashboard');
         } else {
-            return res.send("<script>alert('Login Gagal! Username atau Password salah.'); window.location='/';</script>");
+            res.send("<script>alert('User tidak ditemukan atau password salah'); window.history.back();</script>");
         }
     } catch (err) {
-        console.error("🔥 Login Error:", err.message);
-        res.status(500).send("Terjadi kesalahan pada database.");
+        console.error("Login Error:", err);
+        res.status(500).send("Terjadi kesalahan pada server.");
     }
 });
 
