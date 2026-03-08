@@ -54,21 +54,33 @@
             </thead>
             <tbody id="rekapTable">
                 <% 
-                   // Mengelompokkan data berdasarkan tanggal di sisi tampilan (EJS)
-                   const grouped = {};
-                   rows.forEach(r => {
-                       if (!grouped[r.tanggal]) grouped[r.tanggal] = { items: [], total: 0 };
-                       grouped[r.tanggal].items.push(r);
-                       grouped[r.tanggal].total += (r.jumlah_setor * r.harga_operator);
-                   });
+                        // Mengelompokkan data berdasarkan tanggal
+                        const grouped = {};
+                        rows.forEach(r => {
+                            // Pastikan kunci tanggal ada
+                            if (!grouped[r.tanggal]) grouped[r.tanggal] = { items: [], total: 0 };
+                            
+                            // Konversi paksa ke Angka untuk mencegah NaN (Sangat Penting!)
+                            const qty = Number(r.jumlah_setor) || 0;
+                            const harga = Number(r.harga_operator) || 0;
+                            const subtotal = qty * harga;
 
-                   Object.keys(grouped).forEach((tgl, index) => { 
-                       let dataHarian = grouped[tgl];
-                       let bonusHarian = 0;
-                       if (dataHarian.total >= 500000) {
-                           bonusHarian = 10000 + (Math.floor((dataHarian.total - 500000) / 100000) * 5000);
-                       }
-                %>
+                            grouped[r.tanggal].items.push(r);
+                            grouped[r.tanggal].total += subtotal;
+                        });
+
+                        // Urutkan tanggal terbaru di atas
+                        const sortedDates = Object.keys(grouped).sort((a, b) => new Date(b) - new Date(a));
+
+                        sortedDates.forEach((tgl, index) => { 
+                            let dataHarian = grouped[tgl];
+                            let bonusHarian = 0;
+                            
+                            // Contoh Logika Bonus: 500rb dapat 10rb, dst.
+                            if (dataHarian.total >= 500000) {
+                                bonusHarian = 10000 + (Math.floor((dataHarian.total - 500000) / 100000) * 5000);
+                            }
+                        %>
                 <tr class="row-tanggal" onclick="toggleLaci('<%= index %>')">
                     <td>
                         <span class="tgl-text">
