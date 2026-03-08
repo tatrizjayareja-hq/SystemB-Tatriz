@@ -40,6 +40,7 @@
                 </thead>
                 <tbody>
                     <% for(let d = 1; d <= jumlahHari; d++) { 
+                        // Pastikan format tglKey adalah YYYY-MM-DD agar sinkron dengan SQL
                         let tglKey = bulanIni + "-" + String(d).padStart(2, '0');
                         let dataTgl = matriks[tglKey] || null;
                     %>

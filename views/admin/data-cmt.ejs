@@ -81,17 +81,16 @@
             
             <td style="color: #d63031; font-weight: bold;">
                 <small style="color: #999; font-weight: normal; font-size: 10px; display: block;">Biaya CMT:</small>
-                Rp <%= totalBiayaCMT.toLocaleString('id-ID') %>
+                Rp <%= Number(totalBiayaCMT).toLocaleString('id-ID') %>
             </td>
 
             <td class="untung-text">
                 <small style="color: #999; font-weight: normal; font-size: 10px; display: block;">Laba Bersih:</small>
-                Rp <%= po.total_untung.toLocaleString('id-ID') %>
+                Rp <%= Number(po.total_untung).toLocaleString('id-ID') %>
             </td>
 
-            <td style="text-align: center;" onclick="event.stopPropagation()">
-                <button class="btn-quick qc" onclick="updateStatus('<%= po.id %>', 'QC')">SET QC</button>
-                <button class="btn-quick lunas" onclick="updateStatus('<%= po.id %>', 'Lunas')">LUNAS</button>
+            <td class="untung-text">
+                Rp <%= (Number(sub.jumlah) * (Number(sub.harga_customer) - Number(sub.harga_cmt))).toLocaleString('id-ID') %>
             </td>
         </tr>
 

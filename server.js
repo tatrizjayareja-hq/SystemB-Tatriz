@@ -1689,6 +1689,209 @@ app.get('/cetak-nota-rinci/:id', isAdmin, async (req, res) => {
     }
 });
 
+app.get('/performa-operator', isAdmin, async (req, res) => {
+    const tId = req.session.tenantId;
+    // Ambil bulan dari query atau default bulan sekarang (YYYY-MM)
+    const bulanIni = req.query.bulan || new Date().toISOString().slice(0, 7);
+    const targetHarian = 500000;
+
+    try {
+        // 1. Ambil daftar operator
+        const sqlOps = `
+            SELECT id, nama_lengkap 
+            FROM users 
+            WHERE tenant_id = $1 AND role = 'operator' 
+            ORDER BY nama_lengkap ASC
+        `;
+        const opsRes = await db.query(sqlOps, [tId]);
+        const operators = opsRes.rows;
+
+        // 2. Ambil data hasil kerja berdasarkan bulan
+        // Menggunakan TO_CHAR(tanggal, 'YYYY-MM') untuk filter bulan di PostgreSQL
+        const sqlData = `
+            SELECT 
+                TO_CHAR(h.tanggal, 'YYYY-MM-DD') as tgl_key, 
+                h.operator_id, 
+                SUM(h.jumlah_setor * d.harga_operator) as upah_op,
+                SUM(h.jumlah_setor * d.harga_customer) as omzet_cust
+            FROM hasil_kerja h
+            JOIN po_detail d ON h.detail_id = d.id
+            WHERE TO_CHAR(h.tanggal, 'YYYY-MM') = $1 AND h.tenant_id = $2
+            GROUP BY TO_CHAR(h.tanggal, 'YYYY-MM-DD'), h.operator_id
+        `;
+        const dataRes = await db.query(sqlData, [bulanIni, tId]);
+        const records = dataRes.rows;
+
+        // 3. Olah data ke dalam Matriks dan Performa
+        const matriks = {};
+        const performaOps = {};
+
+        // Inisialisasi performa tiap operator agar tidak undefined di Chart
+        operators.forEach(op => {
+            performaOps[op.id] = { nama: op.nama_lengkap, totalUpah: 0, kaliCapaiTarget: 0 };
+        });
+
+        records.forEach(r => {
+            // Gunakan tgl_key (Format: YYYY-MM-DD)
+            if (!matriks[r.tgl_key]) {
+                matriks[r.tgl_key] = { total_omzet_cust: 0, total_upah_op: 0 };
+            }
+            
+            // Masukkan data ke matriks tabel
+            matriks[r.tgl_key][r.operator_id] = parseFloat(r.upah_op);
+            matriks[r.tgl_key].total_upah_op += parseFloat(r.upah_op);
+            matriks[r.tgl_key].total_omzet_cust += parseFloat(r.omzet_cust);
+
+            // Akumulasi performa untuk Chart
+            if (performaOps[r.operator_id]) {
+                performaOps[r.operator_id].totalUpah += parseFloat(r.upah_op);
+                if (parseFloat(r.upah_op) >= targetHarian) {
+                    performaOps[r.operator_id].kaliCapaiTarget += 1;
+                }
+            }
+        });
+
+        // 4. Hitung Jumlah Hari dalam bulan tersebut
+        const [tahun, bulan] = bulanIni.split('-').map(Number);
+        const jumlahHari = new Date(tahun, bulan, 0).getDate();
+
+        // 5. Render ke halaman
+        res.render('admin/performa-operator', {
+            bulanIni,
+            operators,
+            matriks,
+            performaOps,
+            jumlahHari,
+            config: res.locals.config || { nama_aplikasi: "Tatriz System" }
+        });
+
+    } catch (err) {
+        console.error("Error Performa Operator:", err.message);
+        res.status(500).send("Gagal memuat data performa: " + err.message);
+    }
+});
+
+app.get('/admin/data-cmt', isAdmin, async (req, res) => {
+    const tId = req.session.tenantId;
+
+    try {
+        // 1. Query Utama: PO Status CMT
+        // PostgreSQL mewajibkan semua kolom non-aggregate masuk ke GROUP BY
+        const sqlOrders = `
+            SELECT p.id, p.tanggal, p.nama_po, p.customer, p.status, p.tenant_id,
+            SUM(d.jumlah * (d.harga_customer - d.harga_cmt)) as total_untung
+            FROM po_utama p
+            JOIN po_detail d ON p.id = d.po_id
+            WHERE p.status = 'CMT' AND p.tenant_id = $1
+            GROUP BY p.id, p.tanggal, p.nama_po, p.customer, p.status, p.tenant_id
+            ORDER BY p.tanggal DESC
+        `;
+
+        const ordersRes = await db.query(sqlOrders, [tId]);
+        const orders = ordersRes.rows;
+
+        // 2. Query Detail: Untuk rincian di dalam "Laci" (Drawer)
+        const sqlDetails = `
+            SELECT d.* FROM po_detail d
+            JOIN po_utama p ON d.po_id = p.id
+            WHERE p.status = 'CMT' AND p.tenant_id = $1
+        `;
+
+        const detailsRes = await db.query(sqlDetails, [tId]);
+        const allDetails = detailsRes.rows;
+
+        // 3. Render ke halaman
+        res.render('admin/data-cmt', { 
+            orders: orders || [], 
+            details: allDetails || [] 
+        });
+
+    } catch (err) {
+        console.error("Database Error CMT:", err.message);
+        res.status(500).send("Gagal memuat data CMT: " + err.message);
+    }
+});
+
+app.get('/cek-balance', isAdmin, async (req, res) => {
+    const tId = req.session.tenantId;
+    const bulanIni = req.query.bulan || new Date().toISOString().slice(0, 7);
+
+    try {
+        // 1. Ambil Pengaturan Beban Tetap (Kontrakan/Sewa)
+        const configRes = await db.query("SELECT * FROM settings WHERE tenant_id = $1", [tId]);
+        const conf = configRes.rows[0] || { beban_tetap: 0 };
+
+        // 2. Query Audit Terpusat (Placeholder $1, $2)
+        // PostgreSQL: Gunakan TO_CHAR untuk filter bulan dan COALESCE untuk menangani nilai NULL
+        const sqlAudit = `
+            SELECT 
+                -- ASET RIIL
+                (SELECT COALESCE(SUM(CASE WHEN jenis = 'PEMASUKAN' THEN jumlah ELSE -jumlah END), 0) FROM arus_kas WHERE tenant_id = $1) as s_laci,
+                
+                (SELECT COALESCE(SUM(h.jumlah_setor * d.harga_customer), 0) 
+                 FROM hasil_kerja h 
+                 JOIN po_detail d ON h.detail_id = d.id 
+                 WHERE TO_CHAR(h.tanggal, 'YYYY-MM') = $2 AND h.tenant_id = $1) as p_prod,
+                
+                (SELECT COALESCE(SUM(jumlah), 0) FROM arus_kas 
+                 WHERE kategori IN ('PEMBAYARAN BORDIR', 'PELUNASAN', 'DP/CICILAN') 
+                 AND TO_CHAR(tanggal, 'YYYY-MM') = $2 AND tenant_id = $1) as p_kas,
+                
+                (SELECT COALESCE(SUM(CASE WHEN kategori = 'PIUTANG' THEN jumlah WHEN kategori = 'SARUTANGAN' THEN -jumlah ELSE 0 END), 0) 
+                 FROM arus_kas WHERE tenant_id = $1) as k_kry,
+                
+                -- KEWAJIBAN
+                (SELECT COALESCE(SUM(CASE WHEN kategori = 'HUTANG' THEN jumlah WHEN kategori = 'BAYAR HUTANG' THEN -jumlah ELSE 0 END), 0) 
+                 FROM arus_kas WHERE tenant_id = $1) as s_hutang,
+                
+                (SELECT COALESCE(SUM(jumlah), 0) FROM arus_kas 
+                 WHERE kategori = 'BIAYA KONTRAKAN' AND TO_CHAR(tanggal, 'YYYY-MM') = $2 AND tenant_id = $1) as k_bayar,
+                
+                (SELECT COALESCE(SUM(jumlah), 0) FROM arus_kas 
+                 WHERE kategori = 'JATAH PROFIT OWNER' AND TO_CHAR(tanggal, 'YYYY-MM') = $2 AND tenant_id = $1) as j_owner
+        `;
+
+        const auditRes = await db.query(sqlAudit, [tId, bulanIni]);
+        const row = auditRes.rows[0];
+
+        // 3. Logika Perhitungan Finansial
+        const saldoLaci = parseFloat(row.s_laci);
+        const piutangBulanIni = parseFloat(row.p_prod) - parseFloat(row.p_kas);
+        const kasbonKaryawan = parseFloat(row.k_kry);
+        const sisaHutang = parseFloat(row.s_hutang);
+        const jatahOwner = parseFloat(row.j_owner);
+        const kontrakanTerbayar = parseFloat(row.k_bayar);
+
+        const totalUangAda = saldoLaci + piutangBulanIni + kasbonKaryawan;
+        const bebanTetap = parseFloat(conf.beban_tetap || 0);
+        const sisaKontrakan = (bebanTetap - kontrakanTerbayar) < 0 ? 0 : (bebanTetap - kontrakanTerbayar);
+        
+        // Sisa Profit Bersih = Aset Riil - Semua Kewajiban
+        const profitBersih = totalUangAda - sisaHutang - sisaKontrakan - jatahOwner;
+
+        const auditData = {
+            saldoLaci,
+            piutangProduksi: piutangBulanIni,
+            kasbonKaryawan,
+            totalUangAda,
+            sisaHutang,
+            kontrakan: sisaKontrakan,
+            kontrakan_terbayar: kontrakanTerbayar,
+            jatahSudahDiambil: jatahOwner,
+            sisaProfitBersih: profitBersih
+        };
+
+        res.render('cek-balance', { 
+            data: auditData, 
+            bulanIni: bulanIni 
+        });
+
+    } catch (err) {
+        console.error("❌ Audit Balance Error:", err.message);
+        res.status(500).send("Gagal menghitung balance: " + err.message);
+    }
+});
+
 
 
 

@@ -102,7 +102,7 @@
                     <div class="d-flex justify-content-between align-items-center">
                         <span class="total-label text-danger fw-bold small">TOTAL ALOKASI AUDIT</span>
                         <% 
-                            let totalAlokasi = data.sisaHutang + data.kontrakan + data.jatahSudahDiambil + data.sisaProfitBersih;
+                            let totalAlokasi = Number(data.sisaHutang) + Number(data.kontrakan) + Number(data.jatahSudahDiambil) + Number(data.sisaProfitBersih);
                         %>
                         <span class="total-value text-danger fw-bold" style="font-size: 1.2rem;">Rp <%= totalAlokasi.toLocaleString('id-ID') %></span>
                     </div>
