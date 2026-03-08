@@ -1590,43 +1590,59 @@ app.post('/proses-print-gaji', isAdmin, (req, res) => {
     });
 });
 
-app.get('/cetak-nota/:id', isAdmin, (req, res) => {
+app.get('/cetak-nota/:id', isAdmin, async (req, res) => {
     const tId = req.session.tenantId;
     const poId = req.params.id;
 
-    // 1. Ambil Pengaturan Toko (Logo, Alamat, Nama Perusahaan)
-    db.get("SELECT * FROM settings WHERE tenant_id = ?", [tId], (err, configRow) => {
-        const config = configRow || { 
+    try {
+        // 1. Ambil Pengaturan Toko (Gunakan $1 untuk PostgreSQL)
+        const configRes = await db.query("SELECT * FROM settings WHERE tenant_id = $1", [tId]);
+        const config = configRes.rows[0] || { 
             nama_perusahaan: "Tatriz System", 
             alamat: "Alamat belum diatur", 
             no_hp: "-", 
             logo_path: "default-logo.png" 
         };
 
-        // 2. Ambil Data PO dan Hitung Total Bayar dari Arus Kas
+        // 2. Query PO dengan Subquery untuk Total Bayar
+        // Kita pastikan jenis 'PEMASUKAN' agar saldo akurat
         const sqlPO = `
             SELECT p.*, 
             (SELECT SUM(jumlah) FROM arus_kas WHERE po_id = p.id AND jenis = 'PEMASUKAN') as total_bayar 
             FROM po_utama p 
-            WHERE p.id = ? AND p.tenant_id = ?`;
+            WHERE p.id = $1 AND p.tenant_id = $2
+        `;
 
-        db.get(sqlPO, [poId, tId], (err, po) => {
-            if (err || !po) return res.status(404).send("Data PO tidak ditemukan.");
+        const poRes = await db.query(sqlPO, [poId, tId]);
+        const po = poRes.rows[0];
 
-            // 3. Ambil Detail Desain/Barang dalam PO tersebut
-            db.all("SELECT * FROM po_detail WHERE po_id = ?", [poId], (err, details) => {
-                if (err) return res.status(500).send("Gagal mengambil detail PO.");
+        // Jika PO tidak ditemukan
+        if (!po) {
+            return res.status(404).send(`
+                <script>
+                    alert("Data PO tidak ditemukan!");
+                    window.close();
+                </script>
+            `);
+        }
 
-                // 4. Render ke file EJS (Pastikan foldernya benar: admin/cetak-nota)
-                res.render('admin/cetak-nota', { 
-                    po, 
-                    details, 
-                    config,
-                    tgl_sekarang: new Date().toLocaleDateString('id-ID')
-                });
-            });
+        // 3. Ambil Detail PO (Daftar barang/desain)
+        const detailsRes = await db.query("SELECT * FROM po_detail WHERE po_id = $1", [poId]);
+        const details = detailsRes.rows;
+
+        // 4. Render ke halaman nota
+        res.render('admin/cetak-nota', { 
+            po, 
+            details, 
+            config,
+            tgl_sekarang: new Date().toLocaleDateString('id-ID')
         });
-    });
+
+    } catch (err) {
+        // Log error di console server agar mudah dilacak
+        console.error("Kesalahan SQL Cetak Nota:", err.message);
+        res.status(500).send("Gagal memproses nota: " + err.message);
+    }
 });
 
 
