@@ -7,7 +7,7 @@
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.1/font/bootstrap-icons.css">
     <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
     <style>
-        /* CSS Tambahan untuk Gembok */
+        /* CSS Dashboard Original & Gembok */
         .menu-locked { opacity: 0.6; position: relative; }
         .menu-locked i.bi-lock-fill { 
             font-size: 12px; 
@@ -52,6 +52,10 @@
         }
         .menu-item i { margin-right: 15px; color: #7f8c8d; font-size: 18px; width: 25px; text-align: center; }
         .piutang-banner { background: var(--dark); color: white; padding: 20px; border-radius: 15px; text-align: center; margin-top: 10px; }
+        
+        /* Animasi halu saat buka gembok */
+        #profitSection { animation: fadeIn 0.3s ease-in; }
+        @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
     </style>
 </head>
 <body>
@@ -80,7 +84,11 @@
             <div style="display: flex; justify-content: space-between; align-items: flex-start;">
                 <div>
                     <small style="font-weight: bold; color: #7f8c8d; text-transform: uppercase; font-size: 10px;">Saldo Kas Laci (Riil)</small>
-                    <h2 style="margin: 0; color: var(--dark); font-weight: 800;">Rp <%= uangKunci.saldoLaci.toLocaleString('id-ID') %></h2>
+                    <h2 style="margin: 0; color: var(--dark); font-weight: 800;">
+                        <span id="labelSaldo">Rp ******</span>
+                        <span id="valSaldo" style="display: none;">Rp <%= uangKunci.saldoLaci.toLocaleString('id-ID') %></span>
+                        <i class="bi bi-eye-slash" id="toggleEye" onclick="togglePrivasi()" style="margin-left: 10px; cursor: pointer; color: #95a5a6; font-size: 16px;"></i>
+                    </h2>
                 </div>
                 
                 <span class="status-badge <%= uangKunci.statusAman ? 'badge-aman' : 'badge-kritis' %>">
@@ -89,7 +97,7 @@
             </div>
 
             <% if (user.tenantId === 1 || user.tenantLevel >= 2) { %>
-                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 15px; padding-top: 15px; border-top: 1px dotted #ddd;">
+                <div id="profitSection" style="display: none; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 15px; padding-top: 15px; border-top: 1px dotted #ddd;">
                     <div>
                         <small style="color: #95a5a6; font-size: 10px; font-weight: bold;">🔒 UANG DIKUNCI</small><br>
                         <strong style="font-size: 13px;">Rp <%= uangKunci.totalUangDikunci.toLocaleString('id-ID') %></strong>
@@ -98,6 +106,9 @@
                         <small style="color: #95a5a6; font-size: 10px; font-weight: bold;">💰 PROFIT SIAP TARIK</small><br>
                         <strong style="font-size: 16px; color: var(--primary);">Rp <%= uangKunci.profitBolehAmbil.toLocaleString('id-ID') %></strong>
                     </div>
+                </div>
+                <div id="profitHidden" style="text-align: center; margin-top: 10px; font-size: 10px; color: #bdc3c7;">
+                    Klik ikon mata untuk melihat analisis profit
                 </div>
             <% } else { %>
                 <div onclick="ajakUpgrade('Analisis Profit Riil')" style="margin-top: 15px; padding: 15px; background: #f8f9fa; border-radius: 12px; cursor: pointer; border: 1px dashed #ddd; text-align: center;">
@@ -175,13 +186,6 @@
                 <a href="/piutang-customer" style="color: var(--primary); text-decoration: none; font-size: 11px; font-weight: bold;">BUAT PENAGIHAN SEKARANG →</a>
             </div>
         <% } %>
-        <% if (user.tenantId === 1) { %>
-            <div class="mt-3">
-                <a href="/master-users" class="btn btn-dark btn-sm">
-                    <i class="fas fa-tools"></i> Developer Mode
-                </a>
-            </div>
-        <% } %>
 
         <div style="text-align: center; margin-top: 30px; opacity: 0.5; font-size: 10px;">
             &copy; 2026 <%= config.nama_perusahaan %> | Tatriz Online v2.1
@@ -190,6 +194,28 @@
     </div>
 
     <script>
+        function togglePrivasi() {
+            const val = document.getElementById('valSaldo');
+            const label = document.getElementById('labelSaldo');
+            const eye = document.getElementById('toggleEye');
+            const profit = document.getElementById('profitSection');
+            const profitHidden = document.getElementById('profitHidden');
+
+            if (val.style.display === 'none') {
+                val.style.display = 'inline';
+                label.style.display = 'none';
+                eye.classList.replace('bi-eye-slash', 'bi-eye');
+                if(profit) profit.style.display = 'grid';
+                if(profitHidden) profitHidden.style.display = 'none';
+            } else {
+                val.style.display = 'none';
+                label.style.display = 'inline';
+                eye.classList.replace('bi-eye', 'bi-eye-slash');
+                if(profit) profit.style.display = 'none';
+                if(profitHidden) profitHidden.style.display = 'block';
+            }
+        }
+
         function ajakUpgrade(fitur) {
             Swal.fire({
                 title: 'Fitur Terkunci!',
@@ -202,7 +228,6 @@
                 cancelButtonText: 'Nanti Dulu'
             }).then((result) => {
                 if (result.isConfirmed) {
-                    // Masukkan link WhatsApp Anda di sini
                     window.open('https://wa.me/+6281315290003?text=Halo%20Admin%20Tatriz,%20saya%20tertarik%20untuk%20upgrade%20ke%20Akun%20PRO', '_blank');
                 }
             });
