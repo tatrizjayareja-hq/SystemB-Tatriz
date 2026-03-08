@@ -536,17 +536,39 @@ app.post('/update-status/:id', async (req, res) => {
     }
 });
 
-app.get('/delete-po/:id', async (req, res) => {
-    if (!req.session.userId) return res.redirect('/');
+app.get('/delete-po/:id', isAdmin, async (req, res) => {
     const poId = req.params.id;
     const tId = req.session.tenantId;
 
     try {
-        // Karena kita pakai CASCADE di database, menghapus po_utama akan otomatis menghapus po_detail terkait
+        // Mulai transaksi (agar jika satu gagal, semua batal)
+        await db.query('BEGIN');
+
+        // 1. Hapus Arus Kas yang berhubungan dengan PO ini
+        await db.query("DELETE FROM arus_kas WHERE po_id = $1 AND tenant_id = $2", [poId, tId]);
+
+        // 2. Hapus Hasil Kerja (karena hasil_kerja biasanya nyambung ke po_detail)
+        // Kita gunakan subquery untuk mencari detail mana saja yang milik PO ini
+        await db.query(`
+            DELETE FROM hasil_kerja 
+            WHERE detail_id IN (SELECT id FROM po_detail WHERE po_id = $1)
+            AND tenant_id = $2
+        `, [poId, tId]);
+
+        // 3. Hapus po_detail
+        await db.query("DELETE FROM po_detail WHERE po_id = $1", [poId]);
+
+        // 4. Baru hapus po_utama (Akar masalahnya)
         await db.query("DELETE FROM po_utama WHERE id = $1 AND tenant_id = $2", [poId, tId]);
+
+        // Selesaikan transaksi
+        await db.query('COMMIT');
+        
         res.redirect('/po-data');
     } catch (err) {
-        res.status(500).send("Gagal menghapus PO.");
+        await db.query('ROLLBACK'); // Batalkan semua jika ada error
+        console.error("Detail Error Hapus PO:", err.message);
+        res.status(500).send("Gagal menghapus PO karena masih ada data kas atau hasil kerja yang terikat.");
     }
 });
 
