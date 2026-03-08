@@ -1708,16 +1708,17 @@ app.get('/performa-operator', isAdmin, async (req, res) => {
 
         // 2. Ambil data hasil kerja berdasarkan bulan
         // Menggunakan TO_CHAR(tanggal, 'YYYY-MM') untuk filter bulan di PostgreSQL
+        // Ganti query sqlData Anda dengan yang ini:
         const sqlData = `
             SELECT 
-                TO_CHAR(h.tanggal, 'YYYY-MM-DD') as tgl_key, 
+                TO_CHAR(h.tanggal::DATE, 'YYYY-MM-DD') as tgl_key, 
                 h.operator_id, 
                 SUM(h.jumlah_setor * d.harga_operator) as upah_op,
                 SUM(h.jumlah_setor * d.harga_customer) as omzet_cust
             FROM hasil_kerja h
             JOIN po_detail d ON h.detail_id = d.id
-            WHERE TO_CHAR(h.tanggal, 'YYYY-MM') = $1 AND h.tenant_id = $2
-            GROUP BY TO_CHAR(h.tanggal, 'YYYY-MM-DD'), h.operator_id
+            WHERE TO_CHAR(h.tanggal::DATE, 'YYYY-MM') = $1 AND h.tenant_id = $2
+            GROUP BY TO_CHAR(h.tanggal::DATE, 'YYYY-MM-DD'), h.operator_id
         `;
         const dataRes = await db.query(sqlData, [bulanIni, tId]);
         const records = dataRes.rows;
@@ -1845,7 +1846,8 @@ app.get('/cek-balance', isAdmin, async (req, res) => {
                  FROM arus_kas WHERE tenant_id = $1) as s_hutang,
                 
                 (SELECT COALESCE(SUM(jumlah), 0) FROM arus_kas 
-                 WHERE kategori = 'BIAYA KONTRAKAN' AND TO_CHAR(tanggal, 'YYYY-MM') = $2 AND tenant_id = $1) as k_bayar,
+                WHERE kategori = 'BIAYA KONTRAKAN' 
+                AND TO_CHAR(tanggal::DATE, 'YYYY-MM') = $2 AND tenant_id = $1) as k_bayar
                 
                 (SELECT COALESCE(SUM(jumlah), 0) FROM arus_kas 
                  WHERE kategori = 'JATAH PROFIT OWNER' AND TO_CHAR(tanggal, 'YYYY-MM') = $2 AND tenant_id = $1) as j_owner
