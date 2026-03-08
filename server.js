@@ -1883,6 +1883,95 @@ app.get('/cek-balance', isAdmin, async (req, res) => {
     }
 });
 
+const ExcelJS = require('exceljs');
+
+app.get('/backup-database', isAdmin, async (req, res) => {
+    const tId = req.session.tenantId;
+    const tgl = new Date().toISOString().slice(0, 10);
+    const fileName = `Backup_Produksi_Tatriz_${tgl}.xlsx`;
+
+    try {
+        const workbook = new ExcelJS.Workbook();
+        
+        // --- SHEET 1: PRODUKSI & OPERATOR ---
+        const sheetProduksi = workbook.addWorksheet('Data Produksi Lengkap');
+        
+        sheetProduksi.columns = [
+            { header: 'Tanggal Kerja', key: 'tgl_kerja', width: 15 },
+            { header: 'Nama PO', key: 'nama_po', width: 25 },
+            { header: 'Customer', key: 'customer', width: 20 },
+            { header: 'Nama Desain', key: 'nama_desain', width: 25 },
+            { header: 'Operator', key: 'nama_operator', width: 20 },
+            { header: 'Jumlah Setor', key: 'jumlah_setor', width: 12 },
+            { header: 'Harga Cust', key: 'harga_customer', width: 15 },
+            { header: 'Harga Op', key: 'harga_operator', width: 15 },
+            { header: 'Omzet (Cust)', key: 'omzet', width: 18 },
+            { header: 'Upah (Op)', key: 'upah', width: 18 }
+        ];
+
+        // Query JOIN 4 Tabel: PO Utama, PO Detail, Hasil Kerja, dan Users (Operator)
+        const sqlProduksi = `
+            SELECT 
+                TO_CHAR(h.tanggal, 'YYYY-MM-DD') as tgl_kerja,
+                p.nama_po, p.customer,
+                d.nama_desain,
+                u.nama_lengkap as nama_operator,
+                h.jumlah_setor,
+                d.harga_customer,
+                d.harga_operator,
+                (h.jumlah_setor * d.harga_customer) as omzet,
+                (h.jumlah_setor * d.harga_operator) as upah
+            FROM hasil_kerja h
+            JOIN po_detail d ON h.detail_id = d.id
+            JOIN po_utama p ON d.po_id = p.id
+            JOIN users u ON h.operator_id = u.id
+            WHERE h.tenant_id = $1
+            ORDER BY h.tanggal DESC, p.nama_po ASC
+        `;
+
+        const prodRes = await db.query(sqlProduksi, [tId]);
+        sheetProduksi.addRows(prodRes.rows);
+
+        // --- SHEET 2: ARUS KAS ---
+        const sheetKas = workbook.addWorksheet('Arus Kas');
+        sheetKas.columns = [
+            { header: 'Tanggal', key: 'tgl_kas', width: 15 },
+            { header: 'Kategori', key: 'kategori', width: 20 },
+            { header: 'Keterangan', key: 'keterangan', width: 35 },
+            { header: 'Jenis', key: 'jenis', width: 12 },
+            { header: 'Jumlah (Rp)', key: 'jumlah', width: 15 }
+        ];
+
+        const kasRes = await db.query(
+            "SELECT TO_CHAR(tanggal, 'YYYY-MM-DD') as tgl_kas, kategori, keterangan, jenis, jumlah FROM arus_kas WHERE tenant_id = $1 ORDER BY tanggal DESC", 
+            [tId]
+        );
+        sheetKas.addRows(kasRes.rows);
+
+        // --- STYLING & FORMATTING ---
+        [sheetProduksi, sheetKas].forEach(sheet => {
+            // Header Tebal
+            sheet.getRow(1).font = { bold: true };
+            // Auto-filter agar mudah dicari di Excel
+            sheet.autoFilter = {
+                from: { row: 1, column: 1 },
+                to: { row: 1, column: sheet.columns.length }
+            };
+        });
+
+        // --- PROSES KIRIM ---
+        res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+        res.setHeader('Content-Disposition', `attachment; filename=${fileName}`);
+
+        await workbook.xlsx.write(res);
+        res.end();
+
+    } catch (err) {
+        console.error("Gagal Backup Excel:", err.message);
+        res.status(500).send("Gagal mengeksport data ke Excel.");
+    }
+});
+
 
 
 
