@@ -236,7 +236,7 @@ app.get('/dashboard', async (req, res) => {
     const tId = req.session.tenantId;
 
     try {
-        // 1. Statistik Status PO (Sudah benar)
+        // 1. Statistik Status PO
         const stats = await db.get(`
             SELECT 
                 COUNT(CASE WHEN status = 'Design' THEN 1 END) as jml_design,
@@ -245,14 +245,14 @@ app.get('/dashboard', async (req, res) => {
                 COUNT(CASE WHEN status = 'DP/Cicil' THEN 1 END) as jml_cicil
             FROM po_utama WHERE tenant_id = $1`, [tId]);
 
-        // 2. Hitung Total Piutang (Sudah benar)
+        // 2. Hitung Total Piutang
         const piutangRes = await db.get(`
             SELECT (
                 COALESCE((SELECT SUM(total_harga_customer) FROM po_utama WHERE tenant_id = $1), 0) - 
                 COALESCE((SELECT SUM(jumlah) FROM arus_kas WHERE kategori IN ('PEMBAYARAN BORDIR', 'PELUNASAN', 'DP/CICILAN') AND tenant_id = $1), 0)
             ) as total_piutang`, [tId]);
 
-        // 3. Cek Masalah Produksi (DIPERBAIKI: Tambahkan d.jumlah ke GROUP BY)
+        // 3. Cek Masalah Produksi
         const masalahRes = await db.get(`
             SELECT COUNT(*) as total FROM (
                 SELECT h.detail_id 
@@ -263,10 +263,13 @@ app.get('/dashboard', async (req, res) => {
                 HAVING SUM(h.jumlah_setor) > d.jumlah
             ) as subquery`, [tId]);
 
+        // --- INI PERUBAHANNYA ---
         res.render('dashboard', {
             stats: stats || { jml_design: 0, jml_produksi: 0, jml_invoice: 0, jml_cicil: 0 },
             totalPiutangSemua: parseFloat(piutangRes?.total_piutang || 0),
-            jumlahMasalah: parseInt(masalahRes?.total || 0)
+            jumlahMasalah: parseInt(masalahRes?.total || 0),
+            // Tambahkan baris di bawah ini agar data dari Middleware terkirim ke EJS:
+            uangKunci: res.locals.uangKunci 
         });
 
     } catch (err) {
