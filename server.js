@@ -1645,6 +1645,50 @@ app.get('/cetak-nota/:id', isAdmin, async (req, res) => {
     }
 });
 
+app.get('/cetak-nota-rinci/:id', isAdmin, async (req, res) => {
+    const tId = req.session.tenantId;
+    const poId = req.params.id;
+
+    try {
+        // 1. Ambil data Pengaturan (Config)
+        const configRes = await db.query("SELECT * FROM settings WHERE tenant_id = $1", [tId]);
+        const config = configRes.rows[0] || { 
+            nama_perusahaan: "Tatriz System", 
+            alamat: "-", 
+            no_hp: "-", 
+            logo_path: "default.png" 
+        };
+
+        // 2. Ambil data Header PO + Total Bayar (Gunakan $1, $2 untuk PostgreSQL)
+        const sqlPo = `
+            SELECT p.*, 
+            (SELECT SUM(jumlah) FROM arus_kas WHERE po_id = p.id AND tenant_id = $1 AND jenis = 'PEMASUKAN') as total_bayar
+            FROM po_utama p 
+            WHERE p.id = $2 AND p.tenant_id = $3
+        `;
+
+        const poRes = await db.query(sqlPo, [tId, poId, tId]);
+        const po = poRes.rows[0];
+
+        if (!po) return res.status(404).send("Nota tidak ditemukan.");
+
+        // 3. Ambil detail item bordir
+        const sqlDetails = `SELECT * FROM po_detail WHERE po_id = $1`;
+        const detailsRes = await db.query(sqlDetails, [poId]);
+
+        // 4. Render ke halaman (Pastikan nama file cetak-nota-rinci.ejs)
+        res.render('cetak-nota-rinci', { 
+            po: po, 
+            details: detailsRes.rows || [],
+            config: config
+        });
+
+    } catch (err) {
+        console.error("Error Cetak Nota Rinci:", err.message);
+        res.status(500).send("Gagal memuat nota rinci.");
+    }
+});
+
 
 
 
