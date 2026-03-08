@@ -17,6 +17,7 @@
 
         /* Container bagi 4 (Grid 2x2) */
         .grid-container {
+            page-break-after: always;
             display: grid;
             grid-template-columns: 1fr 1fr; 
             grid-template-rows: 1fr 1fr;
@@ -97,57 +98,55 @@
                             <td class="text-right">Jabatan: Operator</td>
                         </tr>
                     </table>
+                    <tr>
+                        <td>
+                            Gaji Pokok <br>
+                            <span class="text-muted">(Rp <%= op.gp.toLocaleString('id-ID') %> x <%= op.hari_full %> Hari)</span>
+                        </td>
+                        <td class="text-right" style="vertical-align: bottom;">
+                            Rp <%= (op.gp * op.hari_full).toLocaleString('id-ID') %>
+                        </td>
+                    </tr>
 
-                    <table>
-                        <tr>
-                            <td>
-                                Gaji Pokok <br>
-                                <span class="text-muted">(Rp <%= op.gp.toLocaleString('id-ID') %> x <%= op.hari_kerja %> Hari)</span>
-                            </td>
-                            <td class="text-right" style="vertical-align: bottom;">
-                                Rp <%= (op.gp * op.hari_kerja).toLocaleString('id-ID') %>
-                            </td>
-                        </tr>
+                    <% if (op.jam_sisa > 0) { %>
+                    <tr>
+                        <td>
+                            Jam Kerja Tambahan <br>
+                            <span class="text-muted">(Rp <%= (op.gp/8).toLocaleString('id-ID') %> x <%= op.jam_sisa %> Jam)</span>
+                        </td>
+                        <td class="text-right" style="vertical-align: bottom;">
+                            Rp <%= Math.round(op.gp/8 * op.jam_sisa).toLocaleString('id-ID') %>
+                        </td>
+                    </tr>
+                    <% } %>
 
-                        <% if (op.jam_sisa > 0) { %>
-                        <tr>
-                            <td>
-                                Jam Kerja Tambahan <br>
-                                <span class="text-muted">(Rp <%= (op.gp/8).toLocaleString('id-ID') %> x <%= op.jam_sisa %> Jam)</span>
-                            </td>
-                            <td class="text-right" style="vertical-align: bottom;">
-                                Rp <%= Math.round(op.gp/8 * op.jam_sisa).toLocaleString('id-ID') %>
-                            </td>
-                        </tr>
-                        <% } %>
+                    <tr>
+                        <td>
+                            Lembur <br>
+                            <span class="text-muted">(Rp <%= (op.gp/4).toLocaleString('id-ID') %> x <%= op.lembur %> Sesi)</span>
+                        </td>
+                        <td class="text-right" style="vertical-align: bottom;">
+                            Rp <%= (op.gp/4 * op.lembur).toLocaleString('id-ID') %>
+                        </td>
+                    </tr>
 
-                        <tr>
-                            <td>
-                                Lembur <br>
-                                <span class="text-muted">(Rp <%= (op.gp/4).toLocaleString('id-ID') %> x <%= op.lembur %> Sesi)</span>
-                            </td>
-                            <td class="text-right" style="vertical-align: bottom;">
-                                Rp <%= (op.gp/4 * op.lembur).toLocaleString('id-ID') %>
-                            </td>
-                        </tr>
+                    <tr>
+                        <td>Bonus Target (Borongan)</td>
+                        <td class="text-right">Rp <%= op.bonus_target.toLocaleString('id-ID') %></td>
+                    </tr>
 
-                        <tr>
-                            <td>Borongan & Bonus Target</td>
-                            <td class="text-right">Rp <%= op.borongan_bonus.toLocaleString('id-ID') %></td>
-                        </tr>
+                    <tr>
+                        <td>Potongan Kasbon</td>
+                        <td class="text-right text-danger">- Rp <%= op.kasbon.toLocaleString('id-ID') %></td>
+                    </tr>
 
-                        <tr>
-                            <td>Potongan Kasbon</td>
-                            <td class="text-right text-danger">- Rp <%= op.kasbon.toLocaleString('id-ID') %></td>
-                        </tr>
-
-                        <tr class="total-row">
-                            <td style="padding-top: 5px;">TOTAL DITERIMA</td>
-                            <td class="text-right" style="padding-top: 5px;">
-                                Rp <%= Math.round(op.totalFinal).toLocaleString('id-ID') %>
-                            </td>
-                        </tr>
-                    </table>
+                    <tr class="total-row">
+                        <td style="padding-top: 5px;">TOTAL DITERIMA</td>
+                        <td class="text-right" style="padding-top: 5px;">
+                            Rp <%= op.totalFinal.toLocaleString('id-ID') %>
+                        </td>
+                    </tr>
+                </table>
                 </div>
 
                 <div style="font-size: 8px; font-style: italic; margin-top: 10px; display: flex; justify-content: space-between; border-top: 0.5px solid #eee; padding-top: 4px;">

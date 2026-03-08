@@ -1519,67 +1519,75 @@ app.get('/input-gaji', isAdmin, async (req, res) => {
     }
 });
 
-app.post('/proses-print-gaji', isAdmin, async (req, res) => {
+app.post('/proses-print-gaji', isAdmin, (req, res) => {
     const tId = req.session.tenantId;
     const { tgl_awal, tgl_akhir, operator_ids, nama, gp, hari_kerja, lembur, bonus, kasbon } = req.body;
 
-    try {
-        const config = await db.get("SELECT * FROM settings WHERE tenant_id = $1", [tId]);
+    db.get("SELECT * FROM settings WHERE tenant_id = ?", [tId], (err, configRow) => {
+        if (err) return res.status(500).send("Gagal mengambil pengaturan.");
+        
+        const config = configRow || { nama_perusahaan: "Tatriz" };
 
-        // Pastikan input array
-        const nmList = Array.isArray(nama) ? nama : [nama];
-        const gpList = Array.isArray(gp) ? gp : [gp];
-        const hkList = Array.isArray(hari_kerja) ? hari_kerja : [hari_kerja];
-        const lbList = Array.isArray(lembur) ? lembur : [lembur];
-        const bnList = Array.isArray(bonus) ? bonus : [bonus];
-        const kbList = Array.isArray(kasbon) ? kasbon : [kasbon];
+        // Helper untuk memastikan input adalah array
+        const toArray = (val) => Array.isArray(val) ? val : [val];
 
-        let dataGaji = nmList.map((nm, i) => {
-            let gajiPokok = parseFloat(gpList[i]) || 0;
-            let inputHK = String(hkList[i]) || "0";
-            
-            // Logika Titik (Hari.Jam) -> 5.6 artinya 5 hari 6 jam
-            let [hariFull, jamSisa] = inputHK.split('.').map(num => parseFloat(num) || 0);
+        const ids = toArray(operator_ids);
+        const nmList = toArray(nama);
+        const gpList = toArray(gp);
+        const hkList = toArray(hari_kerja);
+        const lbList = toArray(lembur);
+        const bnList = toArray(bonus); // Ini adalah Bonus Target (Borongan) yang sudah fix
+        const kbList = toArray(kasbon);
 
+        let dataGaji = [];
+
+        for (let i = 0; i < ids.length; i++) {
+            let gajiPokok = Number(gpList[i]) || 0;
+            let inputHK = String(hkList[i] || "0").replace(',', '.');
+            let jamLembur = Number(lbList[i]) || 0;
+            let bonusTarget = Number(bnList[i]) || 0; // Langsung ambil nilainya
+            let totalKasbon = Number(kbList[i]) || 0;
+
+            // Logika Pemisah Hari dan Jam (Contoh: 5.4)
+            let hariFull = 0;
+            let jamSisa = 0;
+
+            if (inputHK.includes('.')) {
+                let bagian = inputHK.split('.');
+                hariFull = parseInt(bagian[0]) || 0;
+                jamSisa = parseInt(bagian[1]) || 0; // Mengambil angka di belakang titik sebagai jam
+            } else {
+                hariFull = parseInt(inputHK) || 0;
+            }
+
+            // Rumus Perhitungan
             let nominalHari = hariFull * gajiPokok;
             let nominalJamSisa = (gajiPokok / 8) * jamSisa;
-            let nominalLembur = (gajiPokok / 4) * (parseFloat(lbList[i]) || 0);
+            let nominalLembur = (gajiPokok / 4) * jamLembur; // 1 Sesi = 2 Jam (GP/4)
             
-            let totalFinal = nominalHari + nominalJamSisa + nominalLembur + parseFloat(bnList[i]) - parseFloat(kbList[i]);
+            let totalFinal = nominalHari + nominalJamSisa + nominalLembur + bonusTarget - totalKasbon;
 
-            return {
-                nama: nm,
+            dataGaji.push({
+                nama: nmList[i],
                 gp: gajiPokok,
-                hari_kerja: hariFull,
+                hari_kerja_tampil: inputHK, // Untuk tampilan di slip (misal: 6.0)
+                hari_full: hariFull,
                 jam_sisa: jamSisa,
-                lembur: lbList[i],
-                borongan_bonus: bnList[i],
-                kasbon: kbList[i],
+                lembur: jamLembur,
+                bonus_target: bonusTarget,
+                kasbon: totalKasbon,
                 totalFinal: Math.round(totalFinal)
-            };
-        });
+            });
+        }
 
         res.render('admin/cetak-slip', { 
-            dataGaji, tgl_awal, tgl_akhir, 
-            config: config || { nama_perusahaan: "Tatriz" },
+            dataGaji, 
+            tgl_awal,
+            tgl_akhir,
+            config: config,
             user: req.session 
         });
-
-    } catch (err) {
-        res.status(500).send("Gagal mencetak slip.");
-    }
-});
-
-app.get('/nota-manual', isAdmin, async (req, res) => {
-    const tId = req.session.tenantId;
-    try {
-        const config = await db.get("SELECT * FROM settings WHERE tenant_id = $1", [tId]);
-        // Berikan nilai default jika config kosong
-        const safeConfig = config || { logo_path: 'default.png', nama_perusahaan: 'Tatriz' };
-        res.render('nota-manual', { config: safeConfig });
-    } catch (err) {
-        res.status(500).send("Error");
-    }
+    });
 });
 
 
