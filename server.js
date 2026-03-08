@@ -815,6 +815,7 @@ app.get('/laporan-kas', isAdmin, async (req, res) => {
         const rowP = rowPRes.rows[0];
 
         // 3. Query Rincian Transaksi (Ganti LIKE dengan TO_CHAR)
+        // Di server.js bagian rincian transaksi
         const rincianRes = await db.query(`
             SELECT ak.*, p.customer, p.nama_po 
             FROM arus_kas ak 
