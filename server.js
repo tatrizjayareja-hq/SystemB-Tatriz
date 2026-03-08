@@ -300,34 +300,42 @@ app.get('/register', (req, res) => {
 
 // Proses Pendaftaran Tenant
 app.post('/register-tenant', async (req, res) => {
-    const { nama_toko, username, password } = req.body;
+    const { nama_toko, username, password, activation_code } = req.body;
 
     try {
-        const row = await db.get("SELECT MAX(tenant_id) as maxid FROM settings");
-        let currentMax = parseInt(row?.maxid || 0);
+        // 1. Ambil Kode Aktivasi yang sah dari Tenant 1 (Pusat)
+        const masterRes = await db.query("SELECT registration_secret FROM settings WHERE tenant_id = 1");
+        const validCode = masterRes.rows[0]?.registration_secret || 'SYSTEMB2026';
+
+        // 2. Validasi Kode
+        if (activation_code !== validCode) {
+            return res.send("<script>alert('Kode Aktivasi Salah atau Kadaluwarsa!'); window.history.back();</script>");
+        }
+
+        // 3. Tentukan Tenant ID baru
+        const row = await db.query("SELECT MAX(tenant_id) as maxid FROM settings");
+        let currentMax = parseInt(row.rows[0]?.maxid || 0);
         let newTenantId = (currentMax < 100) ? 100 : currentMax + 1;
 
         await db.query("BEGIN");
-        
-        // --- PERBAIKAN DI SINI ---
-        // Ada 4 Kolom: tenant_id, nama_perusahaan, level, nama_aplikasi
-        // Maka harus ada 4 buah $ ( $1, $2, $3, $4 )
+
+        // 4. Simpan ke Settings (Nama aplikasi otomatis: Tatriz SystemB)
         await db.query(
-            "INSERT INTO settings (tenant_id, nama_perusahaan, level, nama_aplikasi) VALUES ($1, $2, 1, $3)",
-            [newTenantId, nama_toko, 'TATRIZ ONLINE']
+            "INSERT INTO settings (tenant_id, nama_perusahaan, level, nama_aplikasi, registration_secret) VALUES ($1, $2, 1, $3, $4)",
+            [newTenantId, nama_toko, 'Tatriz SystemB', validCode] 
         );
 
-        // Simpan Akun User
+        // 5. Simpan Akun User
         await db.query(
             "INSERT INTO users (tenant_id, username, password, role, nama_lengkap) VALUES ($1, $2, $3, 'admin', $4)",
             [newTenantId, username, password, 'Owner ' + nama_toko]
         );
 
         await db.query("COMMIT");
-        res.send("<script>alert('Pendaftaran Berhasil!'); window.location='/';</script>");
+        res.send("<script>alert('Pendaftaran Berhasil! Silakan Login.'); window.location='/';</script>");
 
     } catch (err) {
-        await db.query("ROLLBACK");
+        if (db) await db.query("ROLLBACK");
         console.error("🔥 Register Error:", err.message);
         res.send("<script>alert('Gagal mendaftar: " + err.message + "'); window.history.back();</script>");
     }
