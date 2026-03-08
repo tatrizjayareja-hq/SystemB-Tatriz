@@ -110,19 +110,19 @@ app.get('/', async (req, res) => {
 // --- PROSES LOGIN ---
 app.post('/login', async (req, res) => {
     const { username, password } = req.body;
+    console.log(`Log: Mencoba login untuk user: ${username}`);
 
     try {
-        // 1. Cari user berdasarkan username & password
         const result = await db.query(
             "SELECT * FROM users WHERE username = $1 AND password = $2",
             [username, password]
         );
 
-        // --- CEK APAKAH USER DITEMUKAN ---
         if (result.rows.length > 0) {
             const loggedInUser = result.rows[0];
+            console.log(`Log: User ditemukan, Tenant ID: ${loggedInUser.tenant_id}`);
 
-            // 2. CEK STATUS AKTIF TENANT (Fitur Suspend)
+            // Cek Status Tenant
             const statusRes = await db.query(
                 "SELECT is_active FROM settings WHERE tenant_id = $1",
                 [loggedInUser.tenant_id]
@@ -130,33 +130,41 @@ app.post('/login', async (req, res) => {
 
             const settings = statusRes.rows[0];
 
-            // Jika statusnya FALSE (di-suspend), blokir aksesnya
             if (settings && settings.is_active === false) {
+                console.log("Log: Akses ditangguhkan (Suspended)");
                 return res.send("<script>alert('Akses Ditangguhkan! Hubungi Admin Tatriz.'); window.history.back();</script>");
             }
 
-            // 3. JIKA AKTIF, BUAT SESSION
+            // SIMPAN SESSION
             req.session.userId = loggedInUser.id;
             req.session.username = loggedInUser.username;
             req.session.nama_lengkap = loggedInUser.nama_lengkap;
             req.session.role = loggedInUser.role;
             req.session.tenantId = loggedInUser.tenant_id;
 
-            // 4. REDIRECT BERDASARKAN ROLE
-            if (loggedInUser.role === 'admin') {
-                res.redirect('/dashboard');
-            } else {
-                // Operator dan QC langsung ke halaman operator
-                res.redirect('/operator');
-            }
+            // Paksa simpan session sebelum redirect (PENTING untuk Vercel/Serverless)
+            req.session.save((err) => {
+                if (err) {
+                    console.error("Log: Gagal simpan session:", err);
+                    return res.status(500).send("Gagal menyimpan sesi.");
+                }
+                
+                console.log(`Log: Login sukses, redirect ke role: ${loggedInUser.role}`);
+                if (loggedInUser.role === 'admin') {
+                    res.redirect('/dashboard');
+                } else {
+                    res.redirect('/operator');
+                }
+            });
+
         } else {
-            // --- INI YANG TADI KURANG: JIKA USER TIDAK DITEMUKAN ---
+            console.log("Log: Username/Password salah");
             res.send("<script>alert('Username atau Password salah!'); window.history.back();</script>");
         }
 
     } catch (err) {
-        console.error("Login Error:", err);
-        res.status(500).send("Terjadi kesalahan pada server.");
+        console.error("🔥 Login Error:", err);
+        res.status(500).send("Terjadi kesalahan pada server. Cek Log Vercel.");
     }
 });
 
