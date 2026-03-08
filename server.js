@@ -59,11 +59,24 @@ app.use(express.static(path.join(__dirname, 'public')));
 app.use(bodyParser.urlencoded({ extended: true }));
 app.use(express.json());
 
+const pgSession = require('connect-pg-simple')(session);
+
 app.use(session({
+    store: new pgSession({
+        pool : pool,                
+        tableName : 'session',
+        createTableIfMissing: false // Kita sudah buat tabelnya manual di Supabase
+    }),
     secret: process.env.SESSION_SECRET || 'kunci-rahasia-tatriz',
     resave: false,
-    saveUninitialized: true,
-    cookie: { maxAge: 3600000 }
+    saveUninitialized: false,       
+    cookie: { 
+        maxAge: 12 * 60 * 60 * 1000, // Tepat 12 Jam
+        // Vercel menggunakan HTTPS, jadi secure harus true di production
+        secure: true, 
+        httpOnly: true,
+        sameSite: 'lax' // Menjaga sesi tetap aman saat navigasi antar halaman
+    }
 }));
 
 app.use((req, res, next) => {
@@ -105,8 +118,9 @@ app.post('/login', async (req, res) => {
             [username, password]
         );
 
+        // --- CEK APAKAH USER DITEMUKAN ---
         if (result.rows.length > 0) {
-            const loggedInUser = result.rows[0]; // Kita beri nama variabel yang jelas
+            const loggedInUser = result.rows[0];
 
             // 2. CEK STATUS AKTIF TENANT (Fitur Suspend)
             const statusRes = await db.query(
@@ -128,10 +142,18 @@ app.post('/login', async (req, res) => {
             req.session.role = loggedInUser.role;
             req.session.tenantId = loggedInUser.tenant_id;
 
-            res.redirect('/dashboard');
+            // 4. REDIRECT BERDASARKAN ROLE
+            if (loggedInUser.role === 'admin') {
+                res.redirect('/dashboard');
+            } else {
+                // Operator dan QC langsung ke halaman operator
+                res.redirect('/operator');
+            }
         } else {
-            res.send("<script>alert('User tidak ditemukan atau password salah'); window.history.back();</script>");
+            // --- INI YANG TADI KURANG: JIKA USER TIDAK DITEMUKAN ---
+            res.send("<script>alert('Username atau Password salah!'); window.history.back();</script>");
         }
+
     } catch (err) {
         console.error("Login Error:", err);
         res.status(500).send("Terjadi kesalahan pada server.");
@@ -1055,11 +1077,11 @@ app.get('/hapus-karyawan/:id', isAdmin, async (req, res) => {
 
 app.get('/operator', async (req, res) => {
     if (!req.session.userId) return res.redirect('/');
-    
+    if (req.session.role === 'admin') return res.redirect('/dashboard');
     const userId = req.session.userId;
     const tId = req.session.tenantId;
-    const tglHariIni = new Date().toISOString().split('T')[0];
-
+    const tglHariIni = new Intl.DateTimeFormat('en-CA', { 
+    timeZone: 'Asia/Jakarta' }).format(new Date()); // Menghasilkan "YYYY-MM-DD"
     try {
         // 1. Ambil PO yang statusnya 'Produksi' dan setorannya BELUM memenuhi target
         // PostgreSQL menggunakan HAVING dengan perhitungan manual karena alias kadang bermasalah
