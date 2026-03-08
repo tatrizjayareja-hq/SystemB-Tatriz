@@ -788,20 +788,21 @@ app.get('/laporan-kas', isAdmin, async (req, res) => {
     const bulanIni = req.query.bulan || new Date().toISOString().slice(0, 7);
     
     try {
-        // 0. Ambil Config
-        const config = await db.get("SELECT * FROM settings WHERE tenant_id = $1", [tId]);
-        const conf = config || { beban_tetap: 0, nominal_buffer: 0 };
+        // 0. Ambil Config (Gunakan db.query)
+        const configRes = await db.query("SELECT * FROM settings WHERE tenant_id = $1", [tId]);
+        const conf = configRes.rows[0] || { beban_tetap: 0, nominal_buffer: 0 };
 
-        // 1. Query Statistik Keuangan (Gunakan LIKE dengan $1 || '%')
+        // 1. Query Statistik Keuangan (Ganti LIKE dengan TO_CHAR)
         const sqlData = `
             SELECT 
-                (SELECT SUM(h.jumlah_setor * d.harga_customer) FROM hasil_kerja h JOIN po_detail d ON h.detail_id = d.id WHERE h.tanggal LIKE $1 || '%' AND h.tenant_id = $2) as prod_bln,
-                (SELECT SUM(jumlah) FROM arus_kas WHERE jenis = 'PENGELUARAN' AND kategori NOT IN ('BIAYA KONTRAKAN', 'BAYAR HUTANG') AND tanggal LIKE $1 || '%' AND tenant_id = $2) as op_bln,
-                (SELECT SUM(jumlah) FROM arus_kas WHERE kategori = 'BIAYA KONTRAKAN' AND tanggal LIKE $1 || '%' AND tenant_id = $2) as k_bayar_bln,
+                (SELECT SUM(h.jumlah_setor * d.harga_customer) FROM hasil_kerja h JOIN po_detail d ON h.detail_id = d.id WHERE TO_CHAR(h.tanggal::DATE, 'YYYY-MM') = $1 AND h.tenant_id = $2) as prod_bln,
+                (SELECT SUM(jumlah) FROM arus_kas WHERE jenis = 'PENGELUARAN' AND kategori NOT IN ('BIAYA KONTRAKAN', 'BAYAR HUTANG') AND TO_CHAR(tanggal::DATE, 'YYYY-MM') = $1 AND tenant_id = $2) as op_bln,
+                (SELECT SUM(jumlah) FROM arus_kas WHERE kategori = 'BIAYA KONTRAKAN' AND TO_CHAR(tanggal::DATE, 'YYYY-MM') = $1 AND tenant_id = $2) as k_bayar_bln,
                 (SELECT SUM(CASE WHEN kategori = 'HUTANG' THEN jumlah WHEN kategori = 'BAYAR HUTANG' THEN -jumlah ELSE 0 END) FROM arus_kas WHERE tenant_id = $2) as hutang_riil,
                 (SELECT SUM(CASE WHEN jenis = 'PEMASUKAN' THEN jumlah ELSE -jumlah END) FROM arus_kas WHERE tenant_id = $2) as saldo_laci
         `;
-        const data = await db.get(sqlData, [bulanIni, tId]);
+        const dataRes = await db.query(sqlData, [bulanIni, tId]);
+        const data = dataRes.rows[0];
 
         // 2. Query Piutang Berjalan (Akumulatif)
         const sqlPiutang = `
@@ -810,28 +811,29 @@ app.get('/laporan-kas', isAdmin, async (req, res) => {
                 COALESCE((SELECT SUM(jumlah) FROM arus_kas WHERE kategori IN ('PEMBAYARAN BORDIR', 'PELUNASAN', 'DP/CICILAN') AND tenant_id = $1), 0)
             ) as piutang_total
         `;
-        const rowP = await db.get(sqlPiutang, [tId]);
+        const rowPRes = await db.query(sqlPiutang, [tId]);
+        const rowP = rowPRes.rows[0];
 
-        // 3. Query Rincian Transaksi
-        const rincian = await db.all(`
+        // 3. Query Rincian Transaksi (Ganti LIKE dengan TO_CHAR)
+        const rincianRes = await db.query(`
             SELECT ak.*, p.customer, p.nama_po 
             FROM arus_kas ak 
             LEFT JOIN po_utama p ON ak.po_id = p.id 
-            WHERE ak.tanggal LIKE $1 || '%' AND ak.tenant_id = $2
+            WHERE TO_CHAR(ak.tanggal::DATE, 'YYYY-MM') = $1 AND ak.tenant_id = $2
             ORDER BY ak.tanggal DESC, ak.id DESC
         `, [bulanIni, tId]);
 
-        // 4. Query Omzet Harian
-        const monitor = await db.all(`
-            SELECT h.tanggal, SUM(h.jumlah_setor * d.harga_customer) as total_harian
+        // 4. Query Omzet Harian (Ganti LIKE dengan TO_CHAR)
+        const monitorRes = await db.query(`
+            SELECT TO_CHAR(h.tanggal::DATE, 'YYYY-MM-DD') as tanggal, SUM(h.jumlah_setor * d.harga_customer) as total_harian
             FROM hasil_kerja h 
             JOIN po_detail d ON h.detail_id = d.id 
-            WHERE h.tanggal LIKE $1 || '%' AND h.tenant_id = $2
+            WHERE TO_CHAR(h.tanggal::DATE, 'YYYY-MM') = $1 AND h.tenant_id = $2
             GROUP BY h.tanggal 
             ORDER BY h.tanggal DESC
         `, [bulanIni, tId]);
 
-        // PERHITUNGAN
+        // PERHITUNGAN (Gunakan parseFloat karena SUM di PG seringkali String)
         const prod = parseFloat(data?.prod_bln || 0);
         const op = parseFloat(data?.op_bln || 0);
         const k_terbayar = parseFloat(data?.k_bayar_bln || 0);
@@ -847,14 +849,14 @@ app.get('/laporan-kas', isAdmin, async (req, res) => {
             estimasiProfit,
             saldoRiil: parseFloat(data?.saldo_laci || 0),
             piutangBerjalan: parseFloat(rowP?.piutang_total || 0),
-            monitorHarian: monitor || [],
-            rincianKas: rincian || [],
+            monitorHarian: monitorRes.rows || [],
+            rincianKas: rincianRes.rows || [],
             config: conf
         });
 
     } catch (err) {
         console.error("🔥 Laporan Kas Error:", err.message);
-        res.status(500).send("Gagal memuat laporan kas.");
+        res.status(500).send("Gagal memuat laporan kas: " + err.message);
     }
 });
 
@@ -1281,11 +1283,11 @@ app.get('/daftar-produksi', isAdmin, async (req, res) => {
     const tId = req.session.tenantId;
     const bulanIni = req.query.bulan || new Date().toISOString().slice(0, 7);
 
-    // Query super lengkap disesuaikan untuk PostgreSQL
+    // Query diperbaiki untuk PostgreSQL: TO_CHAR untuk tanggal dan db.query untuk eksekusi
     const sql = `
         SELECT 
             h.id as "ID_PROD", 
-            h.tanggal as "TANGGAL", 
+            TO_CHAR(h.tanggal::DATE, 'YYYY-MM-DD') as "TANGGAL", 
             h.shift as "SHIFT", 
             u.nama_lengkap as "OP", 
             p.nama_po as "NAMA_PO", 
@@ -1301,21 +1303,22 @@ app.get('/daftar-produksi', isAdmin, async (req, res) => {
         JOIN users u ON h.operator_id = u.id
         JOIN po_utama p ON h.po_id = p.id
         JOIN po_detail d ON h.detail_id = d.id
-        WHERE h.tanggal LIKE $1 || '%' AND h.tenant_id = $2
+        WHERE TO_CHAR(h.tanggal::DATE, 'YYYY-MM') = $1 AND h.tenant_id = $2
         ORDER BY h.tanggal DESC, h.id DESC
     `;
 
     try {
-        const rows = await db.all(sql, [bulanIni, tId]);
+        // Gunakan db.query (PostgreSQL) bukan db.all (SQLite)
+        const result = await db.query(sql, [bulanIni, tId]);
         
         res.render('admin/daftar-produksi', { 
-            dataProduksi: rows || [], 
+            dataProduksi: result.rows || [], // Data ada di properti .rows
             bulanIni: bulanIni,
             user: req.session 
         });
     } catch (err) {
         console.error("🔥 Error Daftar Produksi:", err.message);
-        res.status(500).send("Gagal memuat log produksi.");
+        res.status(500).send("Gagal memuat log produksi: " + err.message);
     }
 });
 
