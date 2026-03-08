@@ -2027,7 +2027,7 @@ app.get('/backup-database', isAdmin, async (req, res) => {
     }
 });
 
-// --- HALAMAN MASTER USERS + LOG ---
+// --- 1. HALAMAN MASTER USERS + LOG ---
 app.get('/master-users', isAdmin, async (req, res) => {
     if (req.session.tenantId !== 1) {
         return res.status(403).send("Akses Ditolak: Fitur Khusus Developer!");
@@ -2037,7 +2037,7 @@ app.get('/master-users', isAdmin, async (req, res) => {
         // Ambil Data User & Tenant
         const userSql = `
             SELECT u.id, u.username, u.nama_lengkap, u.role, u.tenant_id, 
-                   s.nama_perusahaan, s.level 
+                   s.nama_perusahaan, s.level, s.is_active 
             FROM users u 
             LEFT JOIN settings s ON u.tenant_id = s.tenant_id 
             ORDER BY u.tenant_id ASC
@@ -2063,7 +2063,7 @@ app.get('/master-users', isAdmin, async (req, res) => {
     }
 });
 
-// --- UPDATE LEVEL TENANT + LOG ---
+// --- 2. UPDATE LEVEL TENANT + LOG ---
 app.get('/update-level/:tId/:newLevel', isAdmin, async (req, res) => {
     if (req.session.tenantId !== 1) return res.status(403).send("Ditolak!");
     const { tId, newLevel } = req.params;
@@ -2071,8 +2071,8 @@ app.get('/update-level/:tId/:newLevel', isAdmin, async (req, res) => {
     try {
         await db.query("UPDATE settings SET level = $1 WHERE tenant_id = $2", [newLevel, tId]);
         
-        // Catat Log
-        await db.query("INSERT INTO dev_logs (admin_id, aksi, target_info, keterangan) VALUES ($1, $2, $3, $4)", 
+        await db.query(`INSERT INTO dev_logs (admin_id, aksi, target_info, keterangan) 
+                        VALUES ($1, $2, $3, $4)`, 
             [req.session.userId, 'UPDATE_LEVEL', `Tenant #${tId}`, `Level diubah ke ${newLevel == 2 ? 'PRO' : 'STD'}`]);
 
         res.redirect('/master-users');
@@ -2081,7 +2081,7 @@ app.get('/update-level/:tId/:newLevel', isAdmin, async (req, res) => {
     }
 });
 
-// --- RESET PASSWORD MASTER + LOG ---
+// --- 3. RESET PASSWORD MASTER + LOG ---
 app.get('/developer/reset-pass/:uId/:newPass', isAdmin, async (req, res) => {
     if (req.session.tenantId !== 1) return res.status(403).send("Ditolak!");
     const { uId, newPass } = req.params;
@@ -2090,8 +2090,9 @@ app.get('/developer/reset-pass/:uId/:newPass', isAdmin, async (req, res) => {
         const user = await db.query("SELECT username FROM users WHERE id = $1", [uId]);
         await db.query("UPDATE users SET password = $1 WHERE id = $2", [newPass, uId]);
 
-        await db.query("INSERT INTO dev_logs (admin_id, aksi, target_info, keterangan) VALUES ($1, $2, $3, $4)", 
-            [req.session.userId, 'RESET_PASSWORD', user.rows[0].username, `Password baru diset.`]);
+        await db.query(`INSERT INTO dev_logs (admin_id, aksi, target_info, keterangan) 
+                        VALUES ($1, $2, $3, $4)`, 
+            [req.session.userId, 'RESET_PASSWORD', user.rows[0].username, `Password baru diset manual.`]);
 
         res.send("<script>alert('Sukses Reset Password!'); window.location='/master-users';</script>");
     } catch (err) {
@@ -2099,8 +2100,7 @@ app.get('/developer/reset-pass/:uId/:newPass', isAdmin, async (req, res) => {
     }
 });
 
-// --- RESET KODE AKTIVASI + LOG ---
-// Diasumsikan kode aktivasi disimpan di tabel settings kolom 'registration_secret'
+// --- 4. RESET KODE AKTIVASI + LOG ---
 app.get('/developer/reset-kode/:tId/:newCode', isAdmin, async (req, res) => {
     if (req.session.tenantId !== 1) return res.status(403).send("Ditolak!");
     const { tId, newCode } = req.params;
@@ -2108,7 +2108,8 @@ app.get('/developer/reset-kode/:tId/:newCode', isAdmin, async (req, res) => {
     try {
         await db.query("UPDATE settings SET registration_secret = $1 WHERE tenant_id = $2", [newCode, tId]);
 
-        await db.query("INSERT INTO dev_logs (admin_id, aksi, target_info, keterangan) VALUES ($1, $2, $3, $4)", 
+        await db.query(`INSERT INTO dev_logs (admin_id, aksi, target_info, keterangan) 
+                        VALUES ($1, $2, $3, $4)`, 
             [req.session.userId, 'RESET_KODE', `Tenant #${tId}`, `Kode baru: ${newCode}`]);
 
         res.send("<script>alert('Kode Aktivasi Berhasil Diubah!'); window.location='/master-users';</script>");
@@ -2117,85 +2118,68 @@ app.get('/developer/reset-kode/:tId/:newCode', isAdmin, async (req, res) => {
     }
 });
 
-// --- PROSES HAPUS USER GLOBAL + LOG ---
+// --- 5. PROSES HAPUS USER GLOBAL + LOG ---
 app.get('/delete-user-global/:id', isAdmin, async (req, res) => {
     const userId = req.params.id;
-
-    // Proteksi: Hanya Tenant 1 & Jangan hapus diri sendiri
     if (req.session.tenantId !== 1) return res.status(403).send("Ditolak!");
     if (userId == req.session.userId) {
         return res.send("<script>alert('Bahaya! Jangan hapus akun sendiri.'); window.history.back();</script>");
     }
 
     try {
-        // Ambil info username untuk log
         const userRes = await db.query("SELECT username FROM users WHERE id = $1", [userId]);
         const targetUser = userRes.rows[0]?.username || "Unknown";
 
-        // Eksekusi Hapus
         await db.query("DELETE FROM users WHERE id = $1", [userId]);
 
-        // Catat ke Log Developer
-        await db.query(`
-            INSERT INTO dev_logs (admin_id, aksi, target_info, keterangan) 
-            VALUES ($1, $2, $3, $4)`, 
-            [req.session.userId, 'DELETE_USER', targetUser, `Akun user id ${userId} dihapus permanen.`]
-        );
+        await db.query(`INSERT INTO dev_logs (admin_id, aksi, target_info, keterangan) 
+                        VALUES ($1, $2, $3, $4)`, 
+            [req.session.userId, 'DELETE_USER', targetUser, `Akun user id ${userId} dihapus permanen.`]);
 
         res.redirect('/master-users');
     } catch (err) {
-        console.error(err);
         res.status(500).send("Gagal menghapus user.");
     }
 });
 
-// --- FITUR HAPUS TOTAL DATA TENANT (TOKO) + LOG ---
+// --- 6. FITUR HAPUS TOTAL DATA TENANT (TOKO) + LOG ---
 app.get('/delete-tenant-complete/:tId', isAdmin, async (req, res) => {
     const targetId = req.params.tId;
-
-    // Proteksi: Hanya Tenant 1 & Jangan hapus pusat
     if (req.session.tenantId !== 1 || targetId == 1) return res.status(403).send("Akses Ditolak!");
 
     try {
-        // Ambil nama perusahaan untuk log
         const settingRes = await db.query("SELECT nama_perusahaan FROM settings WHERE tenant_id = $1", [targetId]);
         const targetStore = settingRes.rows[0]?.nama_perusahaan || `Tenant #${targetId}`;
 
-        // Hapus berantai (Sesuai urutan relasi agar tidak error foreign key)
+        // Hapus berantai (PostgreSQL)
         await db.query("DELETE FROM hasil_kerja WHERE tenant_id = $1", [targetId]);
         await db.query("DELETE FROM arus_kas WHERE tenant_id = $1", [targetId]);
-        // Hapus detail PO dulu sebelum hapus PO Utama
         await db.query("DELETE FROM po_detail WHERE po_id IN (SELECT id FROM po_utama WHERE tenant_id = $1)", [targetId]);
         await db.query("DELETE FROM po_utama WHERE tenant_id = $1", [targetId]);
         await db.query("DELETE FROM users WHERE tenant_id = $1", [targetId]);
         await db.query("DELETE FROM settings WHERE tenant_id = $1", [targetId]);
 
-        // Catat ke Log Developer
-        await db.query(`
-            INSERT INTO dev_logs (admin_id, aksi, target_info, keterangan) 
-            VALUES ($1, $2, $3, $4)`, 
-            [req.session.userId, 'DELETE_TENANT_TOTAL', targetStore, `Seluruh data toko ID ${targetId} dimusnahkan.`]
-        );
+        await db.query(`INSERT INTO dev_logs (admin_id, aksi, target_info, keterangan) 
+                        VALUES ($1, $2, $3, $4)`, 
+            [req.session.userId, 'DELETE_TENANT_TOTAL', targetStore, `Seluruh data toko dimusnahkan.`]);
 
         res.redirect('/master-users');
     } catch (err) {
-        console.error("🔥 Error Hapus Tenant:", err.message);
-        res.status(500).send("Gagal membersihkan data tenant secara total.");
+        res.status(500).send("Gagal menghapus tenant.");
     }
 });
 
+// --- 7. TOGGLE SUSPEND / AKTIFKAN ---
 app.get('/toggle-tenant-status/:tId/:status', isAdmin, async (req, res) => {
     if (req.session.tenantId !== 1) return res.status(403).send("Ditolak!");
-    const { tId, status } = req.params; // status: 'true' atau 'false'
+    const { tId, status } = req.params;
 
     try {
         await db.query("UPDATE settings SET is_active = $1 WHERE tenant_id = $2", [status, tId]);
 
-        // Catat ke Log Developer
-        await db.query(`
-            INSERT INTO dev_logs (admin_id, aksi, target_info, keterangan) 
-            VALUES ($1, $2, $3, $4)`, 
-            [req.session.userId, status === 'true' ? 'ACTIVATE' : 'SUSPEND', `Tenant #${tId}`, `Status toko diubah menjadi ${status === 'true' ? 'Aktif' : 'Terblokir'}`]
+        await db.query(`INSERT INTO dev_logs (admin_id, aksi, target_info, keterangan) 
+                        VALUES ($1, $2, $3, $4)`, 
+            [req.session.userId, status === 'true' ? 'ACTIVATE' : 'SUSPEND', `Tenant #${tId}`, `Status diubah menjadi ${status === 'true' ? 'Aktif' : 'Terblokir'}`]
         );
 
         res.redirect('/master-users');
@@ -2203,7 +2187,6 @@ app.get('/toggle-tenant-status/:tId/:status', isAdmin, async (req, res) => {
         res.status(500).send("Gagal mengubah status toko.");
     }
 });
-
 
 
 

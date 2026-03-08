@@ -37,40 +37,61 @@
                 </tr>
             </thead>
             <tbody>
-                <% users.forEach(function(u) { %>
-                    <tr>
-                        <td>#<%= u.tenant_id %></td>
-                        <td><strong><%= u.nama_perusahaan || 'Pusat' %></strong></td>
-                        <td><%= u.nama_lengkap %><br><small>@<%= u.username %></small></td>
-                        <td>
-                            <span class="badge <%= u.level >= 2 ? 'level-pro' : 'level-standard' %>">
-                                <%= u.level >= 2 ? 'PRO' : 'STD' %>
-                            </span>
-                            <br>
-                            <% if (u.tenant_id !== 1) { %>
-                                <% if (u.is_active !== false) { %>
-                                    <a href="/toggle-tenant-status/<%= u.tenant_id %>/false" class="text-danger" style="font-size: 10px; text-decoration: none;" onclick="return confirm('Bekukan akses toko ini?')">
-                                        <i class="fas fa-ban"></i> Suspend
-                                    </a>
-                                <% } else { %>
-                                    <a href="/toggle-tenant-status/<%= u.tenant_id %>/true" class="text-success" style="font-size: 10px; text-decoration: none;">
-                                        <i class="fas fa-check-circle"></i> Aktifkan
-                                    </a>
-                                <% } %>
-                            <% } %>
-                        </td>
-                        <td style="text-align: center;">
-                            <div style="display: flex; gap: 5px; justify-content: center;">
-                                <button onclick="pemicuReset('<%= u.id %>', '<%= u.username %>')" class="btn-action"><i class="fas fa-key"></i> Pass</button>
-                                <button onclick="pemicuResetKode('<%= u.tenant_id %>')" class="btn-action"><i class="fas fa-lock"></i> Kode</button>
-                                <% if (u.tenant_id !== 1) { %>
-                                    <a href="/delete-tenant-complete/<%= u.tenant_id %>" class="btn-action" style="color: red;" onclick="return confirm('Hapus Total?')"><i class="fas fa-trash"></i></a>
-                                <% } %>
-                            </div>
-                        </td>
-                    </tr>
-                <% }); %>
-            </tbody>
+    <% users.forEach(function(u) { %>
+        <tr>
+            <td>#<%= u.tenant_id %></td>
+            <td><strong><%= u.nama_perusahaan || 'Pusat' %></strong></td>
+            <td><%= u.nama_lengkap %><br><small>@<%= u.username %></small></td>
+            
+            <td>
+                <div style="display: flex; flex-direction: column; gap: 4px;">
+                    <span class="badge <%= u.level >= 2 ? 'level-pro' : 'level-standard' %>">
+                        <%= u.level >= 2 ? 'PRO' : 'STD' %> (Lvl <%= u.level %>)
+                    </span>
+                    
+                    <% if (u.tenant_id !== 1) { %>
+                        <a href="/update-level/<%= u.tenant_id %>/<%= u.level == 1 ? 2 : 1 %>" 
+                           style="font-size: 9px; color: #3498db; text-decoration: none; font-weight: bold;">
+                           [ <%= u.level == 1 ? '🔼 Ke Pro' : '🔽 Ke Std' %> ]
+                        </a>
+
+                        <% if (u.is_active !== false) { %>
+                            <a href="/toggle-tenant-status/<%= u.tenant_id %>/false" class="text-danger" style="font-size: 9px; text-decoration: none;" onclick="return confirm('Bekukan akses toko?')">
+                                <i class="fas fa-ban"></i> Suspend
+                            </a>
+                        <% } else { %>
+                            <a href="/toggle-tenant-status/<%= u.tenant_id %>/true" class="text-success" style="font-size: 9px; text-decoration: none;">
+                                <i class="fas fa-check-circle"></i> Aktifkan
+                            </a>
+                        <% } %>
+                    <% } else { %>
+                        <span style="font-size: 9px; color: #195e0b; font-weight: bold;">SISTEM PUSAT</span>
+                    <% } %>
+                </div>
+            </td>
+
+            <td style="text-align: center;">
+                <div style="display: flex; gap: 5px; justify-content: center; align-items: center;">
+                    <button onclick="pemicuReset('<%= u.id %>', '<%= u.username %>')" class="btn-action" title="Reset Password">
+                        <i class="fas fa-key"></i> Pass
+                    </button>
+                    <button onclick="pemicuResetKode('<%= u.tenant_id %>')" class="btn-action" title="Ganti Kode Registrasi">
+                        <i class="fas fa-lock"></i> Kode
+                    </button>
+                    
+                    <% if (u.tenant_id !== 1) { %>
+                        <a href="/delete-user-global/<%= u.id %>" class="btn-action" style="color: #e67e22;" onclick="return confirm('Hapus akun user saja?')">
+                            <i class="fas fa-user-minus"></i>
+                        </a>
+                        <a href="/delete-tenant-complete/<%= u.tenant_id %>" class="btn-action" style="color: red;" onclick="return confirm('PERINGATAN! Hapus TOTAL semua data perusahaan ini?')">
+                            <i class="fas fa-trash"></i>
+                        </a>
+                    <% } %>
+                </div>
+            </td>
+        </tr>
+    <% }); %>
+</tbody>
         </table>
 
         <div class="log-section">
