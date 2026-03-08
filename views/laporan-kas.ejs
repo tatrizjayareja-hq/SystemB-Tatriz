@@ -8,6 +8,7 @@
     .text-pengeluaran { color: #d63031; font-weight: bold; }
     .compact-table td, .compact-table th { padding: 4px 8px !important; font-size: 11px; }
     .text-profit { color: #2ecc71; font-weight: 800; }
+    .sticky-top { position: sticky; top: 0; z-index: 10; background: white; }
 </style>
 
 <div class="container-fluid" style="max-width: 900px;">
@@ -29,18 +30,18 @@
                     <div class="row text-center g-0 mt-1">
                         <div class="col-6">
                             <small class="text-muted d-block" style="font-size: 9px;">Hasil Kerja Mesin</small>
-                            <strong style="font-size: 12px;">Rp <%= nilaiProduksi.toLocaleString('id-ID') %></strong>
+                            <strong style="font-size: 12px;">Rp <%= Number(nilaiProduksi).toLocaleString('id-ID') %></strong>
                         </div>
                         <div class="col-6 border-start">
                             <small class="text-muted d-block" style="font-size: 9px;">Beban (Op + Stp)</small>
-                            <strong class="text-danger" style="font-size: 12px;">Rp <%= (totalBiaya + config.beban_tetap).toLocaleString('id-ID') %></strong>
+                            <strong class="text-danger" style="font-size: 12px;">Rp <%= (Number(totalBiaya) + Number(config.beban_tetap)).toLocaleString('id-ID') %></strong>
                         </div>
                     </div>
 
                     <div class="text-center mt-2 border-top pt-1 bg-dark rounded">
                         <small class="fw-bold text-white" style="font-size: 9px;">HAK PROFIT OWNER BULAN INI:</small>
                         <strong class="text-warning d-block" style="font-size: 18px;">
-                            Rp <%= estimasiProfit.toLocaleString('id-ID') %>
+                            Rp <%= Number(estimasiProfit).toLocaleString('id-ID') %>
                         </strong>
                     </div>
                 </div>
@@ -52,12 +53,12 @@
                     <div class="row text-center g-0 mt-1">
                         <div class="col-6">
                             <small class="text-muted d-block" style="font-size: 9px;">Sisa Hutang (Total)</small>
-                            <strong class="text-danger" style="font-size: 11px;">Rp <%= sisaHutangRiil.toLocaleString('id-ID') %></strong>
+                            <strong class="text-danger" style="font-size: 11px;">Rp <%= Number(sisaHutangRiil).toLocaleString('id-ID') %></strong>
                         </div>
                         <div class="col-6 border-start">
                             <small class="text-muted d-block" style="font-size: 9px;">Sisa Kontrakan</small>
                             <strong class="text-secondary" style="font-size: 11px;">
-                                <%= sisaBebanKontrakan <= 0 ? 'LUNAS' : 'Rp ' + sisaBebanKontrakan.toLocaleString('id-ID') %>
+                                <%= sisaBebanKontrakan <= 0 ? 'LUNAS' : 'Rp ' + Number(sisaBebanKontrakan).toLocaleString('id-ID') %>
                             </strong>
                         </div>
                     </div>
@@ -75,8 +76,8 @@
                         <tbody>
                             <% monitorHarian.forEach(m => { %>
                                 <tr>
-                                    <td><%= m.tanggal.split('-').reverse().slice(0,2).join('/') %></td>
-                                    <td class="text-end fw-bold">Rp <%= m.total_harian.toLocaleString('id-ID') %></td>
+                                    <td><%= new Date(m.tanggal).toLocaleDateString('id-ID', {day:'2-digit', month:'2-digit'}) %></td>
+                                    <td class="text-end fw-bold">Rp <%= Number(m.total_harian).toLocaleString('id-ID') %></td>
                                 </tr>
                             <% }) %>
                         </tbody>
@@ -90,7 +91,7 @@
         <div class="card-body p-2 d-flex justify-content-between align-items-center">
             <div>
                 <small class="fw-bold text-uppercase" style="color: #0984e3; font-size: 10px;">🔍 Piutang Berjalan (Akumulatif)</small>
-                <h4 class="mb-0 fw-bold" style="color: #0984e3;">Rp <%= piutangBerjalan.toLocaleString('id-ID') %></h4>
+                <h4 class="mb-0 fw-bold" style="color: #0984e3;">Rp <%= Number(piutangBerjalan).toLocaleString('id-ID') %></h4>
                 <p class="mb-0 text-muted" style="font-size: 9px;">Total hasil kerja mesin yang belum dibayar pelanggan.</p>
             </div>
             <div class="text-primary opacity-25">
@@ -98,10 +99,11 @@
             </div>
         </div>
     </div>
+
     <div class="card p-2 bg-dark text-white mb-2 shadow">
         <div class="d-flex justify-content-between align-items-center px-2">
             <small class="fw-bold" style="font-size: 10px; color: #aaa;">SALDO FISIK LACI (CASH ON HAND):</small>
-            <strong class="text-warning" style="font-size: 18px;">Rp <%= saldoRiil.toLocaleString('id-ID') %></strong>
+            <strong class="text-warning" style="font-size: 18px;">Rp <%= Number(saldoRiil).toLocaleString('id-ID') %></strong>
         </div>
     </div>
 
@@ -113,10 +115,10 @@
             <table class="table table-hover align-middle mb-0" id="tabelKas" style="font-size: 12px;">
                 <thead class="table-light sticky-top">
                     <tr>
-                        <th>TGL</th>
-                        <th>KATEGORI</th> 
+                        <th style="width: 85px;">TGL</th>
+                        <th>KATEGORI & KETERANGAN</th> 
                         <th class="text-end">JUMLAH</th>
-                        <th class="text-center">AKSI</th>
+                        <th class="text-center" style="width: 70px;">AKSI</th>
                     </tr>
                 </thead>
                 <tbody>
@@ -130,22 +132,24 @@
                                         year: 'numeric' 
                                     }) %>
                                 <% } else { %>
-                                    <span style="color: #ccc;">No Date</span>
+                                    <span style="color: #ccc;">-</span>
                                 <% } %>
                             </td>
-                                <strong><%= item.kategori %></strong><br>
-                                <small class="text-muted" style="font-size: 10px;"><%= item.keterangan %></small>
+                            <td>
+                                <strong><%= item.kategori %></strong>
                                 <% if (item.customer) { %>
-                                    <span class="badge bg-info p-1" style="font-size: 9px;"><%= item.customer %></span>
+                                    <span class="badge bg-info p-1" style="font-size: 9px; margin-left: 5px;"><%= item.customer %></span>
                                 <% } %>
+                                <br>
+                                <small class="text-muted" style="font-size: 10px;"><%= item.keterangan %></small>
                             </td>
                             <td class="text-end <%= item.jenis === 'PEMASUKAN' ? 'text-pemasukan' : 'text-pengeluaran' %>">
-                                <%= item.jenis === 'PEMASUKAN' ? '+' : '-' %> <%= item.jumlah.toLocaleString('id-ID') %>
+                                <%= item.jenis === 'PEMASUKAN' ? '+' : '-' %> <%= Number(item.jumlah || 0).toLocaleString('id-ID') %>
                             </td>
                             <td class="text-center">
                                 <div class="btn-group">
-                                    <button class="btn btn-sm p-0 px-1" onclick="persiapanEditKas('<%= item.id %>', '<%= item.tanggal %>', '<%= item.jenis %>', '<%= item.kategori %>', '<%= item.jumlah %>', '<%= item.keterangan %>', '<%= item.po_id %>')">✏️</button>
-                                    <a href="/hapus-kas/<%= item.id %>" class="btn btn-sm p-0 px-1" onclick="return confirm('Hapus?')">🗑️</a>
+                                    <button class="btn btn-sm p-0 px-1" title="Edit" onclick="persiapanEditKas('<%= item.id %>', '<%= item.tanggal %>', '<%= item.jenis %>', '<%= item.kategori %>', '<%= item.jumlah %>', '<%= item.keterangan %>', '<%= item.po_id %>')">✏️</button>
+                                    <a href="/hapus-kas/<%= item.id %>" class="btn btn-sm p-0 px-1" title="Hapus" onclick="return confirm('Hapus transaksi ini?')">🗑️</a>
                                 </div>
                             </td>
                         </tr>
@@ -166,7 +170,19 @@
     }
 
     function persiapanEditKas(id, tgl, jenis, kat, jml, ket, poId) {
-        const data = { id, tgl, jenis, kat, jml, ket, poId: (poId === 'null' || !poId) ? "" : poId };
+        // Konversi tanggal ke format YYYY-MM-DD agar bisa dibaca input type date
+        let d = new Date(tgl);
+        let formattedDate = d.toISOString().split('T')[0];
+        
+        const data = { 
+            id, 
+            tgl: formattedDate, 
+            jenis, 
+            kat, 
+            jml, 
+            ket, 
+            poId: (poId === 'null' || !poId) ? "" : poId 
+        };
         sessionStorage.setItem('editDataKas', JSON.stringify(data));
         window.location.href = '/input-kas';
     }
