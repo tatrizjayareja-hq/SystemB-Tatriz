@@ -46,8 +46,17 @@
                             <span class="badge <%= u.level >= 2 ? 'level-pro' : 'level-standard' %>">
                                 <%= u.level >= 2 ? 'PRO' : 'STD' %>
                             </span>
+                            <br>
                             <% if (u.tenant_id !== 1) { %>
-                                <a href="/update-level/<%= u.tenant_id %>/<%= u.level == 1 ? 2 : 1 %>" style="display:block; font-size: 9px;">Ganti Level</a>
+                                <% if (u.is_active !== false) { %>
+                                    <a href="/toggle-tenant-status/<%= u.tenant_id %>/false" class="text-danger" style="font-size: 10px; text-decoration: none;" onclick="return confirm('Bekukan akses toko ini?')">
+                                        <i class="fas fa-ban"></i> Suspend
+                                    </a>
+                                <% } else { %>
+                                    <a href="/toggle-tenant-status/<%= u.tenant_id %>/true" class="text-success" style="font-size: 10px; text-decoration: none;">
+                                        <i class="fas fa-check-circle"></i> Aktifkan
+                                    </a>
+                                <% } %>
                             <% } %>
                         </td>
                         <td style="text-align: center;">

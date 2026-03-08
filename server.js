@@ -85,6 +85,12 @@ app.get('/', async (req, res) => {
 // --- PROSES LOGIN ---
 app.post('/login', async (req, res) => {
     const { username, password } = req.body;
+    // Di dalam rute app.post('/login', ...)
+    const checkStatus = await db.query("SELECT is_active FROM settings WHERE tenant_id = $1", [user.tenant_id]);
+
+    if (checkStatus.rows[0] && checkStatus.rows[0].is_active === false) {
+        return res.send("<script>alert('Akses Ditangguhkan! Harap hubungi Admin Tatriz SystemB.'); window.history.back();</script>");
+    }
     
     try {
         const sql = `
@@ -2162,6 +2168,27 @@ app.get('/delete-tenant-complete/:tId', isAdmin, async (req, res) => {
         res.status(500).send("Gagal membersihkan data tenant secara total.");
     }
 });
+
+app.get('/toggle-tenant-status/:tId/:status', isAdmin, async (req, res) => {
+    if (req.session.tenantId !== 1) return res.status(403).send("Ditolak!");
+    const { tId, status } = req.params; // status: 'true' atau 'false'
+
+    try {
+        await db.query("UPDATE settings SET is_active = $1 WHERE tenant_id = $2", [status, tId]);
+
+        // Catat ke Log Developer
+        await db.query(`
+            INSERT INTO dev_logs (admin_id, aksi, target_info, keterangan) 
+            VALUES ($1, $2, $3, $4)`, 
+            [req.session.userId, status === 'true' ? 'ACTIVATE' : 'SUSPEND', `Tenant #${tId}`, `Status toko diubah menjadi ${status === 'true' ? 'Aktif' : 'Terblokir'}`]
+        );
+
+        res.redirect('/master-users');
+    } catch (err) {
+        res.status(500).send("Gagal mengubah status toko.");
+    }
+});
+
 
 
 
