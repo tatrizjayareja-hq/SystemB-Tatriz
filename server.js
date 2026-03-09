@@ -1559,29 +1559,26 @@ app.get('/admin/hapus-produksi/:id', isAdmin, async (req, res) => {
     }
 });
 
+// --- 1. RUTE INPUT GAJI (Sudah Oke, cuma pastikan config terupdate) ---
 app.get('/input-gaji', isAdmin, async (req, res) => {
     const tId = req.session.tenantId;
     const { tgl_awal, tgl_akhir } = req.query;
 
     try {
-        // STEP 1: Ambil settingan toko
         const config = await db.get("SELECT * FROM settings WHERE tenant_id = $1", [tId]);
         const activeConfig = config || { 
             target_bonus: 500000, 
             nominal_bonus_dasar: 10000, 
             kelipatan_bonus: 100000, 
-            nominal_bonus_lipat: 5000 
+            nominal_bonus_lipat: 5000,
+            jam_kerja_reguler: 8, // Tambahkan default jika null
+            pembagi_lembur: 4      // Tambahkan default jika null
         };
 
-        // STEP 2: Jika belum pilih tanggal, render halaman pemilih
         if (!tgl_awal || !tgl_akhir) {
-            return res.render('admin/pilih-tanggal-gaji', { 
-                config: activeConfig, 
-                user: req.session 
-            });
+            return res.render('admin/pilih-tanggal-gaji', { config: activeConfig, user: req.session });
         }
 
-        // STEP 3: Tarik data produksi (PostgreSQL menggunakan $1, $2, $3)
         const sql = `
             SELECT u.id, u.nama_lengkap, u.gaji_pokok, u.role, 
                    h.tanggal, h.jumlah_setor, d.harga_operator
@@ -1602,7 +1599,6 @@ app.get('/input-gaji', isAdmin, async (req, res) => {
                     gp: parseFloat(row.gaji_pokok || 0), borongan: 0, bonus: 0, harian: {} 
                 };
             }
-            
             if (row.tanggal && row.role === 'operator') {
                 const sub = (parseInt(row.jumlah_setor) || 0) * (parseFloat(row.harga_operator) || 0);
                 rekap[row.id].borongan += sub;
@@ -1610,11 +1606,10 @@ app.get('/input-gaji', isAdmin, async (req, res) => {
             }
         });
 
-        // STEP 4: Hitung Bonus Harian secara Dinamis
         Object.values(rekap).forEach(op => {
             Object.values(op.harian).forEach(totalHari => {
                 if (totalHari >= parseFloat(activeConfig.target_bonus)) {
-                    let kelipatan = parseFloat(activeConfig.kelipatan_bonus) || 1;
+                    let kelipatan = parseFloat(activeConfig.kelipatan_bonus) || 100000;
                     let bonusDasar = parseFloat(activeConfig.nominal_bonus_dasar) || 0;
                     let bonusLipat = Math.floor((totalHari - parseFloat(activeConfig.target_bonus)) / kelipatan) * (parseFloat(activeConfig.nominal_bonus_lipat) || 0);
                     op.bonus += (bonusDasar + bonusLipat);
@@ -1622,37 +1617,34 @@ app.get('/input-gaji', isAdmin, async (req, res) => {
             });
         });
 
-        // STEP 5: Render ke input-gaji.ejs
-        res.render('admin/input-gaji', { 
-            rekap, tgl_awal, tgl_akhir, 
-            config: activeConfig, 
-            user: req.session 
-        });
+        res.render('admin/input-gaji', { rekap, tgl_awal, tgl_akhir, config: activeConfig, user: req.session });
 
     } catch (err) {
         console.error("🔥 Error Input Gaji:", err.message);
-        res.status(500).send("Gagal memproses data gaji.");
+        res.status(500).send("Gagal memuat data gaji.");
     }
 });
 
-app.post('/proses-print-gaji', isAdmin, (req, res) => {
+// --- 2. PROSES CETAK SLIP (REVISI TOTAL) ---
+app.post('/proses-print-gaji', isAdmin, async (req, res) => {
     const tId = req.session.tenantId;
     const { tgl_awal, tgl_akhir, operator_ids, nama, gp, hari_kerja, lembur, bonus, kasbon } = req.body;
 
-    db.get("SELECT * FROM settings WHERE tenant_id = ?", [tId], (err, configRow) => {
-        if (err) return res.status(500).send("Gagal mengambil pengaturan.");
+    try {
+        // AMBIL CONFIG (Gunakan db.get dan placeholder $1)
+        const config = await db.get("SELECT * FROM settings WHERE tenant_id = $1", [tId]);
         
-        const config = configRow || { nama_perusahaan: "Tatriz" };
+        // Ambil variabel fleksibel dari DB
+        const jamReguler = parseInt(config?.jam_kerja_reguler) || 8;
+        const pembagiLembur = parseInt(config?.pembagi_lembur) || 4;
 
-        // Helper untuk memastikan input adalah array
         const toArray = (val) => Array.isArray(val) ? val : [val];
-
         const ids = toArray(operator_ids);
         const nmList = toArray(nama);
         const gpList = toArray(gp);
         const hkList = toArray(hari_kerja);
         const lbList = toArray(lembur);
-        const bnList = toArray(bonus); // Ini adalah Bonus Target (Borongan) yang sudah fix
+        const bnList = toArray(bonus);
         const kbList = toArray(kasbon);
 
         let dataGaji = [];
@@ -1661,32 +1653,31 @@ app.post('/proses-print-gaji', isAdmin, (req, res) => {
             let gajiPokok = Number(gpList[i]) || 0;
             let inputHK = String(hkList[i] || "0").replace(',', '.');
             let jamLembur = Number(lbList[i]) || 0;
-            let bonusTarget = Number(bnList[i]) || 0; // Langsung ambil nilainya
+            let bonusTarget = Number(bnList[i]) || 0;
             let totalKasbon = Number(kbList[i]) || 0;
 
-            // Logika Pemisah Hari dan Jam (Contoh: 5.4)
             let hariFull = 0;
             let jamSisa = 0;
 
             if (inputHK.includes('.')) {
                 let bagian = inputHK.split('.');
                 hariFull = parseInt(bagian[0]) || 0;
-                jamSisa = parseInt(bagian[1]) || 0; // Mengambil angka di belakang titik sebagai jam
+                jamSisa = parseInt(bagian[1]) || 0;
             } else {
                 hariFull = parseInt(inputHK) || 0;
             }
 
-            // Rumus Perhitungan
+            // RUMUS FLEKSIBEL (Menggunakan jamReguler dan pembagiLembur)
             let nominalHari = hariFull * gajiPokok;
-            let nominalJamSisa = (gajiPokok / 8) * jamSisa;
-            let nominalLembur = (gajiPokok / 4) * jamLembur; // 1 Sesi = 2 Jam (GP/4)
+            let nominalJamSisa = (gajiPokok / jamReguler) * jamSisa;
+            let nominalLembur = (gajiPokok / pembagiLembur) * jamLembur; 
             
-            let totalFinal = nominalHari + nominalJamSisa + nominalLembur + bonusTarget - totalKasbon;
+            let totalFinal = nominalHari + nominalJamSisa + nominalLembur + bonusTarget + adjManual - totalKasbon;
 
             dataGaji.push({
                 nama: nmList[i],
                 gp: gajiPokok,
-                hari_kerja_tampil: inputHK, // Untuk tampilan di slip (misal: 6.0)
+                hari_kerja_tampil: inputHK,
                 hari_full: hariFull,
                 jam_sisa: jamSisa,
                 lembur: jamLembur,
@@ -1696,14 +1687,12 @@ app.post('/proses-print-gaji', isAdmin, (req, res) => {
             });
         }
 
-        res.render('admin/cetak-slip', { 
-            dataGaji, 
-            tgl_awal,
-            tgl_akhir,
-            config: config,
-            user: req.session 
-        });
-    });
+        res.render('admin/cetak-slip', { dataGaji, tgl_awal, tgl_akhir, config, user: req.session });
+
+    } catch (err) {
+        console.error("🔥 Error Proses Slip:", err.message);
+        res.status(500).send("Gagal memproses cetak slip.");
+    }
 });
 
 app.get('/cetak-nota/:id', isAdmin, async (req, res) => {

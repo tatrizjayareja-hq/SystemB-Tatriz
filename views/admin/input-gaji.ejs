@@ -6,8 +6,13 @@
             <span class="badge bg-light text-dark">Periode: <%= tgl_awal %> s/d <%= tgl_akhir %></span>
         </div>
         <div class="card-body">
-            <div class="alert alert-info py-2" style="font-size: 0.85rem;">
-                <i class="bi bi-info-circle-fill"></i> <b>Input Jam:</b> Gunakan titik (.). Contoh: <b>5.4</b> (5 hari 4 jam). Lembur dihitung per sesi (GP/4).
+            <div class="alert alert-info py-2 d-flex justify-content-between align-items-center" style="font-size: 0.85rem;">
+                <div>
+                    <i class="bi bi-info-circle-fill"></i> <b>Input Jam:</b> Gunakan titik (.). Contoh: <b>5.4</b> (5 hari 4 jam).
+                </div>
+                <div class="fw-bold border-start ps-3 border-info">
+                    Kebijakan: 1 Hari = <%= config.jam_kerja_reguler || 8 %> Jam | Lembur = GP / <%= config.pembagi_lembur || 4 %>
+                </div>
             </div>
 
             <form action="/proses-print-gaji" method="POST" target="_blank">
@@ -50,16 +55,22 @@
                                 <td>
                                     <div class="text-end px-2">
                                         <input type="hidden" name="bonus" class="input-bonus-target" value="<%= op.bonus %>">
-                                        <span class="fw-bold text-primary">Rp <%= op.bonus.toLocaleString('id-ID') %></span>
+                                        <span class="fw-bold text-primary">Rp <%= (op.bonus || 0).toLocaleString('id-ID') %></span>
                                     </div>
                                 </td>
                                 <td>
+                                    <div class="input-group input-group-sm">
+                                        <span class="input-group-text">+/-</span>
+                                        <input type="number" name="adj_manual" value="0" class="form-control fw-bold input-adj">
+                                    </div>
+                                </td>
                                     <div class="input-group input-group-sm">
                                         <span class="input-group-text text-danger">-</span>
                                         <input type="number" name="kasbon" value="0" class="form-control text-danger fw-bold input-kasbon">
                                     </div>
                                 </td>
-                                <td class="text-end fw-bold text-success bg-light" style="font-size: 1.1rem;">
+                                <td>
+                                    <td class="text-end fw-bold text-success bg-light" style="font-size: 1.1rem;">
                                     <span class="total-tampil">Rp 0</span>
                                 </td>
                             </tr>
@@ -85,18 +96,23 @@
 document.addEventListener('DOMContentLoaded', function() {
     const semuaBaris = document.querySelectorAll('.baris-gaji');
 
+    // --- VARIABEL DARI SETUP DATABASE (Penyebab Error Sebelumnya) ---
+    // Pastikan nilai default ada agar JS tidak kosong saat pertama kali load
+    const JAM_REGULER = Number("<%= config.jam_kerja_reguler %>") || 8;
+    const PEMBAGI_LEMBUR = Number("<%= config.pembagi_lembur %>") || 4;
+
     function formatRupiah(angka) {
         return 'Rp ' + Math.round(angka).toLocaleString('id-ID');
     }
 
     function hitungBaris(row) {
         const gp = parseFloat(row.querySelector('.input-gp').value) || 0;
-        const hkRaw = row.querySelector('.input-hk').value.toString().replace(',', '.');
+        const hkValue = row.querySelector('.input-hk').value.toString();
+        const hkRaw = hkValue.replace(',', '.');
         const lembur = parseFloat(row.querySelector('.input-lembur').value) || 0;
         const bonusTarget = parseFloat(row.querySelector('.input-bonus-target').value) || 0;
         const kasbon = parseFloat(row.querySelector('.input-kasbon').value) || 0;
 
-        // Logika Hari.Jam (Contoh 5.4 = 5 hari 4 jam)
         let hariFull = 0;
         let jamSisa = 0;
 
@@ -108,21 +124,19 @@ document.addEventListener('DOMContentLoaded', function() {
             hariFull = parseInt(hkRaw) || 0;
         }
 
-        // Kalkulasi Sesuai Keinginan Anda
-        const nominalHK = (hariFull * gp) + ((gp / 8) * jamSisa);
-        const nominalLembur = (gp / 4) * lembur; // 1 sesi lembur
+        // Kalkulasi Fleksibel sesuai Setup
+        const nominalHK = (hariFull * gp) + ((gp / JAM_REGULER) * jamSisa);
+        const nominalLembur = (gp / PEMBAGI_LEMBUR) * lembur; 
         
         const total = nominalHK + nominalLembur + bonusTarget - kasbon;
 
-        // Update Tampilan
+        // Update UI
         row.querySelector('.total-tampil').innerText = formatRupiah(total);
     }
 
-    // Jalankan hitung saat pertama kali halaman dimuat
+    // Inisialisasi hitungan
     semuaBaris.forEach(row => {
         hitungBaris(row);
-
-        // Tambahkan event listener agar hitung otomatis saat diinput
         row.querySelectorAll('input').forEach(input => {
             input.addEventListener('input', () => hitungBaris(row));
         });
