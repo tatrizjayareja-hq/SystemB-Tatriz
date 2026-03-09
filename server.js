@@ -775,20 +775,18 @@ app.get('/edit-po/:id', async (req, res) => {
 
 app.get('/cetak-nota-gabungan', isAdmin, async (req, res) => {
     const tId = req.session.tenantId;
-    let ids = req.query.ids; // Menangkap array ID dari checkbox modal
+    let ids = req.query.ids; 
+    const mode = req.query.mode || 'standard'; // Tangkap mode (standard/thermal)
     
     if (!ids) return res.send("Tidak ada PO yang dipilih.");
     
-    // Pastikan ids dalam bentuk array angka
-    if (!Array.isArray(ids)) ids = [ids];
-    const idList = ids.map(id => parseInt(id));
+    // Konversi ids menjadi array jika datang sebagai string tunggal (id1,id2)
+    let idList = Array.isArray(ids) ? ids : ids.split(',');
+    idList = idList.map(id => parseInt(id));
 
     try {
-        // 1. Ambil Setting Perusahaan untuk Header (Logo, Nama Toko, Alamat)
         const config = await db.get("SELECT * FROM settings WHERE tenant_id = $1", [tId]);
 
-        // 2. Query Header PO-PO yang dipilih
-        // Menggunakan ANY($1) untuk menangani array ID di PostgreSQL
         const sqlOrders = `
             SELECT p.*, COALESCE(bayar.total, 0) as total_bayar 
             FROM po_utama p
@@ -801,20 +799,15 @@ app.get('/cetak-nota-gabungan', isAdmin, async (req, res) => {
         `;
 
         const orders = await db.all(sqlOrders, [idList, tId]);
+        const details = await db.all(`SELECT * FROM po_detail WHERE po_id = ANY($1::int[])`, [idList]);
 
-        if (!orders || orders.length === 0) {
-            return res.send("Data PO tidak ditemukan.");
-        }
+        if (!orders || orders.length === 0) return res.send("Data PO tidak ditemukan.");
 
-        // 3. Ambil rincian detail untuk semua PO tersebut
-        const sqlDetails = `SELECT * FROM po_detail WHERE po_id = ANY($1::int[])`;
-        const details = await db.all(sqlDetails, [idList]);
-
-        // 4. Render halaman EJS (Pastikan nama file sesuai: print-nota-gabungan.ejs)
         res.render('print-nota-gabungan', { 
             orders, 
             details, 
-            config: config || {} 
+            config: config || {},
+            mode: mode // Pastikan ini dikirim ke EJS
         });
 
     } catch (err) {
