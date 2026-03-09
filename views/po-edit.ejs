@@ -167,10 +167,24 @@
     row.innerHTML = htmlContent;
     tbody.appendChild(row);
 }
+const urlParams = new URLSearchParams(window.location.search);
+    if (urlParams.get('mode') === 'thermal') {
+        const link = document.createElement('link');
+        link.rel = 'stylesheet';
+        link.href = '/css/thermal-style.css';
+        document.head.appendChild(link);
+    }
 </script>
-<a href="/cetak-nota/<%= po.id %>" target="_blank" 
-   style="display: block; text-align: center; background: #3498db; color: white; padding: 15px; border-radius: 8px; text-decoration: none; font-weight: bold; margin-top: 10px;">
-   🖨️ CETAK NOTA RESMI
-</a>
+<div style="margin-top: 20px; display: grid; grid-template-columns: 1fr 1fr; gap: 10px;">
+    <a href="/cetak-nota/<%= po.id %>" target="_blank" 
+       style="display: block; text-align: center; background: #3498db; color: white; padding: 15px; border-radius: 8px; text-decoration: none; font-weight: bold;">
+       🖨️ NOTA RESMI (A5)
+    </a>
+
+    <a href="/cetak-nota/<%= po.id %>?mode=thermal" target="_blank" 
+       style="display: block; text-align: center; background: #27ae60; color: white; padding: 15px; border-radius: 8px; text-decoration: none; font-weight: bold;">
+       🧾 NOTA THERMAL (80mm)
+    </a>
+</div>
 </body>
 </html>
