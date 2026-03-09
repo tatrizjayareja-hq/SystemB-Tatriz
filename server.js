@@ -1455,7 +1455,7 @@ app.get('/laporan-produksi', isAdmin, async (req, res) => {
 
     try {
         // 1. Query Ringkasan Progres per Desain
-        // Menampilkan data desain yang masih proses (bukan Lunas/Clear)
+        // MODIFIKASI: Filter diperketat hanya untuk status Produksi, QC, dan DP/Cicil
         const sqlRingkasan = `
             SELECT 
                 d.id as detail_id, 
@@ -1467,12 +1467,13 @@ app.get('/laporan-produksi', isAdmin, async (req, res) => {
             FROM po_detail d
             JOIN po_utama p ON d.po_id = p.id
             LEFT JOIN hasil_kerja h ON d.id = h.detail_id
-            WHERE p.tenant_id = $1 AND p.status NOT IN ('Lunas', 'Clear')
+            WHERE p.tenant_id = $1 
+              AND p.status IN ('Produksi', 'QC', 'DP/Cicil') 
             GROUP BY d.id, p.nama_po, d.nama_desain, d.jenis_bordir, d.jumlah, p.tanggal
             ORDER BY p.tanggal DESC, d.id DESC
         `;
 
-        // 2. Query Detail Log untuk fitur Koreksi (Menampilkan siapa yg setor)
+        // 2. Query Detail Log (Tetap sama)
         const sqlLogs = `
             SELECT h.*, u.nama_lengkap 
             FROM hasil_kerja h

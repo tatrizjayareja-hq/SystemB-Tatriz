@@ -135,6 +135,11 @@
                 <small class="text-muted text-end">*Gunakan dropdown biru jika setoran operator masuk ke desain yang salah.</small>
             </div>
         </td>
+        <td>
+            <strong class="<%= total > target ? 'text-danger' : '' %>">
+                <%= total %>
+            </strong> / <%= target %>
+        </td>
     </tr>
     <% }) %>
 </tbody>
