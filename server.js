@@ -1704,9 +1704,10 @@ app.post('/proses-print-gaji', isAdmin, async (req, res) => {
 app.get('/cetak-nota/:id', isAdmin, async (req, res) => {
     const tId = req.session.tenantId;
     const poId = req.params.id;
+    const mode = req.query.mode || 'standard'; // TANGKAP MODE DI SINI
 
     try {
-        // 1. Ambil Pengaturan Toko (Gunakan $1 untuk PostgreSQL)
+        // 1. Ambil Pengaturan Toko
         const configRes = await db.query("SELECT * FROM settings WHERE tenant_id = $1", [tId]);
         const config = configRes.rows[0] || { 
             nama_perusahaan: "Tatriz System", 
@@ -1715,8 +1716,7 @@ app.get('/cetak-nota/:id', isAdmin, async (req, res) => {
             logo_path: "default-logo.png" 
         };
 
-        // 2. Query PO dengan Subquery untuk Total Bayar
-        // Kita pastikan jenis 'PEMASUKAN' agar saldo akurat
+        // 2. Query PO
         const sqlPO = `
             SELECT p.*, 
             (SELECT SUM(jumlah) FROM arus_kas WHERE po_id = p.id AND jenis = 'PEMASUKAN') as total_bayar 
@@ -1727,30 +1727,24 @@ app.get('/cetak-nota/:id', isAdmin, async (req, res) => {
         const poRes = await db.query(sqlPO, [poId, tId]);
         const po = poRes.rows[0];
 
-        // Jika PO tidak ditemukan
         if (!po) {
-            return res.status(404).send(`
-                <script>
-                    alert("Data PO tidak ditemukan!");
-                    window.close();
-                </script>
-            `);
+            return res.status(404).send("<script>alert('Data PO tidak ditemukan!'); window.close();</script>");
         }
 
-        // 3. Ambil Detail PO (Daftar barang/desain)
+        // 3. Ambil Detail PO
         const detailsRes = await db.query("SELECT * FROM po_detail WHERE po_id = $1", [poId]);
         const details = detailsRes.rows;
 
-        // 4. Render ke halaman nota
+        // 4. Render ke halaman nota (Kirim variabel mode)
         res.render('cetak-nota', { 
             po, 
             details, 
             config,
+            mode, // PASTIKAN MODE DIKIRIM KE EJS
             tgl_sekarang: new Date().toLocaleDateString('id-ID')
         });
 
     } catch (err) {
-        // Log error di console server agar mudah dilacak
         console.error("Kesalahan SQL Cetak Nota:", err.message);
         res.status(500).send("Gagal memproses nota: " + err.message);
     }
