@@ -80,35 +80,42 @@
             <hr style="margin: 20px 0; border: 0; border-top: 1px solid #eee;">
 
         <div class="section-title">💰 Kebijakan Gaji & Bonus</div>
-        <div class="grid-2">
+            <div class="grid-2">
                 <div class="form-group <%= !isPro ? 'pro-locked' : '' %>" 
                     <% if (!isPro) { %> onclick="ajakUpgrade('Target Bonus')" <% } %>>
                     <label>Target Bonus Harian <%- !isPro ? '<span class="badge-pro">PRO</span>' : '' %></label>
                     <input type="number" name="target_bonus" value="<%= config.target_bonus %>" <%= !isPro ? 'readonly' : '' %>>
                 </div>
                 
-        <div class="form-group <%= !isPro ? 'pro-locked' : '' %>" 
+                <div class="form-group <%= !isPro ? 'pro-locked' : '' %>" 
                     <% if (!isPro) { %> onclick="ajakUpgrade('Bonus Dasar')" <% } %>>
                     <label>Bonus Dasar <%- !isPro ? '<span class="badge-pro">PRO</span>' : '' %></label>
                     <input type="number" name="nominal_bonus_dasar" value="<%= config.nominal_bonus_dasar %>" <%= !isPro ? 'readonly' : '' %>>
                 </div>
-        </div>
 
-            <hr style="margin: 20px 0; border: 0; border-top: 1px solid #eee;">
-
-            <div class="section-title" style="border-bottom-color: var(--warning);">🛡️ Manajemen Kas & Saldo Aman</div>
-            <div class="grid-2">
                 <div class="form-group">
-                    <label>Saldo Awal / Backup Dana</label>
-                    <input type="number" name="nominal_buffer" value="<%= config.nominal_buffer || 0 %>" required>
+                    <label>Jam Kerja Reguler (Per Hari)</label>
+                    <input type="number" name="jam_kerja_reguler" value="<%= config.jam_kerja_reguler || 8 %>">
+                    <small style="text-transform: none; color: #888;">Standar: 8 Jam. Digunakan untuk hitung upah sisa jam.</small>
                 </div>
-                <div class="form-group <%= !isPro ? 'pro-locked' : '' %>" 
-                    <% if (!isPro) { %> onclick="ajakUpgrade('Beban Tetap')" <% } %>>
-                    <label>Beban Tetap Bulanan <%- !isPro ? '<span class="badge-pro">PRO</span>' : '' %></label>
-                    <input type="number" name="beban_tetap" value="<%= config.beban_tetap || 0 %>" <%= !isPro ? 'readonly' : '' %>>
+
+                <div class="form-group">
+                    <label>Pembagi Lembur (Gaji Pokok / X)</label>
+                    <input type="number" name="pembagi_lembur" value="<%= config.pembagi_lembur || 4 %>">
+                    <small style="text-transform: none; color: #888;">Contoh: 4 (Upah lembur 1 sesi = GP / 4).</small>
                 </div>
             </div>
-        </div>
+
+            <div class="grid-2" style="margin-top: 10px;">
+                <div class="form-group">
+                    <label>Kelipatan Omzet Bonus</label>
+                    <input type="number" name="kelipatan_bonus" value="<%= config.kelipatan_bonus || 100000 %>">
+                </div>
+                <div class="form-group">
+                    <label>Nominal Bonus per Lipatan</label>
+                    <input type="number" name="nominal_bonus_lipat" value="<%= config.nominal_bonus_lipat || 5000 %>">
+                </div>
+            </div>
 
         <div class="card" style="border-left: 5px solid var(--blue);">
             <div class="section-title" style="border-bottom-color: var(--blue);">⚙️ Mesin Produksi</div>

@@ -175,7 +175,7 @@ app.use(async (req, res, next) => {
         nama_aplikasi: "Tatriz System", 
         nama_perusahaan: "Tatriz", 
         logo_path: "default.png",
-        target_bonus: 500000,
+        target_bonus: 0,
         nominal_buffer: 0,
         beban_tetap: 0,
         level: 1 // Default level standar
@@ -292,15 +292,18 @@ app.post('/save-settings-all', upload.single('logo'), async (req, res) => {
     const tId = req.session.tenantId;
     if (!tId) return res.send("<script>alert('Sesi habis, silakan login kembali'); window.location='/';</script>");
 
+    // 1. Tangkap semua variabel termasuk kebijakan gaji & bonus baru
     const { 
         nama_perusahaan, alamat, no_hp, nominal_buffer, 
-        target_bonus, nominal_bonus_dasar, beban_tetap, nama_mesin_baru 
+        target_bonus, nominal_bonus_dasar, beban_tetap,
+        jam_kerja_reguler, pembagi_lembur, kelipatan_bonus, nominal_bonus_lipat, // Variabel Baru
+        nama_mesin_baru 
     } = req.body;
 
     try {
         let logoUrl = null;
 
-        // 1. Upload Logo (Pastikan bucket 'uploads' sudah PUBLIC di Supabase)
+        // 2. Upload Logo ke Supabase (Jika ada file baru)
         if (req.file) {
             const fileName = `logo-${tId}-${Date.now()}${path.extname(req.file.originalname)}`;
             const { data, error } = await supabase.storage
@@ -315,11 +318,13 @@ app.post('/save-settings-all', upload.single('logo'), async (req, res) => {
             logoUrl = publicData.publicUrl;
         }
 
-        // 2. Update Settings
+        // 3. Susun SQL Update (Pastikan urutan $ sesuai dengan urutan params)
         let sql = `UPDATE settings SET 
                     nama_perusahaan = $1, alamat = $2, no_hp = $3, 
                     nominal_buffer = $4, target_bonus = $5, 
-                    nominal_bonus_dasar = $6, beban_tetap = $7`;
+                    nominal_bonus_dasar = $6, beban_tetap = $7,
+                    jam_kerja_reguler = $8, pembagi_lembur = $9,
+                    kelipatan_bonus = $10, nominal_bonus_lipat = $11`;
         
         let params = [
             nama_perusahaan || 'Tatriz Unit', 
@@ -328,20 +333,25 @@ app.post('/save-settings-all', upload.single('logo'), async (req, res) => {
             parseFloat(nominal_buffer) || 0, 
             parseFloat(target_bonus) || 0, 
             parseFloat(nominal_bonus_dasar) || 0, 
-            parseFloat(beban_tetap) || 0
+            parseFloat(beban_tetap) || 0,
+            parseInt(jam_kerja_reguler) || 8,        // Default 8 jam
+            parseInt(pembagi_lembur) || 4,           // Default GP/4
+            parseInt(kelipatan_bonus) || 100000,     // Default lipatan 100rb
+            parseInt(nominal_bonus_lipat) || 5000    // Default bonus lipatan 5rb
         ];
 
+        // 4. Penanganan Logo Path & Tenant ID (Gunakan index $12 dan $13)
         if (logoUrl) {
-            sql += `, logo_path = $8 WHERE tenant_id = $9`;
+            sql += `, logo_path = $12 WHERE tenant_id = $13`;
             params.push(logoUrl, tId);
         } else {
-            sql += ` WHERE tenant_id = $8`;
+            sql += ` WHERE tenant_id = $12`;
             params.push(tId);
         }
 
         await db.query(sql, params);
 
-        // 3. Tambah Mesin Baru
+        // 5. Tambah Mesin Baru (Jika diisi)
         if (nama_mesin_baru && nama_mesin_baru.trim() !== "") {
             await db.query(
                 "INSERT INTO mesin (tenant_id, nama_mesin) VALUES ($1, $2)",
@@ -356,6 +366,8 @@ app.post('/save-settings-all', upload.single('logo'), async (req, res) => {
         res.status(500).send("Gagal simpan: " + err.message);
     }
 });
+
+
 // Menampilkan Halaman Register
 app.get('/register', (req, res) => {
     res.render('register');
