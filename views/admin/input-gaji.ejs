@@ -20,22 +20,23 @@
                 <input type="hidden" name="tgl_akhir" value="<%= tgl_akhir %>">
 
                 <div class="table-responsive">
-                    <table class="table table-bordered table-hover align-middle">
-                        <thead class="table-dark text-center" style="font-size: 0.85rem;">
+                    <table class="table table-bordered table-hover align-middle text-center">
+                        <thead class="table-dark" style="font-size: 0.85rem;">
                             <tr>
-                                <th>Nama Karyawan</th>
+                                <th class="text-start">Nama Karyawan</th>
                                 <th>GP / Hari</th>
-                                <th style="width: 110px;">Hari.Jam</th>
-                                <th style="width: 100px;">Lembur (Sesi)</th>
+                                <th style="width: 100px;">Hari.Jam</th>
+                                <th style="width: 90px;">Lembur</th>
                                 <th>Bonus Target</th>
-                                <th style="width: 130px;">Kasbon</th>
+                                <th style="width: 110px;">Adj (+/-)</th>
+                                <th style="width: 110px;">Kasbon</th>
                                 <th class="bg-success">Total Terima</th>
                             </tr>
                         </thead>
                         <tbody>
                             <% Object.values(rekap).forEach((op, index) => { %>
                             <tr class="baris-gaji">
-                                <td>
+                                <td class="text-start">
                                     <strong><%= op.nama %></strong>
                                     <input type="hidden" name="operator_ids" value="<%= op.id %>">
                                     <input type="hidden" name="nama" value="<%= op.nama %>">
@@ -55,22 +56,21 @@
                                 <td>
                                     <div class="text-end px-2">
                                         <input type="hidden" name="bonus" class="input-bonus-target" value="<%= op.bonus %>">
-                                        <span class="fw-bold text-primary">Rp <%= (op.bonus || 0).toLocaleString('id-ID') %></span>
+                                        <span class="fw-bold text-primary" style="font-size: 0.9rem;">
+                                            Rp <%= (op.bonus || 0).toLocaleString('id-ID') %>
+                                        </span>
                                     </div>
                                 </td>
                                 <td>
-                                    <div class="input-group input-group-sm">
-                                        <span class="input-group-text">+/-</span>
-                                        <input type="number" name="adj_manual" value="0" class="form-control fw-bold input-adj">
-                                    </div>
+                                    <input type="number" name="adj_manual" value="0" class="form-control form-control-sm text-center fw-bold input-adj" style="color: #6c5ce7;">
                                 </td>
+                                <td>
                                     <div class="input-group input-group-sm">
                                         <span class="input-group-text text-danger">-</span>
                                         <input type="number" name="kasbon" value="0" class="form-control text-danger fw-bold input-kasbon">
                                     </div>
                                 </td>
-                                <td>
-                                    <td class="text-end fw-bold text-success bg-light" style="font-size: 1.1rem;">
+                                <td class="text-end fw-bold text-success bg-light" style="font-size: 1.1rem;">
                                     <span class="total-tampil">Rp 0</span>
                                 </td>
                             </tr>
@@ -96,8 +96,6 @@
 document.addEventListener('DOMContentLoaded', function() {
     const semuaBaris = document.querySelectorAll('.baris-gaji');
 
-    // --- VARIABEL DARI SETUP DATABASE (Penyebab Error Sebelumnya) ---
-    // Pastikan nilai default ada agar JS tidak kosong saat pertama kali load
     const JAM_REGULER = Number("<%= config.jam_kerja_reguler %>") || 8;
     const PEMBAGI_LEMBUR = Number("<%= config.pembagi_lembur %>") || 4;
 
@@ -111,6 +109,7 @@ document.addEventListener('DOMContentLoaded', function() {
         const hkRaw = hkValue.replace(',', '.');
         const lembur = parseFloat(row.querySelector('.input-lembur').value) || 0;
         const bonusTarget = parseFloat(row.querySelector('.input-bonus-target').value) || 0;
+        const adjManual = parseFloat(row.querySelector('.input-adj').value) || 0; // Ambil nilai Adj
         const kasbon = parseFloat(row.querySelector('.input-kasbon').value) || 0;
 
         let hariFull = 0;
@@ -124,17 +123,15 @@ document.addEventListener('DOMContentLoaded', function() {
             hariFull = parseInt(hkRaw) || 0;
         }
 
-        // Kalkulasi Fleksibel sesuai Setup
+        // Rumus Fleksibel + Adjustment Manual
         const nominalHK = (hariFull * gp) + ((gp / JAM_REGULER) * jamSisa);
         const nominalLembur = (gp / PEMBAGI_LEMBUR) * lembur; 
         
-        const total = nominalHK + nominalLembur + bonusTarget - kasbon;
+        const total = nominalHK + nominalLembur + bonusTarget + adjManual - kasbon;
 
-        // Update UI
         row.querySelector('.total-tampil').innerText = formatRupiah(total);
     }
 
-    // Inisialisasi hitungan
     semuaBaris.forEach(row => {
         hitungBaris(row);
         row.querySelectorAll('input').forEach(input => {

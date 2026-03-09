@@ -1625,10 +1625,10 @@ app.get('/input-gaji', isAdmin, async (req, res) => {
     }
 });
 
-// --- 2. PROSES CETAK SLIP (REVISI TOTAL) ---
+// --- 2. PROSES CETAK SLIP (REVISI TOTAL - DENGAN ADJ MANUAL) ---
 app.post('/proses-print-gaji', isAdmin, async (req, res) => {
     const tId = req.session.tenantId;
-    const { tgl_awal, tgl_akhir, operator_ids, nama, gp, hari_kerja, lembur, bonus, kasbon } = req.body;
+    const { tgl_awal, tgl_akhir, operator_ids, nama, gp, hari_kerja, lembur, bonus, adj_manual, kasbon } = req.body;
 
     try {
         // AMBIL CONFIG (Gunakan db.get dan placeholder $1)
@@ -1638,13 +1638,16 @@ app.post('/proses-print-gaji', isAdmin, async (req, res) => {
         const jamReguler = parseInt(config?.jam_kerja_reguler) || 8;
         const pembagiLembur = parseInt(config?.pembagi_lembur) || 4;
 
+        // Helper untuk memastikan input adalah array (agar tidak error jika hanya 1 karyawan)
         const toArray = (val) => Array.isArray(val) ? val : [val];
+        
         const ids = toArray(operator_ids);
         const nmList = toArray(nama);
         const gpList = toArray(gp);
         const hkList = toArray(hari_kerja);
         const lbList = toArray(lembur);
         const bnList = toArray(bonus);
+        const adjList = toArray(adj_manual); // Deklarasikan adjList di sini
         const kbList = toArray(kasbon);
 
         let dataGaji = [];
@@ -1654,6 +1657,7 @@ app.post('/proses-print-gaji', isAdmin, async (req, res) => {
             let inputHK = String(hkList[i] || "0").replace(',', '.');
             let jamLembur = Number(lbList[i]) || 0;
             let bonusTarget = Number(bnList[i]) || 0;
+            let penyesuaian = Number(adjList[i]) || 0; // Ambil nilai Adj dari list
             let totalKasbon = Number(kbList[i]) || 0;
 
             let hariFull = 0;
@@ -1667,12 +1671,13 @@ app.post('/proses-print-gaji', isAdmin, async (req, res) => {
                 hariFull = parseInt(inputHK) || 0;
             }
 
-            // RUMUS FLEKSIBEL (Menggunakan jamReguler dan pembagiLembur)
+            // RUMUS FLEKSIBEL (Menggunakan variabel dinamis & penyesuaian manual)
             let nominalHari = hariFull * gajiPokok;
             let nominalJamSisa = (gajiPokok / jamReguler) * jamSisa;
             let nominalLembur = (gajiPokok / pembagiLembur) * jamLembur; 
             
-            let totalFinal = nominalHari + nominalJamSisa + nominalLembur + bonusTarget + adjManual - totalKasbon;
+            // TOTAL FINAL: Termasuk Penyesuaian (+/-)
+            let totalFinal = nominalHari + nominalJamSisa + nominalLembur + bonusTarget + penyesuaian - totalKasbon;
 
             dataGaji.push({
                 nama: nmList[i],
@@ -1682,12 +1687,20 @@ app.post('/proses-print-gaji', isAdmin, async (req, res) => {
                 jam_sisa: jamSisa,
                 lembur: jamLembur,
                 bonus_target: bonusTarget,
+                adjustment: penyesuaian, // Kirim data adj ke EJS cetak jika ingin ditampilkan
                 kasbon: totalKasbon,
                 totalFinal: Math.round(totalFinal)
             });
         }
 
-        res.render('admin/cetak-slip', { dataGaji, tgl_awal, tgl_akhir, config, user: req.session });
+        // Render ke halaman cetak dengan variabel asli (dataGaji, config, user)
+        res.render('admin/cetak-slip', { 
+            dataGaji, 
+            tgl_awal, 
+            tgl_akhir, 
+            config: config || { nama_perusahaan: "Tatriz" }, 
+            user: req.session 
+        });
 
     } catch (err) {
         console.error("🔥 Error Proses Slip:", err.message);
