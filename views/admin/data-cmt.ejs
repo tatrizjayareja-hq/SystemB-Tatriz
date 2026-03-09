@@ -4,12 +4,13 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Monitoring CMT - Tatriz</title>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.1/font/bootstrap-icons.css">
     <style>
-        body { font-family: 'Segoe UI', sans-serif; background: #f4f7f6; padding: 20px; }
+        body { font-family: 'Segoe UI', sans-serif; background: #f4f7f6; padding: 20px; margin: 0; }
         .filter-card { background: white; padding: 20px; border-radius: 12px; margin-bottom: 20px; box-shadow: 0 4px 6px rgba(0,0,0,0.05); }
         .grid-filter { display: grid; grid-template-columns: 2fr 1fr 1fr; gap: 20px; align-items: center; }
         
-        table { width: 100%; border-collapse: collapse; background: white; border-radius: 12px; overflow: hidden; }
+        table { width: 100%; border-collapse: collapse; background: white; border-radius: 12px; overflow: hidden; box-shadow: 0 4px 10px rgba(0,0,0,0.05); }
         th { background: #59cf77; color: white; padding: 15px 12px; text-align: left; font-size: 14px; }
         td { padding: 12px; border-bottom: 1px solid #eee; font-size: 14px; }
         
@@ -22,10 +23,17 @@
         .detail-content { padding: 15px; border-left: 5px solid #e67e22; margin: 10px; background: white; border-radius: 8px; box-shadow: inset 0 2px 4px rgba(0,0,0,0.05); }
 
         #bulkActionArea { display: none; background: #e8f5e9; padding: 15px; border-radius: 8px; margin-bottom: 15px; border: 1px solid #59cf77; align-items: center; justify-content: space-between; }
-        .btn-quick { background: #3498db; color: white; border: none; padding: 6px 12px; border-radius: 6px; cursor: pointer; font-size: 11px; font-weight: bold; margin: 2px; }
+        
+        .btn-quick { 
+            background: #3498db; color: white; border: none; padding: 8px 14px; 
+            border-radius: 6px; cursor: pointer; font-size: 11px; font-weight: bold; 
+            margin: 2px; text-decoration: none; display: inline-block;
+        }
         .btn-quick.qc { background: #f1c40f; color: #2c3e50; }
         .btn-quick.lunas { background: #27ae60; }
         .untung-text { color: #27ae60; font-weight: bold; }
+        
+        .btn-bulk { padding: 10px 15px; border-radius: 8px; border: none; font-weight: bold; cursor: pointer; color: white; }
     </style>
 </head>
 <body>
@@ -36,197 +44,13 @@
         <div style="width: 50px;"></div>
     </div>
 
-    <!DOCTYPE html>
-<html lang="id">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Edit PO - <%= po.nama_po %></title>
-    <style>
-        table input {
-            border: none;
-            padding: 5px;
-            width: 100%;
-            background: transparent;
-        }
-        table input:focus {
-            background: #fff9db;
-            outline: none;
-        }
-        tr:hover {
-            background-color: #f1f1f1;
-        }
-
-        .btn-quick { 
-            background: #3498db; 
-            color: white; 
-            border: none; 
-            padding: 6px 12px; 
-            border-radius: 6px; 
-            cursor: pointer; 
-            font-size: 11px; 
-            font-weight: bold; 
-            margin: 2px;
-            line-height: 1.5; /* Tambahkan ini */
-        }
-        body { font-family: 'Segoe UI', sans-serif; background: #f4f7f6; padding: 15px; margin: 0; }
-        .container { max-width: 900px; margin: auto; background: white; padding: 20px; border-radius: 12px; box-shadow: 0 4px 10px rgba(0,0,0,0.1); }
-        .form-group { margin-bottom: 15px; }
-        label { display: block; font-weight: bold; margin-bottom: 5px; font-size: 13px; }
-        input, select { width: 100%; padding: 10px; border: 1px solid #ddd; border-radius: 6px; box-sizing: border-box; font-size: 16px; }
-        
-        .table-wrapper { overflow-x: auto; margin-top: 20px; }
-        table { width: 100%; border-collapse: collapse; min-width: 600px; }
-        th, td { border: 1px solid #ddd; padding: 10px; text-align: left; font-size: 14px; }
-        th { background: #f8f9fa; }
-
-        .btn-update { background: #59cf77; color: white; border: none; padding: 15px; width: 100%; border-radius: 8px; font-weight: bold; cursor: pointer; margin-top: 20px; font-size: 16px; }
-        .btn-add { background: #3498db; color: white; border: none; padding: 8px 12px; border-radius: 6px; cursor: pointer; margin-top: 10px; font-size: 13px; }
-        
-        .payment-info { background: #fdf9ea; padding: 15px; border-radius: 10px; border: 1px solid #ffeaa7; margin-bottom: 20px; }
-        .status-badge { background: #e67e22; color: white; padding: 2px 8px; border-radius: 4px; font-size: 11px; }
-        .remove-row { color: #e74c3c; cursor: pointer; font-weight: bold; text-align: center; }
-    
-    
-    </style>
-</head>
-<body>
-
-<div class="container">
-    <a href="/po-data" style="text-decoration: none; color: #666; font-size: 14px;">⬅ Batal & Kembali</a>
-    <h2 style="margin-top: 10px;">📝 Edit Pesanan (PO)</h2>
-
-    <div class="payment-info">
-        <label>📊 Ringkasan Pembayaran:</label>
-        <% 
-            let bayar = po.total_bayar || 0;
-            let total = po.total_harga_customer || 0;
-            let sisa = total - bayar;
-        %>
-        <% if (po.status === 'Lunas' || sisa <= 0) { %>
-            <div style="color: #27ae60; font-weight: bold; font-size: 18px;">✅ LUNAS (Rp <%= total.toLocaleString() %>)</div>
-        <% } else { %>
-            <div style="display: flex; justify-content: space-between;">
-                <div>Sudah Bayar:<br><b style="color: #27ae60;">Rp <%= bayar.toLocaleString() %></b></div>
-                <div style="text-align: right;">Sisa Tagihan:<br><b style="color: #d63031;">Rp <%= sisa.toLocaleString() %></b></div>
-            </div>
-        <% } %>
+    <div id="bulkActionArea">
+        <div><strong id="countSelected">0 PO Terpilih</strong></div>
+        <div>
+            <button onclick="prosesNotaGabungan()" class="btn-bulk" style="background: #2c3e50; margin-right: 5px;">📝 NOTA CUSTOMER</button>
+            <button onclick="prosesNotaVendor()" class="btn-bulk" style="background: #d63031;">💰 BAYAR VENDOR (CMT)</button>
+        </div>
     </div>
-
-    <form action="/update-po/<%= po.id %>" method="POST">
-        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px;">
-            <div class="form-group"><label>Tanggal Nota</label><input type="date" name="tanggal" value="<%= po.tanggal %>" required></div>
-            <div class="form-group">
-                <label>Status Produksi/Bayar</label>
-                <select name="status">
-                    <option value="Design" <%= po.status === 'Design' ? 'selected' : '' %>>Design</option>
-                    <option value="Produksi" <%= po.status === 'Produksi' ? 'selected' : '' %>>Produksi</option>
-                    <option value="CMT" <%= po.status === 'CMT' ? 'selected' : '' %>>CMT (Luar)</option>
-                    <option value="QC" <%= po.status === 'QC' ? 'selected' : '' %>>QC</option>
-                    <option value="Clear" <%= po.status === 'Clear' ? 'selected' : '' %>>Clear</option>
-                    <option value="DP/Cicil" <%= po.status === 'DP/Cicil' ? 'selected' : '' %>>DP/Cicil</option>
-                    <option value="Lunas" <%= po.status === 'Lunas' ? 'selected' : '' %>>Lunas</option>
-                </select>
-            </div>
-            <div class="form-group"><label>Nama PO</label><input type="text" name="nama_po" value="<%= po.nama_po %>" required></div>
-            <div class="form-group"><label>Customer</label><input type="text" name="customer" value="<%= po.customer %>" required></div>
-        </div>
-
-        <h3>📦 Rincian Bordir</h3>
-        <div class="table-wrapper">
-            <table id="tableRincian">
-                <thead>
-                    <tr>
-                        <th>Jenis Bordir</th>
-                        <th>Nama Desain</th>
-                        <th>Qty</th>
-                        <% if (user.tenantId === 1 || user.tenantLevel >= 2) { %>
-                            <th>Hrg CMT</th>
-                            <th>Hrg Op</th>
-                        <% } %>
-                        <th>Hrg Cust</th>
-                        <th style="text-align: center;">Aksi</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    <% details.forEach((item, index) => { %>
-                        <tr>
-                            <input type="hidden" name="detail_ids" value="<%= item.id %>">
-                            
-                            <td><input type="text" name="jenis_bordir" value="<%= item.jenis_bordir %>"></td>
-                            <td><input type="text" name="nama_desain" value="<%= item.nama_desain %>"></td>
-                            <td><input type="number" name="jumlah" value="<%= item.jumlah %>"></td>
-
-                            <% if (user.tenantLevel < 2 && user.tenantId !== 1) { %>
-                                <input type="hidden" name="harga_cmt" value="<%= item.harga_cmt %>">
-                                <input type="hidden" name="harga_operator" value="<%= item.harga_operator %>">
-                            <% } else { %>
-                                <td><input type="number" name="harga_cmt" value="<%= item.harga_cmt %>"></td>
-                                <td><input type="number" name="harga_operator" value="<%= item.harga_operator %>"></td>
-                            <% } %>
-
-                            <td><input type="number" name="harga_customer" value="<%= item.harga_customer %>"></td>
-                            
-                            <td class="remove-row" onclick="this.parentElement.remove()">✕</td>
-                        </tr>
-                    <% }) %>
-                </tbody>
-            </table>
-        </div>
-
-        <button type="button" class="btn-add" onclick="tambahBaris()">+ Tambah Komponen</button>
-        <button type="submit" class="btn-update">SIMPAN PERUBAHAN DATA</button>
-    </form>
-</div>
-<div id="userConfig" 
-     data-is-premium="<%= (user.tenantId === 1 || user.tenantLevel >= 2) ? 'true' : 'false' %>" 
-     style="display: none;">
-</div>
-<script>
-    function tambahBaris() {
-    const tbody = document.querySelector("#tableRincian tbody");
-    const row = document.createElement("tr");
-    
-    // Ambil data dari elemen HTML tadi (JavaScript murni, bukan EJS)
-    const configEl = document.getElementById('userConfig');
-    const isPremium = configEl.getAttribute('data-is-premium') === 'true';
-    
-    let htmlContent = `
-        <input type="hidden" name="detail_ids" value="">
-        <td><input type="text" name="jenis_bordir" placeholder="Jenis"></td>
-        <td><input type="text" name="nama_desain" placeholder="Desain"></td>
-        <td><input type="number" name="jumlah" value="0"></td>
-    `;
-
-    if (isPremium) {
-        // Tampilan untuk PRO/DEVELOPER
-        htmlContent += `
-            <td><input type="number" name="harga_cmt" value="0"></td>
-            <td><input type="number" name="harga_operator" value="0"></td>
-        `;
-    } else {
-        // Tampilan untuk LEVEL 1 (Tetap kirim data tapi hidden)
-        htmlContent += `
-            <input type="hidden" name="harga_cmt" value="0">
-            <input type="hidden" name="harga_operator" value="0">
-        `;
-    }
-
-    htmlContent += `
-        <td><input type="number" name="harga_customer" value="0"></td>
-        <td class="remove-row" onclick="this.parentElement.remove()">✕</td>
-    `;
-
-    row.innerHTML = htmlContent;
-    tbody.appendChild(row);
-}
-</script>
-        <a href="/cetak-nota/<%= po.id %>" target="_blank" 
-        style="display: block; text-align: center; background: #3498db; color: white; padding: 15px; border-radius: 8px; text-decoration: none; font-weight: bold; margin-top: 10px;">
-        🖨️ CETAK NOTA RESMI
-        </a>
-        </body>
-        </html>
 
     <div class="filter-card">
         <div class="grid-filter">
@@ -252,76 +76,72 @@
             <% 
                 // Filter detail khusus untuk PO ini
                 let subDetails = details.filter(d => Number(d.po_id) === Number(po.id)); 
-                
-                // Hitung akumulasi biaya CMT sebelum merender baris
+                // Hitung akumulasi biaya CMT
                 let totalBiayaCMT = subDetails.reduce((sum, sub) => sum + (Number(sub.jumlah) * Number(sub.harga_cmt)), 0);
             %>
         
-        <tr class="clickable-row" onclick="toggleDetail('<%= po.id %>')">
-            <td class="check-col" onclick="event.stopPropagation()">
-                <input type="checkbox" class="po-checkbox" value="<%= po.id %>" data-customer="<%= po.customer %>" onchange="updateCounter()">
-            </td>
-            <td style="font-size: 12px;"><%= po.tanggal.split('-').reverse().join('/') %></td>
-            <td>
-                <strong><%= po.nama_po %></strong><br>
-                <small style="color: #7f8c8d;"><%= po.customer %></small>
-            </td>
-            
-            <td style="color: #d63031; font-weight: bold;">
-                <small style="color: #999; font-weight: normal; font-size: 10px; display: block;">Biaya CMT:</small>
-                Rp <%= Number(totalBiayaCMT).toLocaleString('id-ID') %>
-            </td>
+            <tr class="clickable-row" onclick="toggleDetail('<%= po.id %>')">
+                <td class="check-col" onclick="event.stopPropagation()">
+                    <input type="checkbox" class="po-checkbox" value="<%= po.id %>" onchange="updateCounter()">
+                </td>
+                <td style="font-size: 12px;"><%= po.tanggal.split('-').reverse().join('/') %></td>
+                <td>
+                    <strong><%= po.nama_po %></strong><br>
+                    <small style="color: #7f8c8d;"><%= po.customer %></small>
+                </td>
+                
+                <td style="color: #d63031; font-weight: bold;">
+                    <small style="color: #999; font-weight: normal; font-size: 10px; display: block;">Biaya CMT:</small>
+                    Rp <%= Number(totalBiayaCMT).toLocaleString('id-ID') %>
+                </td>
 
-            <td class="untung-text">
-                <small style="color: #999; font-weight: normal; font-size: 10px; display: block;">Laba Bersih:</small>
-                Rp <%= Number(po.total_untung || 0).toLocaleString('id-ID') %>
-            </td>
+                <td class="untung-text">
+                    <small style="color: #999; font-weight: normal; font-size: 10px; display: block;">Laba Bersih:</small>
+                    Rp <%= Number(po.total_untung || 0).toLocaleString('id-ID') %>
+                </td>
 
-            <<td style="text-align: center;" onclick="event.stopPropagation()">
-                <div style="display: flex; gap: 5px; justify-content: center;">
-                    <a href="/edit-po/<%= po.id %>" class="btn-quick" style="background: #3498db; text-decoration: none; display: inline-block;">
-                        EDIT
-                    </a>
-                    
-                    <button class="btn-quick qc" onclick="updateStatus('<%= po.id %>', 'QC')">SET QC</button>
-                    <button class="btn-quick lunas" onclick="updateStatus('<%= po.id %>', 'Lunas')">LUNAS</button>
-                </div>
-            </td>
-        </tr>
+                <td style="text-align: center;" onclick="event.stopPropagation()">
+                    <div style="display: flex; gap: 5px; justify-content: center;">
+                        <a href="/edit-po/<%= po.id %>" class="btn-quick">EDIT</a>
+                        <button class="btn-quick qc" onclick="updateStatus('<%= po.id %>', 'QC')">SET QC</button>
+                        <button class="btn-quick lunas" onclick="updateStatus('<%= po.id %>', 'Lunas')">LUNAS</button>
+                    </div>
+                </td>
+            </tr>
 
-        <tr id="detail-<%= po.id %>" class="detail-row">
-            <td colspan="6"> 
-                <div class="detail-content">
-                    <table style="width: 100%; font-size: 12px; background: none; box-shadow: none; border-radius: 0;">
-                        <thead style="background: #eee;">
-                            <tr>
-                                <th style="color: #333; background: none; padding: 8px;">Nama Desain</th>
-                                <th style="color: #333; background: none; padding: 8px;">Qty</th>
-                                <th style="color: #333; background: none; padding: 8px;">Hrg CMT</th>
-                                <th style="color: #333; background: none; padding: 8px;">Hrg Cust</th>
-                                <th style="color: #333; background: none; padding: 8px;">Keuntungan</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            <% subDetails.forEach(sub => { %> 
+            <tr id="detail-<%= po.id %>" class="detail-row">
+                <td colspan="6"> 
+                    <div class="detail-content">
+                        <table style="width: 100%; font-size: 12px; background: none; box-shadow: none; border-radius: 0;">
+                            <thead style="background: #eee;">
                                 <tr>
-                                    <td><%= sub.nama_desain %> (<%= sub.jenis_bordir %>)</td>
-                                    <td><%= sub.jumlah %></td>
-                                    <td>Rp <%= Number(sub.harga_cmt).toLocaleString('id-ID') %></td>
-                                    <td>Rp <%= Number(sub.harga_customer).toLocaleString('id-ID') %></td>
-                                    <td class="untung-text">
-                                        Rp <%= (Number(sub.jumlah) * (Number(sub.harga_customer) - Number(sub.harga_cmt))).toLocaleString('id-ID') %>
-                                    </td>
+                                    <th style="color: #333; background: none; padding: 8px;">Nama Desain</th>
+                                    <th style="color: #333; background: none; padding: 8px;">Qty</th>
+                                    <th style="color: #333; background: none; padding: 8px;">Hrg CMT</th>
+                                    <th style="color: #333; background: none; padding: 8px;">Hrg Cust</th>
+                                    <th style="color: #333; background: none; padding: 8px;">Keuntungan</th>
                                 </tr>
-                            <% }) %>
-                        </tbody>
-                    </table>
-                </div>
-            </td>
-        </tr>
-    <% }) %>
-</tbody>
-</table>
+                            </thead>
+                            <tbody>
+                                <% subDetails.forEach(sub => { %> 
+                                    <tr>
+                                        <td><%= sub.nama_desain %> (<%= sub.jenis_bordir %>)</td>
+                                        <td><%= sub.jumlah %></td>
+                                        <td>Rp <%= Number(sub.harga_cmt).toLocaleString('id-ID') %></td>
+                                        <td>Rp <%= Number(sub.harga_customer).toLocaleString('id-ID') %></td>
+                                        <td class="untung-text">
+                                            Rp <%= (Number(sub.jumlah) * (Number(sub.harga_customer) - Number(sub.harga_cmt))).toLocaleString('id-ID') %>
+                                        </td>
+                                    </tr>
+                                <% }) %>
+                            </tbody>
+                        </table>
+                    </div>
+                </td>
+            </tr>
+        <% }) %>
+        </tbody>
+    </table>
 
     <script>
         function toggleDetail(id) {
@@ -367,10 +187,10 @@
             let ids = Array.from(checked).map(cb => cb.value);
             window.open(`/cetak-nota-gabungan?ids=${ids.join(',')}`, '_blank');
         }
+
         function prosesNotaVendor() {
             const checked = document.querySelectorAll('.po-checkbox:checked');
             let ids = Array.from(checked).map(cb => cb.value);
-            // Kita arahkan ke rute baru khusus vendor
             window.open(`/cetak-nota-vendor?ids=${ids.join(',')}`, '_blank');
         }
     </script>
