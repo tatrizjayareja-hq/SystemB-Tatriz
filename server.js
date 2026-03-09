@@ -141,6 +141,7 @@ app.post('/login', async (req, res) => {
             req.session.nama_lengkap = loggedInUser.nama_lengkap;
             req.session.role = loggedInUser.role;
             req.session.tenantId = loggedInUser.tenant_id;
+            req.session.tenantLevel = settings.level || 1;
 
             // Paksa simpan session sebelum redirect (PENTING untuk Vercel/Serverless)
             req.session.save((err) => {
@@ -169,17 +170,23 @@ app.post('/login', async (req, res) => {
 });
 
 app.use(async (req, res, next) => {
-    // Data default
+    // 1. Data Default (Fallback jika DB error atau belum login)
     res.locals.config = { 
         nama_aplikasi: "Tatriz System", 
         nama_perusahaan: "Tatriz", 
         logo_path: "default.png",
         target_bonus: 500000,
         nominal_buffer: 0,
-        beban_tetap: 0
+        beban_tetap: 0,
+        level: 1 // Default level standar
     };
     res.locals.uangKunci = { saldoLaci: 0, totalUangDikunci: 0, profitBolehAmbil: 0, statusAman: true };
-    res.locals.user = req.session || {};
+    
+    // Sinkronisasi data user untuk EJS (Level 1 vs Level 2)
+    res.locals.user = req.session.userId ? {
+        ...req.session,
+        tenantLevel: req.session.tenantLevel || 1
+    } : null;
 
     const tId = req.session ? req.session.tenantId : null;
     if (!tId) return next();
@@ -187,49 +194,51 @@ app.use(async (req, res, next) => {
     try {
         const bulanIni = new Date().toISOString().slice(0, 7); // Format: YYYY-MM
 
-        // 1. Ambil Settings
+        // 2. Ambil Settings (Data Perusahaan & Level Tenant)
         const config = await db.get("SELECT * FROM settings WHERE tenant_id = $1", [tId]);
         if (config) {
             res.locals.config = config;
             if (!res.locals.config.logo_path) res.locals.config.logo_path = "default.png";
+            // Pastikan level terbaru dari DB masuk ke session
+            if (res.locals.user) res.locals.user.tenantLevel = config.level || 1;
         }
 
-        // 2. Hitung Saldo Kas Riil
+        // 3. Hitung Saldo Kas Riil (Pemasukan - Pengeluaran)
         const saldoRes = await db.get(`
             SELECT SUM(CASE WHEN jenis = 'PEMASUKAN' THEN jumlah ELSE -jumlah END) as saldo 
             FROM arus_kas WHERE tenant_id = $1`, [tId]);
         
-        // 3. Hitung Beban Kontrakan Terbayar (Perbaikan query LIKE untuk Postgres)
+        // 4. Hitung Beban Kontrakan Terbayar (Gunakan TO_CHAR agar lebih stabil di Postgres)
         const bebanRes = await db.get(`
             SELECT SUM(jumlah) as terbayar FROM arus_kas 
             WHERE kategori = 'BIAYA KONTRAKAN' 
-            AND CAST(tanggal AS TEXT) LIKE $1 
-            AND tenant_id = $2`, 
-            [bulanIni + '%', tId]);
+            AND TO_CHAR(tanggal::DATE, 'YYYY-MM') = $1 
+            AND tenant_id = $2`, [bulanIni, tId]);
 
         const saldoLaci = parseFloat(saldoRes?.saldo || 0);
         const terbayar = parseFloat(bebanRes?.terbayar || 0);
         const conf = res.locals.config;
         
-        // Logika Uang Dikunci
-        const sisaBeban = (terbayar >= (parseFloat(conf.beban_tetap) || 0)) ? 0 : (parseFloat(conf.beban_tetap) || 0);
-        const uangDikunci = (parseFloat(conf.nominal_buffer) || 0) + sisaBeban;
+        // 5. Logika Uang Dikunci (Buffer + Sisa Kontrakan yang belum dibayar bulan ini)
+        const targetBeban = parseFloat(conf.beban_tetap) || 0;
+        const sisaBebanKontrakan = Math.max(0, targetBeban - terbayar);
+        const uangDikunci = (parseFloat(conf.nominal_buffer) || 0) + sisaBebanKontrakan;
 
         res.locals.uangKunci = {
             saldoLaci,
             totalUangDikunci: uangDikunci,
             profitBolehAmbil: saldoLaci - uangDikunci,
-            statusAman: (saldoLaci - uangDikunci) >= 0
+            statusAman: saldoLaci >= uangDikunci
         };
 
         next();
     } catch (err) {
         console.error("🔥 DATABASE ERROR:", err.message);
-        // Jika DB error, jangan lempar ke 404, tapi lanjut saja dengan data kosong
-        res.locals.config = { nama_perusahaan: "Tatriz (Offline)" };
+        res.locals.config.nama_perusahaan = "Tatriz (Offline Mode)";
         next(); 
     }
 });
+
 
 app.get('/dashboard', async (req, res) => {
     if (!req.session.userId) return res.redirect('/');
@@ -995,7 +1004,7 @@ app.get('/input-kas', async (req, res) => { // 1. Tambahkan async
     // 2. Ubah ? menjadi $1
     const sqlPO = `SELECT id, nama_po, customer, total_harga_customer 
                    FROM po_utama 
-                   WHERE status NOT IN ('Lunas', 'Design') AND tenant_id = $1
+                   WHERE status NOT IN ('Lunas', 'Design', 'CMT') AND tenant_id = $1
                    ORDER BY tanggal DESC`; // Tambahkan ORDER BY agar PO terbaru di atas
     
     try {
@@ -1780,6 +1789,24 @@ app.get('/cetak-nota-rinci/:id', isAdmin, async (req, res) => {
     } catch (err) {
         console.error("Error Cetak Nota Rinci:", err.message);
         res.status(500).send("Gagal memuat nota rinci.");
+    }
+});
+
+// --- RUTE NOTA MANUAL ---
+app.get('/nota-manual', isAdmin, async (req, res) => {
+    const tId = req.session.tenantId;
+
+    try {
+        // Ambil config perusahaan agar logo dan alamat muncul di nota
+        const config = await db.get("SELECT * FROM settings WHERE tenant_id = $1", [tId]);
+        
+        res.render('nota-manual', { 
+            config: config || { nama_perusahaan: "Tatriz", logo_path: "default.png", alamat: "-" },
+            user: req.session 
+        });
+    } catch (err) {
+        console.error("🔥 Error Load Nota Manual:", err.message);
+        res.status(500).send("Gagal memuat halaman nota.");
     }
 });
 

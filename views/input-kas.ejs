@@ -54,10 +54,15 @@
             <label>Pilih Pesanan (PO)</label>
             <select name="po_id" id="select_po">
                 <option value="">-- Pilih PO yang Dibayar --</option>
-                <% pos.forEach(po => { %>
-                    <option value="<%= po.id %>">
-                        <%= po.nama_po %> - <%= po.customer %> (Tagihan: Rp <%= (po.total_harga_customer || 0).toLocaleString('id-ID') %>)
-                    </option>
+                        <% pos.forEach(po => { %>
+                    <% 
+                    // Filter: Jangan tampilkan status 'Lunas' dan 'CMT'
+                    if (po.status !== 'Lunas' && po.status !== 'CMT') { 
+                    %>
+                        <option value="<%= po.id %>">
+                            <%= po.nama_po %> - <%= po.customer %> (Tagihan: Rp <%= (po.total_harga_customer || 0).toLocaleString('id-ID') %>)
+                        </option>
+                    <% } %>
                 <% }) %>
             </select>
             <small style="color: #0984e3;">* Memilih PO akan otomatis mengubah status PO menjadi Lunas/Cicil.</small>
