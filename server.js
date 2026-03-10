@@ -569,31 +569,41 @@ app.get('/po-data', async (req, res) => {
     const tId = req.session.tenantId;
 
     try {
-        // 1. Ambil data Header PO
-        // Kita hitung total Qty per PO dan cek apakah ada variasi item (lebih dari 1 jenis rincian)
+        // 1. Ambil data Header PO dengan perhitungan total harga sekaligus
+        // Kita gunakan LEFT JOIN ke po_detail agar bisa menjumlahkan harga dari rincian
         const sqlOrders = `
             SELECT 
                 u.*, 
-                (SELECT SUM(jumlah) FROM po_detail WHERE po_id = u.id) as qty_tampil,
-                (SELECT COUNT(*) FROM po_detail WHERE po_id = u.id) as variasi_jumlah
+                SUM(d.jumlah) as qty_tampil,
+                COUNT(d.id) as variasi_jumlah,
+                SUM(d.jumlah * d.harga_operator) as total_harga_operator,
+                SUM(d.jumlah * d.harga_customer) as total_harga_customer
             FROM po_utama u 
+            LEFT JOIN po_detail d ON u.id = d.po_id
             WHERE u.tenant_id = $1 
+            GROUP BY u.id
             ORDER BY u.tanggal DESC, u.id DESC
         `;
+        
+        // Pastikan menggunakan db.query atau db.all sesuai library yang Anda pakai (pg atau sqlite)
+        // Di sini saya asumsikan db.all berdasarkan kode sebelumnya
         const orders = await db.all(sqlOrders, [tId]);
 
-        // 2. Ambil semua Rincian (Detail) untuk semua PO milik tenant ini
+        // 2. Ambil semua Rincian (Detail) untuk ditampilkan saat baris diklik (Toggle)
         const sqlDetails = `
             SELECT d.* FROM po_detail d
             JOIN po_utama u ON d.po_id = u.id
             WHERE u.tenant_id = $1
+            ORDER BY d.id ASC
         `;
         const details = await db.all(sqlDetails, [tId]);
 
         res.render('po-data', { 
+            user: req.session, // Pastikan objek user dikirim untuk pengecekan tenantLevel
             orders: orders,
             details: details
         });
+
     } catch (err) {
         console.error("🔥 Load PO Data Error:", err.message);
         res.status(500).send("Gagal memuat data pesanan.");
