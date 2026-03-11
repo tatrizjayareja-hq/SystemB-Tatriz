@@ -565,14 +565,10 @@ app.post('/save-po', async (req, res) => {
 });
 
 app.get('/po-data', async (req, res) => {
-    // Pastikan user sudah login
     if (!req.session.userId) return res.redirect('/');
-    
     const tId = req.session.tenantId;
 
     try {
-        // Query Header PO: Kita gunakan SUM untuk menghitung totalan di awal
-        // Ini agar variabel po.total_harga_customer muncul dengan benar
         const sqlOrders = `
             SELECT 
                 u.*, 
@@ -586,20 +582,24 @@ app.get('/po-data', async (req, res) => {
         `;
         const orders = await db.all(sqlOrders, [tId]);
 
-        // Query Detail: Untuk rincian saat baris tabel diklik (Toggle)
+        // MODIFIKASI: Query Detail menyertakan SUM hasil_kerja (Fitur No. 1)
         const sqlDetails = `
-            SELECT d.* FROM po_detail d
+            SELECT 
+                d.*, 
+                SUM(COALESCE(h.jumlah_setor, 0)) as total_produksi
+            FROM po_detail d
             JOIN po_utama u ON d.po_id = u.id
+            LEFT JOIN hasil_kerja h ON d.id = h.detail_id
             WHERE u.tenant_id = $1
+            GROUP BY d.id, d.po_id, d.nama_desain, d.jenis_bordir, d.jumlah, d.harga_operator, d.harga_customer
             ORDER BY d.id ASC
         `;
         const details = await db.all(sqlDetails, [tId]);
 
-        // PENTING: Kirimkan 'user' dari session agar pengecekan tenantLevel tidak error
         res.render('po-data', { 
             orders: orders, 
             details: details,
-            user: req.session // <--- Sinkronisasi User Session
+            user: req.session 
         });
 
     } catch (err) {
