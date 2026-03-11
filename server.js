@@ -1195,36 +1195,38 @@ app.post('/simpan-kerja', async (req, res) => {
     const userId = req.session.userId;
     const tId = req.session.tenantId;
 
-    // Validasi input
+    // Validasi input dasar
     if (!jumlah_setor || parseInt(jumlah_setor) <= 0) {
         return res.send("<script>alert('Jumlah setoran harus lebih dari 0!'); window.history.back();</script>");
     }
 
     try {
-        // 1. Simpan Hasil Kerja
+        // 1. Simpan Hasil Kerja (Tanpa membatasi jumlah, sesuai fakta lapangan operator)
         const sqlInsert = `
             INSERT INTO hasil_kerja (tenant_id, operator_id, po_id, detail_id, mesin_id, tanggal, shift, jumlah_setor) 
             VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
         `;
         await db.query(sqlInsert, [tId, userId, po_id, detail_id, mesin_id, tanggal, shift, parseInt(jumlah_setor)]);
 
-        // 2. LOGIKA AUTO-QC (Cek apakah target PO sudah terpenuhi semuanya)
+        // 2. LOGIKA MONITORING & AUTO-QC
+        // Kita hitung total target vs total realisasi untuk PO ini secara keseluruhan
         const sqlCheck = `
             SELECT 
-                (SELECT SUM(jumlah) FROM po_detail WHERE po_id = $1) as target,
-                (SELECT SUM(jumlah_setor) FROM hasil_kerja WHERE po_id = $1) as realisasi
+                (SELECT SUM(jumlah) FROM po_detail WHERE po_id = $1) as target_total,
+                (SELECT SUM(jumlah_setor) FROM hasil_kerja WHERE po_id = $1) as realisasi_total
         `;
         const check = await db.get(sqlCheck, [po_id]);
         
-        if (check && parseFloat(check.realisasi) >= parseFloat(check.target)) {
-            // Jika setoran kumulatif >= target, pindahkan ke status QC
+        // Fitur Auto-QC: Jika realisasi sudah mencapai atau MELEBIHI target, status naik ke QC
+        // Admin nanti akan melihat badge "TIDAK SINKRON" di laporan-produksi jika ada kelebihan
+        if (check && parseFloat(check.realisasi_total) >= parseFloat(check.target_total)) {
             await db.query("UPDATE po_utama SET status = 'QC' WHERE id = $1 AND tenant_id = $2", [po_id, tId]);
         }
 
-        res.send("<script>alert('Data berhasil disimpan!'); window.location='/operator';</script>");
+        res.send("<script>alert('Data berhasil disimpan! Status PO akan diperbarui jika target tercapai.'); window.location='/operator';</script>");
     } catch (err) {
         console.error("🔥 Error Simpan Kerja:", err.message);
-        res.status(500).send("Gagal menyimpan data. Pastikan semua field terisi.");
+        res.status(500).send("Gagal menyimpan data. Pastikan semua field terisi dengan benar.");
     }
 });
 

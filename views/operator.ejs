@@ -161,8 +161,9 @@ function pilihOtomatisDesain(el) {
         document.getElementById('input_harga_op').value = harga;
         
         const inputSetor = document.getElementById('input_setor');
-        inputSetor.placeholder = "Maksimal " + sisa;
-        inputSetor.max = sisa; // Batasi input agar tidak over-limit
+        // Ubah teks agar lebih informatif
+        inputSetor.placeholder = "Sisa Target: " + sisa + " (Boleh input lebih)"; 
+        //inputSetor.max = sisa; // Batasi input agar tidak over-limit
         
         infoDiv.style.display = 'block';
     } else {
