@@ -242,26 +242,35 @@
     }
 
     function jalankanFilter() {
-        let inputNama = document.getElementById("liveSearch").value.toLowerCase();
-        let inputStatus = document.getElementById("filterStatus").value;
-        let hideLunas = document.getElementById("checkLunas").checked;
+    let inputNama = document.getElementById("liveSearch").value.toLowerCase();
+    let inputStatus = document.getElementById("filterStatus").value;
+    let hideLunas = document.getElementById("checkLunas").checked;
 
-        let rows = document.querySelectorAll("#bodyPO tr.clickable-row");
-        rows.forEach(row => {
-            let text = row.innerText.toLowerCase();
-            let status = row.querySelector("select").value;
-            
-            let match = text.includes(inputNama) && (inputStatus === "ALL" || status === inputStatus);
-            if (match && !(hideLunas && status === "Lunas")) {
-                row.style.display = "";
-            } else {
-                row.style.display = "none";
-                let id = row.querySelector('.po-checkbox').value;
-                let detailRow = document.getElementById('detail-' + id);
-                if(detailRow) detailRow.style.display = "none";
-            }
-        });
-    }
+    // SIMPAN KE LOCALSTORAGE agar saat reload data tidak hilang
+    localStorage.setItem('filterNama', inputNama);
+    localStorage.setItem('filterStatus', inputStatus);
+    localStorage.setItem('hideLunas', hideLunas);
+
+    let rows = document.querySelectorAll("#bodyPO tr.clickable-row");
+    rows.forEach(row => {
+        let text = row.innerText.toLowerCase();
+        // Cari status dari dropdown select di dalam baris tersebut
+        let status = row.querySelector("select").value;
+        
+        let match = text.includes(inputNama) && (inputStatus === "ALL" || status === inputStatus);
+        
+        // Logika: Tampilkan jika cocok DAN (jika hideLunas aktif, maka status tidak boleh 'Lunas')
+        if (match && !(hideLunas && status === "Lunas")) {
+            row.style.display = "";
+        } else {
+            row.style.display = "none";
+            // Tutup detail row jika baris utama disembunyikan
+            let id = row.querySelector('.po-checkbox').value;
+            let detailRow = document.getElementById('detail-' + id);
+            if(detailRow) detailRow.style.display = "none";
+        }
+    });
+}
 
     function updateCounter() {
         const checked = document.querySelectorAll('.po-checkbox:checked');
@@ -291,8 +300,25 @@
     }
 
     window.onload = function() {
-        jalankanFilter();
-    };
+    // 1. Ambil data dari localStorage
+    const savedNama = localStorage.getItem('filterNama');
+    const savedStatus = localStorage.getItem('filterStatus');
+    const savedHideLunas = localStorage.getItem('hideLunas');
+
+    // 2. Masukkan kembali ke elemen Input/Select jika ada data sebelumnya
+    if (savedNama !== null) {
+        document.getElementById('liveSearch').value = savedNama;
+    }
+    if (savedStatus !== null) {
+        document.getElementById('filterStatus').value = savedStatus;
+    }
+    if (savedHideLunas !== null) {
+        document.getElementById('checkLunas').checked = (savedHideLunas === 'true');
+    }
+
+    // 3. Jalankan filter agar tabel langsung menyusut sesuai pencarian terakhir
+    jalankanFilter();
+};
 </script>
 
 </body>
