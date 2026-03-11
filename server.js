@@ -569,20 +569,27 @@ app.get('/po-data', async (req, res) => {
     const tId = req.session.tenantId;
 
     try {
+        // Query Header PO: Ditambah pengecekan is_over untuk peringatan di baris utama
         const sqlOrders = `
             SELECT 
                 u.*, 
                 (SELECT SUM(jumlah) FROM po_detail WHERE po_id = u.id) as qty_tampil,
                 (SELECT COUNT(*) FROM po_detail WHERE po_id = u.id) as variasi_jumlah,
-                (SELECT SUM(jumlah * harga_operator) FROM po_detail WHERE po_id = u.id) as total_harga_operator,
-                (SELECT SUM(jumlah * harga_customer) FROM po_detail WHERE po_id = u.id) as total_harga_customer
+                (SELECT SUM(jumlah * harga_customer) FROM po_detail WHERE po_id = u.id) as total_harga_customer,
+                -- Cek apakah ada salah satu item di dalam PO ini yang produksinya melebihi target
+                EXISTS (
+                    SELECT 1 FROM po_detail d2
+                    LEFT JOIN hasil_kerja h2 ON d2.id = h2.detail_id
+                    WHERE d2.po_id = u.id
+                    GROUP BY d2.id, d2.jumlah
+                    HAVING SUM(COALESCE(h2.jumlah_setor, 0)) > d2.jumlah
+                ) as is_over
             FROM po_utama u 
             WHERE u.tenant_id = $1 
             ORDER BY u.tanggal DESC, u.id DESC
         `;
         const orders = await db.all(sqlOrders, [tId]);
 
-        // MODIFIKASI: Query Detail menyertakan SUM hasil_kerja (Fitur No. 1)
         const sqlDetails = `
             SELECT 
                 d.*, 

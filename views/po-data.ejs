@@ -27,6 +27,8 @@
         .dropdown-content a:hover, .dropdown-content button:hover { background-color: #f8f9fa; color: #0d6efd; }
         .show { display: block; }
         #bulkActionArea { display: none; }
+        .blink-warn { animation: blinker 1.5s linear infinite; color: #dc3545; font-weight: bold; }
+        @keyframes blinker { 50% { opacity: 0; } }
     </style>
 </head>
 <body>
@@ -93,10 +95,8 @@
                         <th style="width: 40px;">Sel</th>
                         <th style="width: 100px;">Tanggal</th>
                         <th>Data Pesanan / Customer</th>
-                        <th>Qty</th>
-                        <% if (user.tenantId === 1 || user.tenantLevel >= 2) { %>
-                            <th class="text-end">Total Op</th>
-                        <% } %>
+                        <th style="width: 60px;">Qty</th>
+                        <th style="width: 120px;">Audit Prod</th>
                         <th class="text-end">Total Cust</th>
                         <th>Status</th>
                         <th style="width: 100px;">Aksi</th>
@@ -104,7 +104,7 @@
                 </thead>
                 <tbody id="bodyPO">
                     <% orders.forEach(function(po) { %>
-                        <tr class="clickable-row" onclick="toggleDetail('<%= po.id %>')">
+                        <tr class="clickable-row <%= po.is_over ? 'table-danger' : '' %>" onclick="toggleDetail('<%= po.id %>')">
                             <td class="text-center" onclick="event.stopPropagation()">
                                 <input type="checkbox" class="form-check-input po-checkbox" value="<%= po.id %>" data-customer="<%= po.customer %>" onchange="updateCounter()">
                             </td>
@@ -118,11 +118,13 @@
                             </td>
                             <td class="text-center fw-bold"><%= po.qty_tampil || 0 %></td>
                             
-                            <% if (user.tenantId === 1 || user.tenantLevel >= 2) { %>
-                                <td class="text-end fw-bold text-primary">
-                                    <%= (po.total_harga_operator || 0).toLocaleString('id-ID') %>
-                                </td>
-                            <% } %>
+                            <td class="text-center">
+                                <% if (po.is_over) { %>
+                                    <span class="blink-warn"><i class="bi bi-exclamation-triangle-fill"></i> TIDAK SINKRON</span>
+                                <% } else { %>
+                                    <span class="text-success"><i class="bi bi-check-circle-fill"></i> Normal</span>
+                                <% } %>
+                            </td>
 
                             <td class="text-end fw-bold text-success">
                                 <%= (po.total_harga_customer || 0).toLocaleString('id-ID') %>
@@ -162,19 +164,17 @@
                         <tr id="detail-<%= po.id %>" class="detail-row">
                             <td colspan="9" class="p-0">
                                 <div class="bg-white p-3 border-bottom border-start border-5 border-primary m-2 shadow-sm rounded">
-                                    <div class="d-flex justify-content-between align-items-center mb-3">
+                                    <div class="d-flex justify-content-between align-items-center mb-2">
                                         <h6 class="fw-bold text-primary mb-0"><i class="bi bi-speedometer2 me-2"></i>Monitor Progres Produksi</h6>
-                                        <a href="/daftar-produksi" class="btn btn-sm btn-outline-primary" style="font-size: 11px;">
-                                            <i class="bi bi-pencil-square"></i> Koreksi Setoran Operator
-                                        </a>
+                                        <a href="/daftar-produksi" class="btn btn-xs btn-outline-primary py-0 px-2" style="font-size: 10px;">Audit Log</a>
                                     </div>
-                                    <table class="table table-sm table-hover table-bordered mb-0" style="font-size: 12px;">
-                                        <thead class="table-dark text-center">
-                                            <tr>
+                                    <table class="table table-sm table-bordered mb-0" style="font-size: 11px;">
+                                        <thead class="table-dark">
+                                            <tr class="text-center">
                                                 <th>Jenis</th>
                                                 <th>Nama Desain</th>
-                                                <th>Progres (Setor/Target)</th>
-                                                <th>Sisa</th>
+                                                <th>Setor / Target</th>
+                                                <th>Selisih</th>
                                                 <th>Status</th>
                                             </tr>
                                         </thead>
@@ -184,22 +184,22 @@
                                                 let target = sub.jumlah;
                                                 let selisih = total - target;
                                             %>
-                                                <tr class="<%= total > target ? 'table-danger' : (total < target && total > 0 ? 'table-warning' : '') %>">
+                                                <tr class="<%= total > target ? 'table-danger' : '' %>">
                                                     <td class="ps-2"><%= sub.jenis_bordir %></td>
                                                     <td><strong><%= sub.nama_desain %></strong></td>
                                                     <td class="text-center"><strong><%= total %></strong> / <%= target %></td>
-                                                    <td class="text-center">
+                                                    <td class="text-center fw-bold">
                                                         <% if (selisih > 0) { %>
-                                                            <span class="text-danger fw-bold">+<%= selisih %> (Lebih)</span>
+                                                            <span class="text-danger">+<%= selisih %> (Lebih)</span>
                                                         <% } else if (selisih < 0) { %>
-                                                            <span class="text-dark"><%= selisih %> (Kurang)</span>
+                                                            <span class="text-muted"><%= selisih %></span>
                                                         <% } else { %>
-                                                            <span class="text-success fw-bold">Pas</span>
+                                                            <span class="text-success">Pas</span>
                                                         <% } %>
                                                     </td>
                                                     <td class="text-center">
                                                         <% if (total > target) { %>
-                                                            <span class="badge bg-danger">⚠️ OVER</span>
+                                                            <span class="badge bg-danger">Audit Diperlukan</span>
                                                         <% } else if (total == target) { %>
                                                             <span class="badge bg-success">Selesai</span>
                                                         <% } else { %>
@@ -246,10 +246,6 @@
         let inputStatus = document.getElementById("filterStatus").value;
         let hideLunas = document.getElementById("checkLunas").checked;
 
-        localStorage.setItem('filterNama', inputNama);
-        localStorage.setItem('filterStatus', inputStatus);
-        localStorage.setItem('hideLunas', hideLunas);
-
         let rows = document.querySelectorAll("#bodyPO tr.clickable-row");
         rows.forEach(row => {
             let text = row.innerText.toLowerCase();
@@ -261,7 +257,8 @@
             } else {
                 row.style.display = "none";
                 let id = row.querySelector('.po-checkbox').value;
-                document.getElementById('detail-' + id).style.display = "none";
+                let detailRow = document.getElementById('detail-' + id);
+                if(detailRow) detailRow.style.display = "none";
             }
         });
     }
@@ -294,14 +291,6 @@
     }
 
     window.onload = function() {
-        const sn = localStorage.getItem('filterNama');
-        const ss = localStorage.getItem('filterStatus');
-        const sl = localStorage.getItem('hideLunas');
-        if (ss !== null) {
-            document.getElementById('liveSearch').value = sn || "";
-            document.getElementById('filterStatus').value = ss;
-            document.getElementById('checkLunas').checked = (sl === 'true');
-        }
         jalankanFilter();
     };
 </script>
