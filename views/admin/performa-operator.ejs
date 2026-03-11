@@ -13,7 +13,7 @@
         <div class="col-12">
             <div class="card shadow-sm border-0">
                 <div class="card-body">
-                    <h6 class="card-title text-muted mb-4"><i class="bi bi-trophy"></i> Peringkat Produktivitas (Akumulasi Borongan Bulan Ini)</h6>
+                    <h6 class="card-title text-muted mb-4"><i class="bi bi-trophy"></i> Peringkat Produktivitas Bulan Ini</h6>
                     <div style="height: 300px;">
                         <canvas id="chartPerformaOps"></canvas>
                     </div>
@@ -23,8 +23,12 @@
     </div>
 
     <div class="card shadow-sm border-0">
-        <div class="card-header bg-white py-3">
+        <div class="card-header bg-white py-3 d-flex justify-content-between align-items-center">
             <h6 class="mb-0 fw-bold">Matriks Produksi Harian</h6>
+            <div class="small">
+                <span class="badge bg-success">≥ Rp <%= targetDinamis.toLocaleString('id-ID') %> (Target)</span>
+                <span class="badge bg-danger"> < Rp 100.000</span>
+            </div>
         </div>
         <div class="table-responsive">
             <table class="table table-bordered table-hover align-middle mb-0" style="font-size: 12px;">
@@ -40,7 +44,6 @@
                 </thead>
                 <tbody>
                     <% for(let d = 1; d <= jumlahHari; d++) { 
-                        // Pastikan format tglKey adalah YYYY-MM-DD agar sinkron dengan SQL
                         let tglKey = bulanIni + "-" + String(d).padStart(2, '0');
                         let dataTgl = matriks[tglKey] || null;
                     %>
@@ -48,8 +51,17 @@
                         <td class="text-center fw-bold"><%= String(d).padStart(2, '0') %>/<%= bulanIni.split('-')[1] %></td>
                         <% operators.forEach(op => { 
                             let upah = dataTgl ? (dataTgl[op.id] || 0) : 0;
+                            
+                            let cellClass = "";
+                            if (upah === 0) {
+                                cellClass = "bg-light text-danger"; 
+                            } else if (upah >= targetDinamis) { // MENGGUNAKAN TARGET DARI SETTINGS
+                                cellClass = "bg-success text-white fw-bold"; 
+                            } else if (upah < 100000) {
+                                cellClass = "bg-danger text-white"; 
+                            }
                         %>
-                            <td class="text-end <%= upah == 0 ? 'bg-light text-danger' : '' %>">
+                            <td class="text-end <%= cellClass %>">
                                 <%= upah > 0 ? 'Rp ' + upah.toLocaleString('id-ID') : '-' %>
                             </td>
                         <% }) %>
@@ -68,29 +80,20 @@
 </div>
 
 <script>
-    // Trik agar VS Code tidak error: Bungkus dalam kutip lalu di-parse
-    // @ts-ignore
     const rawData = JSON.parse('<%- JSON.stringify(performaOps) %>');
-    
-    // Ubah data menjadi array dan urutkan berdasarkan upah tertinggi
-    const sortedData = Object.values(rawData).sort((a, b) => {
-        // @ts-ignore
-        return b.totalUpah - a.totalUpah;
-    });
+    const sortedData = Object.values(rawData).sort((a, b) => b.totalUpah - a.totalUpah);
     
     const labels = sortedData.map(item => item.nama);
     const datasetUpah = sortedData.map(item => item.totalUpah);
 
     const ctx = document.getElementById('chartPerformaOps');
-    
     if (ctx) {
-        // @ts-ignore
         new Chart(ctx.getContext('2d'), {
             type: 'bar',
             data: {
                 labels: labels,
                 datasets: [{
-                    label: 'Total Produksi (Rp)',
+                    label: 'Total Borongan (Rp)',
                     data: datasetUpah,
                     backgroundColor: 'rgba(46, 204, 113, 0.7)',
                     borderColor: 'rgba(46, 204, 113, 1)',
@@ -100,7 +103,7 @@
                 }]
             },
             options: {
-                indexAxis: 'y', // Grafik Horizontal
+                indexAxis: 'y',
                 responsive: true,
                 maintainAspectRatio: false,
                 plugins: {
@@ -118,18 +121,13 @@
                 scales: {
                     x: {
                         beginAtZero: true,
-                        grid: { display: false },
                         ticks: {
-                            callback: function(value) {
-                                return 'Rp ' + value.toLocaleString('id-ID');
-                            }
+                            callback: (value) => 'Rp ' + value.toLocaleString('id-ID')
                         }
-                    },
-                    y: { grid: { display: false } }
+                    }
                 }
             }
         });
     }
 </script>
-
 <%- include('../partials/footer') %>

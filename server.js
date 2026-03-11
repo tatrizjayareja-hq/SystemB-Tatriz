@@ -1857,12 +1857,15 @@ app.get('/cetak-nota-vendor', isAdmin, async (req, res) => {
 
 app.get('/performa-operator', isAdmin, async (req, res) => {
     const tId = req.session.tenantId;
-    // Ambil bulan dari query atau default bulan sekarang (YYYY-MM)
     const bulanIni = req.query.bulan || new Date().toISOString().slice(0, 7);
-    const targetHarian = 500000;
 
     try {
-        // 1. Ambil daftar operator
+        // 1. Ambil Kebijakan Target dari Settings (Agar tidak hardcode)
+        const configData = await db.get("SELECT target_bonus FROM settings WHERE tenant_id = $1", [tId]);
+        // Jika belum di-setup, default ke 500.000 sebagai fallback
+        const targetDinamis = parseFloat(configData?.target_bonus || 500000);
+
+        // 2. Ambil daftar operator
         const sqlOps = `
             SELECT id, nama_lengkap 
             FROM users 
@@ -1872,9 +1875,7 @@ app.get('/performa-operator', isAdmin, async (req, res) => {
         const opsRes = await db.query(sqlOps, [tId]);
         const operators = opsRes.rows;
 
-        // 2. Ambil data hasil kerja berdasarkan bulan
-        // Menggunakan TO_CHAR(tanggal, 'YYYY-MM') untuk filter bulan di PostgreSQL
-        // Ganti query sqlData Anda dengan yang ini:
+        // 3. Ambil data hasil kerja
         const sqlData = `
             SELECT 
                 TO_CHAR(h.tanggal::DATE, 'YYYY-MM-DD') as tgl_key, 
@@ -1889,52 +1890,47 @@ app.get('/performa-operator', isAdmin, async (req, res) => {
         const dataRes = await db.query(sqlData, [bulanIni, tId]);
         const records = dataRes.rows;
 
-        // 3. Olah data ke dalam Matriks dan Performa
         const matriks = {};
         const performaOps = {};
 
-        // Inisialisasi performa tiap operator agar tidak undefined di Chart
         operators.forEach(op => {
             performaOps[op.id] = { nama: op.nama_lengkap, totalUpah: 0, kaliCapaiTarget: 0 };
         });
 
         records.forEach(r => {
-            // Gunakan tgl_key (Format: YYYY-MM-DD)
             if (!matriks[r.tgl_key]) {
                 matriks[r.tgl_key] = { total_omzet_cust: 0, total_upah_op: 0 };
             }
             
-            // Masukkan data ke matriks tabel
             matriks[r.tgl_key][r.operator_id] = parseFloat(r.upah_op);
             matriks[r.tgl_key].total_upah_op += parseFloat(r.upah_op);
             matriks[r.tgl_key].total_omzet_cust += parseFloat(r.omzet_cust);
 
-            // Akumulasi performa untuk Chart
             if (performaOps[r.operator_id]) {
                 performaOps[r.operator_id].totalUpah += parseFloat(r.upah_op);
-                if (parseFloat(r.upah_op) >= targetHarian) {
+                // MENGGUNAKAN TARGET DARI SETTINGS
+                if (parseFloat(r.upah_op) >= targetDinamis) {
                     performaOps[r.operator_id].kaliCapaiTarget += 1;
                 }
             }
         });
 
-        // 4. Hitung Jumlah Hari dalam bulan tersebut
         const [tahun, bulan] = bulanIni.split('-').map(Number);
         const jumlahHari = new Date(tahun, bulan, 0).getDate();
 
-        // 5. Render ke halaman
         res.render('admin/performa-operator', {
             bulanIni,
             operators,
             matriks,
             performaOps,
             jumlahHari,
+            targetDinamis, // Kirim variabel ini ke EJS
             config: res.locals.config || { nama_aplikasi: "Tatriz System" }
         });
 
     } catch (err) {
         console.error("Error Performa Operator:", err.message);
-        res.status(500).send("Gagal memuat data performa: " + err.message);
+        res.status(500).send("Gagal memuat data performa.");
     }
 });
 
