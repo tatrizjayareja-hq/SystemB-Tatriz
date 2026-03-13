@@ -4,95 +4,151 @@
     <meta charset="UTF-8">
     <title>Nota - <%= po.nama_po %></title>
     <style>
-    @media print { 
-        @page { 
-            /* Mengunci ukuran kertas ke A6 (105mm x 148mm) */
-            size: 105mm 148mm; 
-            margin: 0; /* Menghilangkan margin default browser (header/footer tgl) */
-        } 
+        /* CSS UTAMA */
+        @media print { 
+            @page { 
+                size: 105mm 148mm; 
+                margin: 0; 
+            } 
+            body { 
+                -webkit-print-color-adjust: exact; 
+                print-color-adjust: exact;
+                background-color: white !important;
+            } 
+            .nota-box { 
+                border: none !important; 
+                box-shadow: none !important;
+                margin: 0 !important;
+                width: 100% !important;
+                height: 100% !important;
+            }
+        }
+
         body { 
-            margin: 0;
-            -webkit-print-color-adjust: exact; 
-            print-color-adjust: exact;
-        } 
-        .no-print { display: none; }
-        
-        /* Memastikan container mengambil full area A6 saat print */
+            font-family: 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; 
+            margin: 0; padding: 0; 
+            background-color: #f4f4f9; 
+            display: flex;
+            justify-content: center;
+        }
+
         .nota-box { 
-            border: none !important; 
-            box-shadow: none !important;
-            width: 100% !important;
-            height: 100% !important;
-            margin: 0 !important;
-            padding: 5mm !important; /* Padding dalam agar teks tidak mepet potong kertas */
+            width: 105mm; 
+            height: 148mm; 
+            background-color: #fff;
+            padding: 10mm 8mm; 
+            box-sizing: border-box; 
+            display: flex;
+            flex-direction: column; 
+            position: relative;
+            border: 1px solid #ddd;
+            margin: 20px 0;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.1);
         }
-    }
-
-    body { 
-        font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; 
-        margin: 0; padding: 0; background-color: #f0f0f0; /* Warna latar saat preview di layar */
-    }
-
-    .nota-box { 
-        background-color: #fff;
-        width: 105mm; 
-        height: 148mm; 
-        position: relative; 
-        padding: 8mm; 
-        box-sizing: border-box; 
-        overflow: hidden; 
-        display: flex;
-        flex-direction: column; 
-        border: 1px solid #ddd; 
-        margin: 20px auto; /* Memberi jarak saat dilihat di browser */
-        box-shadow: 0 0 10px rgba(0,0,0,0.1);
-    }
-        
-        .header-container { 
-            display: flex; align-items: center; border-bottom: 2px solid #333; 
-            padding-bottom: 8px; margin-bottom: 10px; 
-        }
-        .logo-header { width: 50px; height: 50px; object-fit: contain; margin-right: 10px; }
-        .company-info { flex-grow: 1; }
-        .company-info h2 { margin: 0; font-size: 11px; color: #2c3e50; text-transform: uppercase; }
-        .company-info p { margin: 1px 0; font-size: 8px; color: #333; line-height: 1.2; }
-
-        .label-nota { text-align: right; }
-        .label-nota h3 { margin: 0; color: #e67e22; font-size: 11px; }
-        .label-nota p { margin: 2px 0 0 0; font-size: 8px; }
 
         .watermark { 
-            position: absolute; top: 50%; left: 50%; 
+            position: absolute; top: 55%; left: 50%; 
             transform: translate(-50%, -50%) rotate(-30deg);
-            opacity: 0.05; width: 200px; z-index: 0; pointer-events: none;
+            opacity: 0.04; width: 60%; z-index: 0; pointer-events: none;
         }
 
-        .content-area { position: relative; z-index: 1; flex-grow: 1; }
-        table { width: 100%; border-collapse: collapse; margin-top: 5px; font-size: 9px; }
-        th { background: #f8f9fa; border-bottom: 1px solid #333; padding: 5px; text-align: left; }
-        td { border-bottom: 1px solid #eee; padding: 6px 4px; text-align: left; }
+        .header-container { 
+            display: flex; 
+            align-items: flex-start; 
+            border-bottom: 2px solid #333; 
+            padding-bottom: 8px; 
+            margin-bottom: 12px;
+            z-index: 1;
+        }
+        .logo-header { width: 45px; height: 45px; object-fit: contain; margin-right: 12px; }
+        .company-info { flex-grow: 1; }
+        .company-info h2 { margin: 0; font-size: 11px; color: #1a1a1a; text-transform: uppercase; letter-spacing: 0.5px; }
+        .company-info p { margin: 2px 0; font-size: 8px; color: #444; line-height: 1.3; }
+
+        .label-nota { text-align: right; }
+        .label-nota h3 { margin: 0; color: #e67e22; font-size: 12px; font-weight: bold; }
+        .label-nota p { margin: 2px 0 0 0; font-size: 8px; color: #555; }
+
+        .content-area { 
+            flex-grow: 1; 
+            position: relative; 
+            z-index: 1; 
+        }
+        table { width: 100%; border-collapse: collapse; margin-top: 5px; }
+        th { 
+            font-size: 9px; 
+            text-transform: uppercase; 
+            color: #555; 
+            border-bottom: 1px solid #333; 
+            padding: 8px 4px; 
+            text-align: left; 
+        }
+        td { 
+            font-size: 10px; 
+            padding: 10px 4px; 
+            border-bottom: 1px solid #eee;
+            color: #333;
+        }
+
+        .footer-nota { 
+            margin-top: auto; 
+            z-index: 1;
+        }
         
-        .footer-nota { margin-top: auto; padding-top: 5px; }
-        .total-box { margin-left: auto; width: 100%; margin-bottom: 5px; }
-        .total-row { display: flex; justify-content: space-between; margin-bottom: 2px; font-size: 10px; }
-        
-        .ttd-section { display: flex; justify-content: space-between; margin-top: 10px; font-size: 9px; text-align: center; }
-        .ttd-box { width: 45%; }
-        .ttd-space { height: 30px; }
+        .total-box { 
+            border-top: 1px solid #eee;
+            padding-top: 8px;
+            margin-bottom: 10px; 
+        }
+        .total-row { 
+            display: flex; 
+            justify-content: space-between; 
+            margin-bottom: 4px; 
+            font-size: 10px; 
+        }
+        .grand-total { 
+            font-size: 13px; 
+            font-weight: bold; 
+            border-top: 1.5px solid #333; 
+            padding-top: 6px; 
+            margin-top: 4px; 
+        }
 
         .warning-box {
-            color: #d63031; font-size: 7px; margin-top: 5px; background: #fff2f2; 
-            padding: 4px; border: 1px solid #ff7675; border-radius: 3px; text-align: center;
+            color: #c0392b; 
+            font-size: 7.5px; 
+            margin-bottom: 15px; 
+            background: #fffafa; 
+            padding: 6px; 
+            border: 1px dashed #ff7675; 
+            border-radius: 4px; 
+            text-align: center;
+            font-style: italic;
         }
+
+        .ttd-section { 
+            display: flex; 
+            justify-content: space-between; 
+            font-size: 10px; 
+            text-align: center; 
+        }
+        .ttd-box { width: 40%; }
+        .ttd-space { height: 45px; } 
     </style>
 
     <% if (mode === 'thermal') { %>
+        <style>
+            .nota-box { box-shadow: none; border: none; padding: 5mm; }
+            .watermark { display: none; }
+            .no-print { display: none; }
+        </style>
         <link rel="stylesheet" href="/css/thermal-style.css">
     <% } %>
 </head>
 <body>
     <div class="nota-box">
         <img src="<%= config.logo_path %>" class="watermark">
+        
         <div class="header-container">
             <img src="<%= config.logo_path %>" class="logo-header">
             <div class="company-info">
@@ -101,13 +157,15 @@
                 <p><strong>WA: <%= config.no_hp %></strong></p>
             </div>
             <div class="label-nota">
-                <h3><%= mode === 'thermal' ? 'STRUK PEMBAYARAN' : 'NOTA RESMI' %></h3>
-                <p>Tgl: <%= tgl_sekarang %></p>
-                <p>Cust: <strong><%= po.customer %></strong></p>
+                <h3><%= mode === 'thermal' ? 'STRUK' : 'NOTA RESMI' %></h3>
+                <p>ID: #<%= po.id %></p>
+                <p><%= tgl_sekarang %></p>
             </div>
         </div>
 
         <div class="content-area">
+            <p style="font-size: 9px; margin-bottom: 8px;">Kepada Yth: <strong><%= po.customer %></strong></p>
+            
             <% 
                 let qtys = details.map(d => d.jumlah);
                 let qtyTampil = qtys[0] || 0; 
@@ -117,18 +175,21 @@
             <table>
                 <thead>
                     <tr>
-                        <th style="width: 45%;">Deskripsi</th>
+                        <th style="width: 50%;">Deskripsi Barang</th>
                         <th style="text-align: center; width: 15%;">Qty</th>
-                        <th style="text-align: right; width: 20%;">Harga</th>
-                        <th style="text-align: right; width: 20%;">Total</th>
+                        <th style="text-align: right; width: 35%;">Subtotal</th>
                     </tr>
                 </thead>
                 <tbody>
                     <tr>
-                        <td style="vertical-align: top;"><strong><%= po.nama_po %></strong></td>
+                        <td>
+                            <strong><%= po.nama_po %></strong><br>
+                            <span style="font-size: 8px; color: #777;">@ Rp <%= Math.round(hargaSatuan).toLocaleString('id-ID') %></span>
+                        </td>
                         <td style="text-align: center;"><%= qtyTampil %> Pcs</td>
-                        <td style="text-align: right;"><%= Math.round(hargaSatuan).toLocaleString('id-ID') %></td>
-                        <td style="text-align: right; font-weight: bold;"><%= po.total_harga_customer.toLocaleString('id-ID') %></td>
+                        <td style="text-align: right; font-weight: bold;">
+                            <%= po.total_harga_customer.toLocaleString('id-ID') %>
+                        </td>
                     </tr>
                 </tbody>
             </table>
@@ -137,27 +198,34 @@
         <div class="footer-nota">
             <div class="total-box">
                 <div class="total-row">
-                    <span>Total Tagihan:</span>
+                    <span>Total Tagihan</span>
                     <span>Rp <%= po.total_harga_customer.toLocaleString('id-ID') %></span>
                 </div>
                 <div class="total-row" style="color: #27ae60;">
-                    <span>Total Bayar:</span>
+                    <span>Total Bayar</span>
                     <span>Rp <%= (po.total_bayar || 0).toLocaleString('id-ID') %></span>
                 </div>
-                <hr style="border: 0; border-top: 1px solid #333; margin: 4px 0;">
-                <div class="total-row" style="font-weight: bold; font-size: 12px;">
-                    <span>SISA:</span>
+                <div class="total-row grand-total">
+                    <span>SISA</span>
                     <span>Rp <%= (Number(po.total_harga_customer || 0) - Number(po.total_bayar || 0)).toLocaleString('id-ID') %></span>
                 </div>
             </div>
 
             <div class="warning-box">
-                Barang yang sudah dibeli tidak dapat ditukar/dikembalikan.
+                "Barang yang sudah dibeli tidak dapat ditukar atau dikembalikan. Terimakasih."
             </div>
 
             <div class="ttd-section">
-                <div class="ttd-box">Penerima,<div class="ttd-space"></div>( ............................ )</div>
-                <div class="ttd-box">Hormat Kami,<div class="ttd-space"></div>( ............................ )</div>
+                <div class="ttd-box">
+                    Penerima,
+                    <div class="ttd-space"></div>
+                    ( ............................ )
+                </div>
+                <div class="ttd-box">
+                    Hormat Kami,
+                    <div class="ttd-space"></div>
+                    ( <strong><%= config.nama_perusahaan.split(' ')[0] %></strong> )
+                </div>
             </div>
         </div>
     </div>
@@ -165,11 +233,15 @@
     <script>
         window.onload = function() {
             const namaCust = "<%= po.customer %>";
-            const namaPO = "<%= po.nama_po %>";
             const tgl = new Date().toLocaleDateString('id-ID').replace(/\//g, '-');
-            document.title = "Nota_" + namaCust.replace(/\s+/g, '_') + "_" + namaPO.replace(/\s+/g, '_') + "_" + tgl;
+            document.title = "Nota_" + namaCust.replace(/\s+/g, '_') + "_" + tgl;
             
-            setTimeout(() => { window.print(); }, 500);
+            setTimeout(() => { 
+                window.print(); 
+                window.onafterprint = function() {
+                    // window.close(); 
+                }
+            }, 600);
         };
     </script>
 </body>
