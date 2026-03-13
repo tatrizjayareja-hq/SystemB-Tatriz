@@ -4,156 +4,115 @@
     <meta charset="UTF-8">
     <title>Nota - <%= po.nama_po %></title>
     <style>
-        /* CSS UTAMA */
         @media print { 
             @page { 
-                size: 105mm 148mm; 
+                size: 105mm 148mm; /* Ukuran A6 Portrait */
                 margin: 0; 
             } 
             body { 
                 -webkit-print-color-adjust: exact; 
                 print-color-adjust: exact;
-                background-color: white !important;
             } 
-            .nota-box { 
-                border: none !important; 
-                box-shadow: none !important;
-                margin: 0 !important;
-                width: 100% !important;
-                height: 100% !important;
-            }
+            .no-print { display: none; }
         }
 
         body { 
-            font-family: 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; 
-            margin: 0; padding: 0; 
-            background-color: #f4f4f9; 
-            display: flex;
-            justify-content: center;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; 
+            margin: 0; 
+            padding: 0;
+            background-color: #fff;
         }
 
         .nota-box { 
             width: 105mm; 
             height: 148mm; 
-            background-color: #fff;
-            padding: 10mm 8mm; 
-            box-sizing: border-box; 
-            display: flex;
-            flex-direction: column; 
-            position: relative;
-            border: 1px solid #ddd;
-            margin: 20px 0;
-            box-shadow: 0 4px 15px rgba(0,0,0,0.1);
-            overflow: hidden;
-        }
-
-        .watermark { 
-            position: absolute; top: 55%; left: 50%; 
-            transform: translate(-50%, -50%) rotate(-30deg);
-            opacity: 0.04; width: 60%; z-index: 0; pointer-events: none;
-        }
-
-        .header-container { 
-            display: flex; 
-            align-items: flex-start; 
-            border-bottom: 2px solid #333; 
-            padding-bottom: 8px; 
-            margin-bottom: 12px;
-            z-index: 1;
-        }
-        .logo-header { width: 45px; height: 45px; object-fit: contain; margin-right: 12px; }
-        .company-info { flex-grow: 1; }
-        .company-info h2 { margin: 0; font-size: 11px; color: #1a1a1a; text-transform: uppercase; letter-spacing: 0.5px; }
-        .company-info p { margin: 2px 0; font-size: 8px; color: #444; line-height: 1.3; }
-
-        .label-nota { text-align: right; }
-        .label-nota h3 { margin: 0; color: #e67e22; font-size: 12px; font-weight: bold; }
-        .label-nota p { margin: 2px 0 0 0; font-size: 8px; color: #555; }
-
-        .content-area { 
-            flex: 1 0 auto; /* KUNCI: Flex-grow 1 agar mengambil sisa ruang */
             position: relative; 
-            z-index: 1; 
+            padding: 8mm; 
+            box-sizing: border-box; 
+            overflow: hidden; 
             display: flex;
             flex-direction: column;
+            border: 1px solid #eee; 
+        }
+        
+        .header-container { 
+            display: flex; 
+            align-items: center; 
+            border-bottom: 2px solid #333; 
+            padding-bottom: 8px; 
+            margin-bottom: 10px; 
+        }
+        .logo-header { 
+            width: 50px; 
+            height: 50px; 
+            object-fit: contain; 
+            margin-right: 10px; 
+        }
+        .company-info { flex-grow: 1; }
+        .company-info h2 { margin: 0; font-size: 12px; color: #2c3e50; text-transform: uppercase; }
+        .company-info p { margin: 1px 0; font-size: 9px; color: #333; line-height: 1.2; }
+
+        .label-nota { text-align: right; }
+        .label-nota h3 { margin: 0; color: #e67e22; font-size: 12px; }
+        .label-nota p { margin: 2px 0 0 0; font-size: 9px; }
+
+        .watermark { 
+            position: absolute; 
+            top: 50%; 
+            left: 50%; 
+            transform: translate(-50%, -50%) rotate(-30deg);
+            opacity: 0.05; 
+            width: 200px; 
+            z-index: 0; 
+            pointer-events: none;
         }
 
-        table { width: 100%; border-collapse: collapse; margin-top: 5px; margin-bottom: 20px; }
-        th { 
-            font-size: 9px; 
-            text-transform: uppercase; 
-            color: #555; 
-            border-bottom: 1px solid #333; 
-            padding: 8px 4px; 
-            text-align: left; 
-            
-        }
-        td { 
-            font-size: 10px; 
-            padding: 10px 4px; 
-            border-bottom: 1px solid #eee;
-            color: #333;
-        }
-
+        .content-area { position: relative; z-index: 1; flex-grow: 1; }
+        table { width: 100%; border-collapse: collapse; margin-top: 5px; font-size: 10px; }
+        th { background: #f8f9fa; border-bottom: 1px solid #333; padding: 6px; text-align: left; }
+        td { border-bottom: 1px solid #eee; padding: 8px 6px; text-align: left; }
+        
         .footer-nota { 
             margin-top: auto; 
-            z-index: 1;
+            padding-top: 10px;
         }
         
         .total-box { 
-            border-top: 1px solid #eee;
-            padding-top: 8px;
-            margin-bottom: 10px; 
+            margin-left: auto;
+            width: 100%;
+            margin-bottom: 10px;
         }
         .total-row { 
             display: flex; 
             justify-content: space-between; 
-            margin-bottom: 4px; 
-            font-size: 10px; 
+            margin-bottom: 2px;
+            font-size: 11px;
         }
-        .grand-total { 
-            font-size: 13px; 
-            font-weight: bold; 
-            border-top: 1.5px solid #333; 
-            padding-top: 6px; 
-            margin-top: 4px; 
-        }
-
-        .warning-box {
-            color: #c0392b; 
-            font-size: 7.5px; 
-            margin-bottom: 15px; 
-            background: #fffafa; 
-            padding: 6px; 
-            border: 1px dashed #ff7675; 
-            border-radius: 4px; 
-            text-align: center;
-            font-style: italic;
-        }
-
+        
         .ttd-section { 
             display: flex; 
             justify-content: space-between; 
+            margin-top: 15px; 
             font-size: 10px; 
             text-align: center; 
         }
-        .ttd-box { width: 40%; }
-        .ttd-space { height: 45px; } 
-    </style>
+        .ttd-box { width: 45%; }
+        .ttd-space { height: 35px; }
 
-    <% if (mode === 'thermal') { %>
-        <style>
-            .nota-box { box-shadow: none; border: none; padding: 5mm; }
-            .watermark { display: none; }
-            .no-print { display: none; }
-        </style>
-        <link rel="stylesheet" href="/css/thermal-style.css">
-    <% } %>
+        .warning-box {
+            color: #d63031; 
+            font-size: 8px; 
+            margin-top: 5px; 
+            background: #fff2f2; 
+            padding: 4px; 
+            border: 1px solid #ff7675; 
+            border-radius: 3px;
+        }
+    </style>
 </head>
 <body>
     <div class="nota-box">
         <img src="<%= config.logo_path %>" class="watermark">
-        
         <div class="header-container">
             <img src="<%= config.logo_path %>" class="logo-header">
             <div class="company-info">
@@ -162,36 +121,39 @@
                 <p><strong>WA: <%= config.no_hp %></strong></p>
             </div>
             <div class="label-nota">
-                <h3><%= mode === 'thermal' ? 'STRUK' : 'NOTA RESMI' %></h3>
-                <p>ID: #<%= po.id %></p>
-                <p><%= tgl_sekarang %></p>
+                <h3>NOTA RESMI</h3>
+                <p>Tgl: <%= new Date().toLocaleDateString('id-ID') %></p>
+                <p>Cust: <strong><%= po.customer %></strong></p>
             </div>
         </div>
 
         <div class="content-area">
-            <p style="font-size: 9px; margin-bottom: 8px;">Kepada Yth: <strong><%= po.customer %></strong></p>
-            
             <% 
                 let qtys = details.map(d => d.jumlah);
+                let qtyKonsisten = qtys.every(q => q === qtys[0]); 
                 let qtyTampil = qtys[0] || 0; 
+                // Hitung harga satuan berdasarkan total dibagi qty tampil
                 let hargaSatuan = qtyTampil > 0 ? (po.total_harga_customer / qtyTampil) : 0;
             %>
 
             <table>
                 <thead>
                     <tr>
-                        <th style="width: 50%;">Deskripsi Barang</th>
+                        <th style="width: 40%;">Deskripsi</th>
                         <th style="text-align: center; width: 15%;">Qty</th>
-                        <th style="text-align: right; width: 35%;">Subtotal</th>
+                        <th style="text-align: right; width: 20%;">Harga</th>
+                        <th style="text-align: right; width: 25%;">Total</th>
                     </tr>
                 </thead>
                 <tbody>
                     <tr>
-                        <td>
-                            <strong><%= po.nama_po %></strong><br>
-                            <span style="font-size: 8px; color: #777;">@ Rp <%= Math.round(hargaSatuan).toLocaleString('id-ID') %></span>
-                        </td>
+                        <td style="vertical-align: top;">
+                            <strong><%= po.nama_po %></strong>
+                            </td>
                         <td style="text-align: center;"><%= qtyTampil %> Pcs</td>
+                        <td style="text-align: right;">
+                            <%= Math.round(hargaSatuan).toLocaleString('id-ID') %>
+                        </td>
                         <td style="text-align: right; font-weight: bold;">
                             <%= po.total_harga_customer.toLocaleString('id-ID') %>
                         </td>
@@ -203,21 +165,22 @@
         <div class="footer-nota">
             <div class="total-box">
                 <div class="total-row">
-                    <span>Total Tagihan</span>
+                    <span>Total Tagihan:</span>
                     <span>Rp <%= po.total_harga_customer.toLocaleString('id-ID') %></span>
                 </div>
                 <div class="total-row" style="color: #27ae60;">
-                    <span>Total Bayar</span>
+                    <span>Total Bayar:</span>
                     <span>Rp <%= (po.total_bayar || 0).toLocaleString('id-ID') %></span>
                 </div>
-                <div class="total-row grand-total">
-                    <span>SISA</span>
+                <hr style="border: 0; border-top: 1px solid #333; margin: 4px 0;">
+                <div class="total-row" style="font-weight: bold; font-size: 13px;">
+                    <span>SISA:</span>
                     <span>Rp <%= (Number(po.total_harga_customer || 0) - Number(po.total_bayar || 0)).toLocaleString('id-ID') %></span>
                 </div>
             </div>
 
-            <div class="warning-box">
-                "Barang yang sudah dibeli tidak dapat ditukar atau dikembalikan. Terimakasih."
+            <div style="font-size: 9px; font-style: italic; color: #555; text-align: center; border-top: 1px dashed #ccc; padding-top: 5px;">
+                Barang yang sudah dibeli tidak dapat ditukar/dikembalikan.
             </div>
 
             <div class="ttd-section">
@@ -229,7 +192,7 @@
                 <div class="ttd-box">
                     Hormat Kami,
                     <div class="ttd-space"></div>
-                    ( <strong><%= config.nama_perusahaan.split(' ')[0] %></strong> )
+                    ( ............................ )
                 </div>
             </div>
         </div>
@@ -238,15 +201,14 @@
     <script>
         window.onload = function() {
             const namaCust = "<%= po.customer %>";
+            const namaPO = "<%= po.nama_po %>";
             const tgl = new Date().toLocaleDateString('id-ID').replace(/\//g, '-');
-            document.title = "Nota_" + namaCust.replace(/\s+/g, '_') + "_" + tgl;
             
-            setTimeout(() => { 
-                window.print(); 
-                window.onafterprint = function() {
-                    // window.close(); 
-                }
-            }, 600);
+            document.title = "Nota_" + namaCust.replace(/\s+/g, '_') + "_" + namaPO.replace(/\s+/g, '_') + "_" + tgl;
+            
+            setTimeout(() => {
+                window.print();
+            }, 500);
         };
     </script>
 </body>
