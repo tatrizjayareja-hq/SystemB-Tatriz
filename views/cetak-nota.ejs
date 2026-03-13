@@ -4,28 +4,49 @@
     <meta charset="UTF-8">
     <title>Nota - <%= po.nama_po %></title>
     <style>
-        @media print { 
-            @page { 
-                size: 105mm 148mm; /* Ukuran A6 Portrait */
-                margin: 0; 
-            } 
-            body { 
-                -webkit-print-color-adjust: exact; 
-                print-color-adjust: exact;
-            } 
-            .no-print { display: none; }
-        }
-
+    @media print { 
+        @page { 
+            /* Mengunci ukuran kertas ke A6 (105mm x 148mm) */
+            size: 105mm 148mm; 
+            margin: 0; /* Menghilangkan margin default browser (header/footer tgl) */
+        } 
         body { 
-            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; 
-            margin: 0; padding: 0; background-color: #fff;
-        }
-
+            margin: 0;
+            -webkit-print-color-adjust: exact; 
+            print-color-adjust: exact;
+        } 
+        .no-print { display: none; }
+        
+        /* Memastikan container mengambil full area A6 saat print */
         .nota-box { 
-            width: 105mm; height: 148mm; position: relative; padding: 8mm; 
-            box-sizing: border-box; overflow: hidden; display: flex;
-            flex-direction: column; border: 1px solid #eee; margin: auto;
+            border: none !important; 
+            box-shadow: none !important;
+            width: 100% !important;
+            height: 100% !important;
+            margin: 0 !important;
+            padding: 5mm !important; /* Padding dalam agar teks tidak mepet potong kertas */
         }
+    }
+
+    body { 
+        font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; 
+        margin: 0; padding: 0; background-color: #f0f0f0; /* Warna latar saat preview di layar */
+    }
+
+    .nota-box { 
+        background-color: #fff;
+        width: 105mm; 
+        height: 148mm; 
+        position: relative; 
+        padding: 8mm; 
+        box-sizing: border-box; 
+        overflow: hidden; 
+        display: flex;
+        flex-direction: column; 
+        border: 1px solid #ddd; 
+        margin: 20px auto; /* Memberi jarak saat dilihat di browser */
+        box-shadow: 0 0 10px rgba(0,0,0,0.1);
+    }
         
         .header-container { 
             display: flex; align-items: center; border-bottom: 2px solid #333; 
