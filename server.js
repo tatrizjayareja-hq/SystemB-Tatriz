@@ -171,7 +171,7 @@ app.post('/login', async (req, res) => {
                 if (loggedInUser.role === 'admin') {
                     res.redirect('/dashboard');
                 } else if (loggedInUser.role === 'qc') {
-                    res.redirect('admin/qc-input'); // Arahkan QC ke halaman input khusus mereka
+                    res.redirect('qc-input'); // Arahkan QC ke halaman input khusus mereka
                 } else {
                     res.redirect('/operator'); // Role operator masuk ke sini
                 }
@@ -1213,6 +1213,26 @@ app.get('/operator', async (req, res) => {
     }
 });
 
+// --- RUTE INPUT QC ---
+app.get('/qc-input', isQC, async (req, res) => {
+    const tId = req.session.tenantId;
+    try {
+        const active_pos = await db.all(
+            "SELECT id, nama_po FROM po_utama WHERE tenant_id = $1 AND status IN ('Produksi', 'QC', 'CMT')", 
+            [tId]
+        );
+
+        // DI SINI baru kita panggil folder 'admin/' karena Express mencari di dalam folder views
+        res.render('admin/qc-input', { 
+            active_pos: active_pos || [],
+            user: req.session 
+        });
+    } catch (err) {
+        console.error("🔥 Error QC Page:", err.message);
+        res.status(500).send("Gagal memuat halaman QC");
+    }
+});
+
 // Route untuk memproses input dari form QC
 app.post('/simpan-qc', isQC, async (req, res) => {
     const { po_id, detail_id, jumlah_qc } = req.body;
@@ -1220,9 +1240,8 @@ app.post('/simpan-qc', isQC, async (req, res) => {
     const uId = req.session.userId;
 
     try {
-        // Validasi input agar tidak kosong atau nol
-        if (!detail_id || !jumlah_qc || jumlah_qc <= 0) {
-            return res.send("<script>alert('Data tidak valid!'); window.history.back();</script>");
+        if (!detail_id || !jumlah_qc) {
+            return res.send("<script>alert('Data tidak lengkap!'); window.history.back();</script>");
         }
 
         await db.query(
@@ -1233,32 +1252,11 @@ app.post('/simpan-qc', isQC, async (req, res) => {
         res.send("<script>alert('Hasil QC Berhasil Disimpan!'); window.location='/qc-input';</script>");
     } catch (err) {
         console.error("🔥 Simpan QC Error:", err.message);
-        res.status(500).send("Gagal menyimpan data QC ke database.");
+        res.status(500).send("Gagal menyimpan data QC. Pastikan tabel 'hasil_qc' sudah dibuat di Supabase.");
     }
 });
 
-app.get('/qc-input', async (req, res) => {
-    // Cek apakah yang login adalah role 'qc' atau 'admin'
-    if (!req.session.userId || (req.session.role !== 'qc' && req.session.role !== 'admin')) {
-        return res.redirect('/');
-    }
 
-    const tId = req.session.tenantId;
-    try {
-        // QC hanya menginput PO yang statusnya sudah 'Produksi' atau 'QC'
-        const active_pos = await db.all(
-            "SELECT id, nama_po FROM po_utama WHERE tenant_id = $1 AND status IN ('Produksi', 'QC', 'CMT')", 
-            [tId]
-        );
-
-        res.render('admin/qc-input', { 
-            user: { nama: req.session.nama_lengkap },
-            active_pos 
-        });
-    } catch (err) {
-        res.status(500).send("Gagal memuat halaman QC");
-    }
-});
 
 app.get('/qc-monitor', isAdmin, async (req, res) => {
     const tId = req.session.tenantId;
