@@ -1,44 +1,75 @@
 <%- include('../partials/header') %>
+
 <div class="container-fluid mt-4">
     <div class="d-flex justify-content-between align-items-center mb-3">
-        <h4><i class="bi bi-shield-check"></i> Log Pemeriksaan QC</h4>
-        <input type="month" class="form-control form-control-sm" style="width: 200px;"
-               value="<%= bulanIni %>" onchange="location.href='?bulan='+this.value">
+        <h4><i class="bi bi-shield-check"></i> Riwayat Pemeriksaan QC</h4>
+        <div class="d-flex gap-2">
+            <input type="month" class="form-control form-control-sm" style="width: 160px;"
+                   value="<%= bulanIni %>" onchange="location.href='?bulan='+this.value">
+        </div>
     </div>
 
     <div class="card shadow-sm border-0">
+        <div class="card-header bg-white py-3">
+            <input type="text" id="searchQC" class="form-control" placeholder="Cari Nama PO atau Petugas QC...">
+        </div>
         <div class="table-responsive">
-            <table class="table table-hover table-bordered align-middle mb-0" style="font-size: 13px;">
+            <table class="table table-hover table-bordered align-middle mb-0" id="tabelQC" style="font-size: 13px;">
                 <thead class="table-success text-uppercase text-center">
                     <tr>
                         <th>ID QC</th>
                         <th>Tanggal</th>
-                        <th>Petugas QC</th>
+                        <th>Petugas (User)</th>
                         <th>Nama PO</th>
-                        <th>Nama Bordir</th>
+                        <th>Item Desain</th>
                         <th>Jumlah Lulus</th>
                         <th>Aksi</th>
                     </tr>
                 </thead>
-                <tbody>
+                <tbody id="bodyQC">
                     <% dataQC.forEach(row => { %>
                     <tr>
-                        <td class="text-center">QC-<%= row.ID_QC %></td>
+                        <td class="text-center text-muted">QC-<%= String(row.ID_QC).padStart(3, '0') %></td>
                         <td class="text-center"><%= row.TANGGAL.split('-').reverse().join('/') %></td>
                         <td class="fw-bold"><%= row.NAMA_QC %></td>
                         <td><%= row.NAMA_PO %></td>
-                        <td><%= row.JENIS %> - <%= row.NAMA_BORDIR %></td>
-                        <td class="text-center fw-bold"><%= row.JML %> Pcs</td>
+                        <td>
+                            <span class="badge bg-light text-dark border"><%= row.JENIS %></span> 
+                            <strong><%= row.NAMA_BORDIR %></strong>
+                        </td>
+                        <td class="text-center fw-bold text-success" style="font-size: 15px;">
+                            <%= row.JML %> Pcs
+                        </td>
                         <td class="text-center">
-                            <a href="/hapus-qc-log/<%= row.ID_QC %>" class="btn btn-sm btn-danger" onclick="return confirm('Hapus log QC ini?')">
+                            <button class="btn btn-sm btn-danger" onclick="hapusLogQC('<%= row.ID_QC %>')">
                                 <i class="bi bi-trash"></i>
-                            </a>
+                            </button>
                         </td>
                     </tr>
                     <% }) %>
+                    <% if (dataQC.length === 0) { %>
+                        <tr><td colspan="7" class="text-center py-4 text-muted">Belum ada data pemeriksaan bulan ini.</td></tr>
+                    <% } %>
                 </tbody>
             </table>
         </div>
     </div>
 </div>
+
+<script>
+    function hapusLogQC(id) {
+        if (confirm('Hapus baris riwayat QC ini? Total di halaman depan akan otomatis berkurang.')) {
+            window.location.href = '/hapus-qc-log/' + id;
+        }
+    }
+
+    document.getElementById('searchQC').addEventListener('keyup', function() {
+        let val = this.value.toLowerCase();
+        let rows = document.querySelectorAll('#bodyQC tr');
+        rows.forEach(row => {
+            row.style.display = row.innerText.toLowerCase().includes(val) ? '' : 'none';
+        });
+    });
+</script>
+
 <%- include('../partials/footer') %>
