@@ -171,7 +171,7 @@ app.post('/login', async (req, res) => {
                 if (loggedInUser.role === 'admin') {
                     res.redirect('/dashboard');
                 } else if (loggedInUser.role === 'qc') {
-                    res.redirect('/qc-input'); // Arahkan QC ke halaman input khusus mereka
+                    res.redirect('admin/qc-input'); // Arahkan QC ke halaman input khusus mereka
                 } else {
                     res.redirect('/operator'); // Role operator masuk ke sini
                 }
@@ -1251,7 +1251,7 @@ app.get('/qc-input', async (req, res) => {
             [tId]
         );
 
-        res.render('qc-input', { 
+        res.render('admin/qc-input', { 
             user: { nama: req.session.nama_lengkap },
             active_pos 
         });
