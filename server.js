@@ -79,6 +79,23 @@ app.use(session({
     }
 }));
 
+const isAuth = (req, res, next) => {
+    if (req.session.userId) return next();
+    res.redirect('/');
+};
+
+// 2. Cek Role Admin
+const isAdmin = (req, res, next) => {
+    if (req.session.userId && req.session.role === 'admin') return next();
+    res.status(403).send("Akses Ditolak: Hanya untuk Admin!");
+};
+
+// 3. Cek Role QC atau Admin
+const isQC = (req, res, next) => {
+    if (req.session.userId && (req.session.role === 'qc' || req.session.role === 'admin')) return next();
+    res.status(403).send("Akses Ditolak: Fitur Khusus QC!");
+};
+
 app.use((req, res, next) => {
     // res.locals membuat variabel 'user' otomatis tersedia di SEMUA file .ejs
     res.locals.user = req.session.userId ? {
@@ -153,8 +170,10 @@ app.post('/login', async (req, res) => {
                 console.log(`Log: Login sukses, redirect ke role: ${loggedInUser.role}`);
                 if (loggedInUser.role === 'admin') {
                     res.redirect('/dashboard');
+                } else if (loggedInUser.role === 'qc') {
+                    res.redirect('/qc-input'); // Arahkan QC ke halaman input khusus mereka
                 } else {
-                    res.redirect('/operator');
+                    res.redirect('/operator'); // Role operator masuk ke sini
                 }
             });
 
@@ -614,14 +633,13 @@ app.get('/po-data', async (req, res) => {
     const tId = req.session.tenantId;
 
     try {
-        // Query Header PO: Ditambah pengecekan is_over untuk peringatan di baris utama
+        // Query Header PO (Tetap sama, ditambahkan alias u agar konsisten)
         const sqlOrders = `
             SELECT 
                 u.*, 
                 (SELECT SUM(jumlah) FROM po_detail WHERE po_id = u.id) as qty_tampil,
                 (SELECT COUNT(*) FROM po_detail WHERE po_id = u.id) as variasi_jumlah,
                 (SELECT SUM(jumlah * harga_customer) FROM po_detail WHERE po_id = u.id) as total_harga_customer,
-                -- Cek apakah ada salah satu item di dalam PO ini yang produksinya melebihi target
                 EXISTS (
                     SELECT 1 FROM po_detail d2
                     LEFT JOIN hasil_kerja h2 ON d2.id = h2.detail_id
@@ -635,15 +653,19 @@ app.get('/po-data', async (req, res) => {
         `;
         const orders = await db.all(sqlOrders, [tId]);
 
+        // Query Detail PO: DITAMBAHKAN Subquery untuk total_qc
         const sqlDetails = `
             SELECT 
                 d.*, 
-                SUM(COALESCE(h.jumlah_setor, 0)) as total_produksi
+                -- Hitung Total Setoran Operator
+                (SELECT COALESCE(SUM(h.jumlah_setor), 0) 
+                 FROM hasil_kerja h WHERE h.detail_id = d.id) as total_produksi,
+                -- Hitung Total Barang Lulus QC (Tabel Baru)
+                (SELECT COALESCE(SUM(q.jumlah_qc), 0) 
+                 FROM hasil_qc q WHERE q.detail_id = d.id) as total_qc
             FROM po_detail d
             JOIN po_utama u ON d.po_id = u.id
-            LEFT JOIN hasil_kerja h ON d.id = h.detail_id
             WHERE u.tenant_id = $1
-            GROUP BY d.id, d.po_id, d.nama_desain, d.jenis_bordir, d.jumlah, d.harga_operator, d.harga_customer
             ORDER BY d.id ASC
         `;
         const details = await db.all(sqlDetails, [tId]);
@@ -657,25 +679,6 @@ app.get('/po-data', async (req, res) => {
     } catch (err) {
         console.error("🔥 Error po-data:", err.message);
         res.status(500).send("Gagal memuat data pesanan.");
-    }
-});
-
-app.post('/update-status/:id', async (req, res) => {
-    if (!req.session.userId) return res.redirect('/');
-    const { status_baru } = req.body;
-    const poId = req.params.id;
-    const tId = req.session.tenantId;
-
-    try {
-        // Pastikan hanya bisa update PO milik tenant sendiri
-        await db.query(
-            "UPDATE po_utama SET status = $1 WHERE id = $2 AND tenant_id = $3",
-            [status_baru, poId, tId]
-        );
-        res.redirect('/po-data');
-    } catch (err) {
-        console.error("🔥 Update Status Error:", err.message);
-        res.status(500).send("Gagal memperbarui status.");
     }
 });
 
@@ -1183,18 +1186,15 @@ app.get('/operator', async (req, res) => {
     const tglHariIni = new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Jakarta' }).format(new Date());
 
     try {
-        // Ambil PO Aktif
         const sqlPO = `
             SELECT p.id, p.nama_po 
             FROM po_utama p
             WHERE p.status = 'Produksi' AND p.tenant_id = $1
         `;
         const active_pos = await db.all(sqlPO, [tId]);
-
-        // Ambil Mesin
         const daftarMesin = await db.all("SELECT id, nama_mesin FROM mesin WHERE tenant_id = $1 ORDER BY nama_mesin ASC", [tId]);
 
-        // Hitung Pencapaian & Bonus
+        // Tetap hitung pencapaian untuk fallback logic
         const config = await db.get("SELECT target_bonus FROM settings WHERE tenant_id = $1", [tId]);
         const targetBonus = parseFloat(config?.target_bonus || 500000);
 
@@ -1209,13 +1209,97 @@ app.get('/operator', async (req, res) => {
         const kurangnya = Math.max(0, targetBonus - totalHariIni);
 
         res.render('operator', { 
-            user: { nama: req.session.nama_lengkap }, // Sesuaikan dengan EJS Anda yang memanggil user.nama
+            user: { nama: req.session.nama_lengkap },
             active_pos,
             daftarMesin,
-            kurangnya
+            kurangnya,
+            // access sudah dikirim otomatis oleh middleware res.locals
         });
     } catch (err) {
         res.status(500).send("Server Error");
+    }
+});
+
+// Route untuk memproses input dari form QC
+app.post('/simpan-qc', isQC, async (req, res) => {
+    const { po_id, detail_id, jumlah_qc } = req.body;
+    const tId = req.session.tenantId;
+    const uId = req.session.userId;
+
+    try {
+        // Validasi input agar tidak kosong atau nol
+        if (!detail_id || !jumlah_qc || jumlah_qc <= 0) {
+            return res.send("<script>alert('Data tidak valid!'); window.history.back();</script>");
+        }
+
+        await db.query(
+            "INSERT INTO hasil_qc (tenant_id, po_id, detail_id, user_id, jumlah_qc) VALUES ($1, $2, $3, $4, $5)",
+            [tId, po_id, detail_id, uId, parseInt(jumlah_qc)]
+        );
+
+        res.send("<script>alert('Hasil QC Berhasil Disimpan!'); window.location='/qc-input';</script>");
+    } catch (err) {
+        console.error("🔥 Simpan QC Error:", err.message);
+        res.status(500).send("Gagal menyimpan data QC ke database.");
+    }
+});
+
+app.get('/qc-input', async (req, res) => {
+    // Cek apakah yang login adalah role 'qc' atau 'admin'
+    if (!req.session.userId || (req.session.role !== 'qc' && req.session.role !== 'admin')) {
+        return res.redirect('/');
+    }
+
+    const tId = req.session.tenantId;
+    try {
+        // QC hanya menginput PO yang statusnya sudah 'Produksi' atau 'QC'
+        const active_pos = await db.all(
+            "SELECT id, nama_po FROM po_utama WHERE tenant_id = $1 AND status IN ('Produksi', 'QC', 'CMT')", 
+            [tId]
+        );
+
+        res.render('qc-input', { 
+            user: { nama: req.session.nama_lengkap },
+            active_pos 
+        });
+    } catch (err) {
+        res.status(500).send("Gagal memuat halaman QC");
+    }
+});
+
+app.get('/qc-monitor', isAdmin, async (req, res) => {
+    const tId = req.session.tenantId;
+    const bulanIni = req.query.bulan || new Date().toISOString().slice(0, 7);
+
+    try {
+        const sqlQC = `
+            SELECT 
+                p.nama_po, 
+                d.nama_desain, 
+                d.jenis_bordir,
+                d.jumlah as target_po,
+                -- Menghitung total setoran dari Operator
+                (SELECT COALESCE(SUM(h.jumlah_setor), 0) 
+                 FROM hasil_kerja h 
+                 WHERE h.detail_id = d.id) as total_operator,
+                -- Menghitung total barang yang lulus QC
+                (SELECT COALESCE(SUM(q.jumlah_qc), 0) 
+                 FROM hasil_qc q 
+                 WHERE q.detail_id = d.id) as total_qc
+            FROM po_detail d
+            JOIN po_utama p ON d.po_id = p.id
+            WHERE p.tenant_id = $1 AND TO_CHAR(p.tanggal::DATE, 'YYYY-MM') = $2
+            ORDER BY p.nama_po ASC
+        `;
+        const result = await db.query(sqlQC, [tId, bulanIni]);
+
+        res.render('admin/qc-monitor', {
+            ringkasan: result.rows,
+            bulanIni
+        });
+    } catch (err) {
+        console.error("🔥 QC Monitor Error:", err.message);
+        res.status(500).send("Gagal memuat monitor QC.");
     }
 });
 

@@ -1,0 +1,58 @@
+<%- include('../partials/header') %>
+<div class="container-fluid mt-4">
+    <div class="d-flex justify-content-between align-items-center mb-3">
+        <h4><i class="bi bi-check-all"></i> Monitor Quality Control (QC)</h4>
+        <form action="/qc-monitor" method="GET">
+            <input type="month" name="bulan" value="<%= bulanIni %>" class="form-control form-control-sm" onchange="this.form.submit()">
+        </form>
+    </div>
+
+    <div class="card shadow-sm border-0">
+        <div class="table-responsive">
+            <table class="table table-hover align-middle mb-0" style="font-size: 13px;">
+                <thead class="table-dark">
+                    <tr>
+                        <th>Nama PO / Desain</th>
+                        <th class="text-center">Target PO</th>
+                        <th class="text-center">Total Setor</th>
+                        <th class="text-center">Sisa / Selisih</th>
+                        <th class="text-center">Status Produksi</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <% ringkasan.forEach(row => { 
+                        let sisa = row.target_po - row.total_setor;
+                        let statusClass = sisa <= 0 ? 'bg-success' : 'bg-warning text-dark';
+                        let statusText = sisa <= 0 ? 'LENGKAP' : 'PROSES';
+                        if (row.total_setor > row.target_po) {
+                            statusClass = 'bg-danger';
+                            statusText = 'OVER';
+                        }
+                    %>
+                    <tr>
+                        <td>
+                            <strong><%= row.nama_po %></strong><br>
+                            <small class="text-muted"><%= row.jenis_bordir %> - <%= row.nama_desain %></small>
+                        </td>
+                        <td class="text-center fw-bold"><%= row.target_po %></td>
+                        <td class="text-center"><%= row.total_setor %></td>
+                        <td class="text-center">
+                            <% if (sisa > 0) { %>
+                                <span class="text-primary fw-bold">-<%= sisa %></span>
+                            <% } else if (sisa < 0) { %>
+                                <span class="text-danger fw-bold">+<%= Math.abs(sisa) %></span>
+                            <% } else { %>
+                                <span class="text-success"><i class="bi bi-check-circle-fill"></i> Pas</span>
+                            <% } %>
+                        </td>
+                        <td class="text-center">
+                            <span class="badge <%= statusClass %>"><%= statusText %></span>
+                        </td>
+                    </tr>
+                    <% }) %>
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+<%- include('../partials/footer') %>

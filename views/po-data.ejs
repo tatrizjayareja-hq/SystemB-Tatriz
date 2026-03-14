@@ -173,35 +173,43 @@
                                             <tr class="text-center">
                                                 <th>Jenis</th>
                                                 <th>Nama Desain</th>
-                                                <th>Setor / Target</th>
-                                                <th>Selisih</th>
+                                                <th>Setor Op / Target</th>
+                                                <th class="bg-success">Lulus QC</th>
+                                                <th>Reject (Op - QC)</th>
                                                 <th>Status</th>
                                             </tr>
                                         </thead>
                                         <tbody>
                                             <% details.filter(d => d.po_id === po.id).forEach(function(sub) { 
-                                                let total = sub.total_produksi || 0;
+                                                let totalOp = sub.total_produksi || 0;
+                                                let totalQc = sub.total_qc || 0;
                                                 let target = sub.jumlah;
-                                                let selisih = total - target;
+                                                let reject = totalOp - totalQc;
                                             %>
-                                                <tr class="<%= total > target ? 'table-danger' : '' %>">
-                                                    <td class="ps-2"><%= sub.jenis_bordir %></td>
-                                                    <td><strong><%= sub.nama_desain %></strong></td>
-                                                    <td class="text-center"><strong><%= total %></strong> / <%= target %></td>
-                                                    <td class="text-center fw-bold">
-                                                        <% if (selisih > 0) { %>
-                                                            <span class="text-danger">+<%= selisih %> (Lebih)</span>
-                                                        <% } else if (selisih < 0) { %>
-                                                            <span class="text-muted"><%= selisih %></span>
+                                                <tr class="text-center">
+                                                    <td class="text-start ps-2"><%= sub.jenis_bordir %></td>
+                                                    <td class="text-start"><strong><%= sub.nama_desain %></strong></td>
+                                                    <td><strong><%= totalOp %></strong> / <%= target %></td>
+                                                    
+                                                    <td class="fw-bold text-success" style="background: #f0fff4;">
+                                                        <%= totalQc %>
+                                                    </td>
+
+                                                    <td class="fw-bold">
+                                                        <% if (reject > 0) { %>
+                                                            <span class="text-danger"><i class="bi bi-x-octagon-fill"></i> <%= reject %></span>
+                                                        <% } else if (reject < 0) { %>
+                                                            <span class="text-warning"><%= reject %> (Audit QC)</span>
                                                         <% } else { %>
-                                                            <span class="text-success">Pas</span>
+                                                            <span class="text-success">0</span>
                                                         <% } %>
                                                     </td>
-                                                    <td class="text-center">
-                                                        <% if (total > target) { %>
-                                                            <span class="badge bg-danger">Audit Diperlukan</span>
-                                                        <% } else if (total == target) { %>
-                                                            <span class="badge bg-success">Selesai</span>
+
+                                                    <td>
+                                                        <% if (totalQc >= target) { %>
+                                                            <span class="badge bg-success">QC Selesai</span>
+                                                        <% } else if (totalOp >= target) { %>
+                                                            <span class="badge bg-info text-dark">Menunggu QC</span>
                                                         <% } else { %>
                                                             <span class="badge bg-warning text-dark">Proses</span>
                                                         <% } %>

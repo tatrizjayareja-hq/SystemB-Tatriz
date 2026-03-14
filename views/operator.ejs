@@ -28,14 +28,17 @@
     <strong>Halo, <%= user.nama %>! 👋</strong>
     <span class="motivation">"Semangat! Setiap tusukan jarum adalah rezeki."</span>
 </div>
-<div class="target-monitor" id="monitor_target">
-    <small>Target Bonus Hari Ini:</small><br>
-    <% if (kurangnya > 0) { %>
-        <span>Kurang <span class="target-value">Rp <%= kurangnya.toLocaleString() %></span> lagi untuk bonus!</span>
-    <% } else { %>
-        <span style="color: #27ae60; font-weight: bold;">🎉 Target tercapai! Bonus terkunci.</span>
-    <% } %>
-</div>
+
+<% if (access.isInternal) { %>
+    <div class="target-monitor" id="monitor_target">
+        <small>Target Bonus Hari Ini:</small><br>
+        <% if (kurangnya > 0) { %>
+            <span>Kurang <span class="target-value">Rp <%= kurangnya.toLocaleString() %></span> lagi untuk bonus!</span>
+        <% } else { %>
+            <span style="color: #27ae60; font-weight: bold;">🎉 Target tercapai! Bonus terkunci.</span>
+        <% } %>
+    </div>
+<% } %>
 
 <div class="card">
     <form action="/simpan-kerja" method="POST">
@@ -43,6 +46,7 @@
             <label>Tanggal & Shift</label>
             <div style="display: grid; grid-template-columns: 2fr 1.5fr; gap: 10px;">
                 <input type="date" name="tanggal" id="tgl_kerja" required>
+                <script>document.getElementById('tgl_kerja').valueAsDate = new Date();</script>
                 <select name="shift">
                     <option value="Pagi">Pagi</option>
                     <option value="Sore">Sore</option>
@@ -75,10 +79,13 @@
                 <small style="color: #666;">Nama Desain:</small><br>
                 <strong id="display_nama_desain" style="font-size: 16px; color: #333;"></strong>
             </div>
+            
+            <% if (access.isInternal) { %>
             <div style="margin-bottom: 10px;">
                 <small style="color: #666;">Upah per Pcs:</small><br>
                 <strong id="display_harga" style="color: #27ae60;"></strong>
             </div>
+            <% } %>
             
             <label>Jumlah Hasil (Pcs)</label>
             <input type="number" name="jumlah_setor" id="input_setor" placeholder="0" min="1" required style="width: 100%; padding: 10px; border-radius: 8px; border: 1px solid #ddd;">
@@ -109,14 +116,10 @@
         </a>
     </div>
 </div>
-</div>
-
-
 
 <script>
-    let dataSimpanan = []; 
+let dataSimpanan = []; 
 
-// FUNGSI 1: Ambil data PO & isi dropdown JENIS
 async function muatDaftarDesain(poId) {
     const selectJenis = document.getElementById('select_jenis');
     const infoDiv = document.getElementById('info_bordir');
@@ -130,11 +133,10 @@ async function muatDaftarDesain(poId) {
         
         let html = '<option value="">-- Pilih Jenis Bordir --</option>';
         dataSimpanan.forEach(d => {
-            // Kita simpan ID Detail di value Jenis agar langsung terhubung ke Nama Desain
             html += `<option value="${d.id}" 
-                             data-nama="${d.nama_desain}" 
-                             data-harga="${d.harga_operator}" 
-                             data-sisa="${d.sisa}">${d.jenis_bordir} (Sisa: ${d.sisa})</option>`;
+                         data-nama="${d.nama_desain}" 
+                         data-harga="${d.harga_operator}" 
+                         data-sisa="${d.sisa}">${d.jenis_bordir} (Sisa: ${d.sisa})</option>`;
         });
         
         selectJenis.innerHTML = html;
@@ -144,26 +146,28 @@ async function muatDaftarDesain(poId) {
     }
 }
 
-// FUNGSI 2: Klik Jenis langsung Muncul Nama & Harga (TIDAK PERLU PILIH LAGI)
 function pilihOtomatisDesain(el) {
     const infoDiv = document.getElementById('info_bordir');
     const selected = el.options[el.selectedIndex];
+    const isInternal = document.body.dataset.isinternal === 'true'; // Kita bisa gunakan flag ini
     
     if(el.value) {
-        // Ambil data dari atribut data- yang kita buat di atas
         const namaDesain = selected.getAttribute('data-nama');
         const harga = selected.getAttribute('data-harga');
         const sisa = selected.getAttribute('data-sisa');
 
-        // Tampilkan ke UI otomatis
         document.getElementById('display_nama_desain').innerText = namaDesain;
-        document.getElementById('display_harga').innerText = "Rp " + parseInt(harga).toLocaleString('id-ID');
+        
+        // Element display_harga mungkin tidak ada di DOM jika bukan internal
+        const displayHargaEl = document.getElementById('display_harga');
+        if (displayHargaEl) {
+            displayHargaEl.innerText = "Rp " + parseInt(harga).toLocaleString('id-ID');
+        }
+
         document.getElementById('input_harga_op').value = harga;
         
         const inputSetor = document.getElementById('input_setor');
-        // Ubah teks agar lebih informatif
-        inputSetor.placeholder = "Sisa Target: " + sisa + " (Boleh input lebih)"; 
-        //inputSetor.max = sisa; // Batasi input agar tidak over-limit
+        inputSetor.placeholder = "Sisa Target: " + sisa; 
         
         infoDiv.style.display = 'block';
     } else {
