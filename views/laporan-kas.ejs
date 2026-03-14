@@ -10,10 +10,17 @@
     .sticky-top { position: sticky; top: 0; z-index: 10; background: white; }
     /* Style Overlay Gembok */
     .locked-overlay {
-        position: absolute; width: 100%; height: 100%; 
-        background: rgba(255,255,255,0.85); z-index: 5; 
+        position: absolute; 
+        top: 0; left: 0;
+        width: 100%; height: 100%; 
+        /* Gunakan background lebih gelap/solid atau efek kaca buram */
+        background: rgba(240, 240, 240, 0.95); /* 0.95 berarti 95% tidak tembus pandang */
+        backdrop-filter: blur(5px); /* EFEK PENTING: Membuat angka di bawahnya jadi buram total */
+        -webkit-backdrop-filter: blur(5px); /* Support Safari */
+        z-index: 10; 
         display: flex; flex-direction: column; align-items: center; 
         justify-content: center; cursor: pointer; border-radius: 12px;
+        border: 1px solid #ddd;
     }
 </style>
 
@@ -30,12 +37,19 @@
 
     <div class="row g-2 mb-2">
         <div class="col-md-7">
-            <div class="card shadow-sm mb-2" style="border-left: 5px solid #6c5ce7; position: relative;">
+            <div class="card shadow-sm mb-2" style="border-left: 5px solid #6c5ce7; position: relative; overflow: hidden;">
+    
                 <% if (!isPro) { %>
                     <div class="locked-overlay" onclick="ajakUpgrade('Analisis Profit')">
-                        <i class="bi bi-lock-fill text-warning fs-4"></i>
-                        <small class="fw-bold text-dark" style="font-size: 9px;">PROFIT ANALYTICS LOCKED</small>
+                        <i class="bi bi-lock-fill text-warning fs-3 mb-1"></i>
+                        <span class="badge bg-dark" style="font-size: 10px;">UPGRADE PRO UNTUK MELIHAT</span>
                     </div>
+                <% } %>
+
+                <div class="card-body p-2">
+                    <small class="fw-bold text-uppercase" style="color: #6c5ce7; font-size: 10px;">💰 Performa Owner (Nett)</small>
+                    </div>
+            </div>
                 <% } %>
                 <div class="card-body p-2">
                     <small class="fw-bold text-uppercase" style="color: #6c5ce7; font-size: 10px;">💰 Performa Owner (Nett)</small>
