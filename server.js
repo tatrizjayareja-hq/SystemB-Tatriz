@@ -468,13 +468,6 @@ app.post('/register-tenant', async (req, res) => {
     }
 });
 
-// Middleware Cek Admin (Proteksi)
-function isAdmin(req, res, next) {
-    if (req.session && req.session.userId && req.session.role === 'admin') {
-        return next();
-    }
-    res.send("<script>alert('Sesi habis atau bukan Admin.'); window.location='/';</script>");
-}
 
 // Halaman Verifikasi Password Admin
 app.get('/setup-auth', isAdmin, async (req, res) => {
@@ -554,13 +547,13 @@ app.get('/logout', (req, res) => {
 });
 
 //RUTE PO BARU
-app.get('/po-baru', (req, res) => {
+app.get('/po-baru', isAdmin, (req, res) => {
     if (!req.session.userId) return res.redirect('/');
     // Data user sudah dikirim otomatis via middleware res.locals.user
     res.render('po-baru');
 });
 
-app.post('/save-po', async (req, res) => {
+app.post('/save-po', isAdmin, async (req, res) => {
     if (!req.session.userId) return res.redirect('/');
     
     const tId = req.session.tenantId;
@@ -1366,7 +1359,7 @@ app.post('/simpan-kerja', async (req, res) => {
     }
 });
 
-app.get('/hasil-saya', async (req, res) => {
+app.get('/hasil-saya', isAuth, async (req, res) => {
     if (!req.session.userId) return res.redirect('/');
 
     const userId = req.session.userId;
