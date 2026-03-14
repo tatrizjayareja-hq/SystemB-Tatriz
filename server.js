@@ -545,9 +545,12 @@ app.post('/save-po', async (req, res) => {
     if (!req.session.userId) return res.redirect('/');
     
     const tId = req.session.tenantId;
+    // Pengecekan Internal (Owner 1 & Cabang 100)
+    const isInternal = (tId === 1 || tId === 100);
+
     const { tanggal, nama_po, customer, status, jenis_bordir, nama_desain, jumlah, harga_operator, harga_customer } = req.body;
 
-    // Pastikan data rincian diproses sebagai array (bahkan jika hanya 1 baris)
+    // Pastikan data rincian diproses sebagai array
     const jbList = Array.isArray(jenis_bordir) ? jenis_bordir : [jenis_bordir];
     const dsList = Array.isArray(nama_desain) ? nama_desain : [nama_desain];
     const jmlList = Array.isArray(jumlah) ? jumlah : [jumlah];
@@ -555,9 +558,9 @@ app.post('/save-po', async (req, res) => {
     const hCuList = Array.isArray(harga_customer) ? harga_customer : [harga_customer];
 
     try {
-        await db.query("BEGIN"); // Mulai Transaksi agar data konsisten
+        await db.query("BEGIN"); 
 
-        // 1. Simpan Header PO ke po_utama
+        // 1. Simpan Header PO
         const sqlHeader = `
             INSERT INTO po_utama (tenant_id, tanggal, nama_po, customer, status) 
             VALUES ($1, $2, $3, $4, $5) RETURNING id
@@ -567,13 +570,22 @@ app.post('/save-po', async (req, res) => {
 
         let totalTagihan = 0;
 
-        // 2. Simpan Rincian ke po_detail (Looping)
+        // 2. Simpan Rincian ke po_detail
         for (let i = 0; i < jbList.length; i++) {
-            if (!jbList[i]) continue; // Lewati jika baris kosong
+            if (!jbList[i]) continue;
 
             const qty = parseInt(jmlList[i]) || 0;
             const hCu = parseFloat(hCuList[i]) || 0;
-            const hOp = parseFloat(hOpList[i]) || hCu; // Jika Op kosong, samakan dengan Cust
+            
+            // LOGIKA PEMISAHAN HARGA OPERATOR
+            let hOp;
+            if (isInternal) {
+                // Owner & Cabang 100: Ambil harga_operator dari input (jika kosong gunakan hCu)
+                hOp = parseFloat(hOpList[i]) || hCu;
+            } else {
+                // Tenant Umum: Paksa harga_operator = harga_customer
+                hOp = hCu;
+            }
 
             totalTagihan += (qty * hCu);
 
@@ -587,11 +599,11 @@ app.post('/save-po', async (req, res) => {
         // 3. Update Total Harga di Header
         await db.query("UPDATE po_utama SET total_harga_customer = $1 WHERE id = $2", [totalTagihan, poId]);
 
-        await db.query("COMMIT"); // Simpan Permanen
+        await db.query("COMMIT");
         res.send("<script>alert('Data PO Berhasil Disimpan!'); window.location='/po-data';</script>");
 
     } catch (err) {
-        await db.query("ROLLBACK"); // Batalkan jika ada error
+        await db.query("ROLLBACK");
         console.error("🔥 Save PO Error:", err.message);
         res.status(500).send("Gagal menyimpan PO: " + err.message);
     }
