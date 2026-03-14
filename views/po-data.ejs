@@ -29,6 +29,8 @@
         #bulkActionArea { display: none; }
         .blink-warn { animation: blinker 1.5s linear infinite; color: #dc3545; font-weight: bold; }
         @keyframes blinker { 50% { opacity: 0; } }
+        /* Style tambahan untuk tombol kecil */
+        .btn-xs { padding: 1px 5px; font-size: 10px; border-radius: 3px; }
     </style>
 </head>
 <body>
@@ -176,7 +178,7 @@
                                                 <th>Setor Op / Target</th>
                                                 <th class="bg-success">Lulus QC</th>
                                                 <th>Reject (Op - QC)</th>
-                                                <th>Status</th>
+                                                <th>Aksi QC</th>
                                             </tr>
                                         </thead>
                                         <tbody>
@@ -205,14 +207,11 @@
                                                         <% } %>
                                                     </td>
 
-                                                    <td>
-                                                        <% if (totalQc >= target) { %>
-                                                            <span class="badge bg-success">QC Selesai</span>
-                                                        <% } else if (totalOp >= target) { %>
-                                                            <span class="badge bg-info text-dark">Menunggu QC</span>
-                                                        <% } else { %>
-                                                            <span class="badge bg-warning text-dark">Proses</span>
-                                                        <% } %>
+                                                    <td onclick="event.stopPropagation()">
+                                                        <button class="btn btn-xs btn-outline-success py-0 px-2" 
+                                                                onclick="bukaModalQC('<%= sub.id %>', '<%= sub.nama_desain %>', '<%= totalQc %>')">
+                                                            <i class="bi bi-pencil-square"></i> EDIT QC
+                                                        </button>
                                                     </td>
                                                 </tr>
                                             <% }); %>
@@ -228,10 +227,37 @@
     </div>
 </div>
 
+<div class="modal fade" id="modalQC" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-sm modal-dialog-centered">
+        <div class="modal-content shadow-lg border-0">
+            <form action="/update-qc-cepat" method="POST">
+                <div class="modal-header bg-success text-white py-2">
+                    <h6 class="modal-title fw-bold"><i class="bi bi-shield-check"></i> Koreksi Hasil QC</h6>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body text-center">
+                    <input type="hidden" name="detail_id" id="qc_detail_id">
+                    <p class="small mb-2 fw-bold text-muted" id="qc_nama_desain"></p>
+                    <label class="small fw-bold d-block mb-1">Total Lulus QC Baru:</label>
+                    <input type="number" name="jumlah_qc_baru" id="qc_jumlah_input" 
+                           class="form-control form-control-lg text-center fw-bold" 
+                           required min="0">
+                    <small class="text-muted" style="font-size: 10px;">*Menggantikan total riwayat QC sebelumnya.</small>
+                </div>
+                <div class="modal-footer p-2 border-0">
+                    <button type="submit" class="btn btn-success w-100 fw-bold">SIMPAN PERUBAHAN</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+
 <script>
     function toggleDetail(id) {
         const row = document.getElementById('detail-' + id);
-        row.style.display = (row.style.display === 'table-row') ? 'none' : 'table-row';
+        if(row) row.style.display = (row.style.display === 'table-row') ? 'none' : 'table-row';
     }
 
     function toggleMenu(event, id) {
@@ -250,35 +276,30 @@
     }
 
     function jalankanFilter() {
-    let inputNama = document.getElementById("liveSearch").value.toLowerCase();
-    let inputStatus = document.getElementById("filterStatus").value;
-    let hideLunas = document.getElementById("checkLunas").checked;
+        let inputNama = document.getElementById("liveSearch").value.toLowerCase();
+        let inputStatus = document.getElementById("filterStatus").value;
+        let hideLunas = document.getElementById("checkLunas").checked;
 
-    // SIMPAN KE LOCALSTORAGE agar saat reload data tidak hilang
-    localStorage.setItem('filterNama', inputNama);
-    localStorage.setItem('filterStatus', inputStatus);
-    localStorage.setItem('hideLunas', hideLunas);
+        localStorage.setItem('filterNama', inputNama);
+        localStorage.setItem('filterStatus', inputStatus);
+        localStorage.setItem('hideLunas', hideLunas);
 
-    let rows = document.querySelectorAll("#bodyPO tr.clickable-row");
-    rows.forEach(row => {
-        let text = row.innerText.toLowerCase();
-        // Cari status dari dropdown select di dalam baris tersebut
-        let status = row.querySelector("select").value;
-        
-        let match = text.includes(inputNama) && (inputStatus === "ALL" || status === inputStatus);
-        
-        // Logika: Tampilkan jika cocok DAN (jika hideLunas aktif, maka status tidak boleh 'Lunas')
-        if (match && !(hideLunas && status === "Lunas")) {
-            row.style.display = "";
-        } else {
-            row.style.display = "none";
-            // Tutup detail row jika baris utama disembunyikan
-            let id = row.querySelector('.po-checkbox').value;
-            let detailRow = document.getElementById('detail-' + id);
-            if(detailRow) detailRow.style.display = "none";
-        }
-    });
-}
+        let rows = document.querySelectorAll("#bodyPO tr.clickable-row");
+        rows.forEach(row => {
+            let text = row.innerText.toLowerCase();
+            let status = row.querySelector("select").value;
+            let match = text.includes(inputNama) && (inputStatus === "ALL" || status === inputStatus);
+            
+            if (match && !(hideLunas && status === "Lunas")) {
+                row.style.display = "";
+            } else {
+                row.style.display = "none";
+                let id = row.querySelector('.po-checkbox').value;
+                let detailRow = document.getElementById('detail-' + id);
+                if(detailRow) detailRow.style.display = "none";
+            }
+        });
+    }
 
     function updateCounter() {
         const checked = document.querySelectorAll('.po-checkbox:checked');
@@ -307,26 +328,27 @@
         jalankanFilter();
     }
 
+    // Fungsi Pemicu Modal QC
+    function bukaModalQC(id, nama, jumlah) {
+        document.getElementById('qc_detail_id').value = id;
+        document.getElementById('qc_nama_desain').innerText = nama;
+        document.getElementById('qc_jumlah_input').value = jumlah;
+        
+        var myModal = new bootstrap.Modal(document.getElementById('modalQC'));
+        myModal.show();
+    }
+
     window.onload = function() {
-    // 1. Ambil data dari localStorage
-    const savedNama = localStorage.getItem('filterNama');
-    const savedStatus = localStorage.getItem('filterStatus');
-    const savedHideLunas = localStorage.getItem('hideLunas');
+        const savedNama = localStorage.getItem('filterNama');
+        const savedStatus = localStorage.getItem('filterStatus');
+        const savedHideLunas = localStorage.getItem('hideLunas');
 
-    // 2. Masukkan kembali ke elemen Input/Select jika ada data sebelumnya
-    if (savedNama !== null) {
-        document.getElementById('liveSearch').value = savedNama;
-    }
-    if (savedStatus !== null) {
-        document.getElementById('filterStatus').value = savedStatus;
-    }
-    if (savedHideLunas !== null) {
-        document.getElementById('checkLunas').checked = (savedHideLunas === 'true');
-    }
+        if (savedNama !== null) document.getElementById('liveSearch').value = savedNama;
+        if (savedStatus !== null) document.getElementById('filterStatus').value = savedStatus;
+        if (savedHideLunas !== null) document.getElementById('checkLunas').checked = (savedHideLunas === 'true');
 
-    // 3. Jalankan filter agar tabel langsung menyusut sesuai pencarian terakhir
-    jalankanFilter();
-};
+        jalankanFilter();
+    };
 </script>
 
 </body>

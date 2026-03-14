@@ -1294,6 +1294,35 @@ app.get('/qc-monitor', isAdmin, async (req, res) => {
     }
 });
 
+app.post('/update-qc-cepat', isAdmin, async (req, res) => {
+    const { detail_id, jumlah_qc_baru } = req.body;
+    const tId = req.session.tenantId;
+    const uId = req.session.userId;
+
+    try {
+        await db.query("BEGIN");
+
+        // 1. Hapus riwayat QC lama khusus untuk desain ini saja
+        await db.query("DELETE FROM hasil_qc WHERE detail_id = $1 AND tenant_id = $2", [detail_id, tId]);
+
+        // 2. Masukkan angka baru sebagai total yang valid
+        if (parseInt(jumlah_qc_baru) > 0) {
+            await db.query(
+                "INSERT INTO hasil_qc (tenant_id, detail_id, user_id, jumlah_qc, tanggal) VALUES ($1, $2, $3, $4, CURRENT_DATE)",
+                [tId, detail_id, uId, parseInt(jumlah_qc_baru)]
+            );
+        }
+
+        await db.query("COMMIT");
+        res.redirect('/po-data'); // Balik lagi ke halaman manajemen
+
+    } catch (err) {
+        await db.query("ROLLBACK").catch(() => {});
+        console.error("🔥 Error Update QC Cepat:", err.message);
+        res.status(500).send("Gagal memperbarui data QC.");
+    }
+});
+
 // --- API UNTUK DROPDOWN OTOMATIS (Akses untuk semua role yang sudah login) ---
 app.get('/api/po-details/:id', async (req, res) => {
     if (!req.session.userId) return res.status(401).json({ error: "Unauthorized" });
