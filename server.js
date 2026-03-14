@@ -931,8 +931,8 @@ app.get('/api/piutang-detail/:customer', isAdmin, async (req, res) => {
 });
 
 app.get('/laporan-kas', isAdmin, async (req, res) => {
-    const isPro = (tId === 1 || req.session.tenantLevel >= 2)
     const tId = req.session.tenantId;
+    const isPro = (tId === 1 || req.session.tenantLevel >= 2)
     const bulanIni = req.query.bulan || new Date().toISOString().slice(0, 7);
     
     try {
