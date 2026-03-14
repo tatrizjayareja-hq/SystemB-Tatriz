@@ -7,8 +7,14 @@
     .text-pemasukan { color: #27ae60; font-weight: bold; }
     .text-pengeluaran { color: #d63031; font-weight: bold; }
     .compact-table td, .compact-table th { padding: 4px 8px !important; font-size: 11px; }
-    .text-profit { color: #2ecc71; font-weight: 800; }
     .sticky-top { position: sticky; top: 0; z-index: 10; background: white; }
+    /* Style Overlay Gembok */
+    .locked-overlay {
+        position: absolute; width: 100%; height: 100%; 
+        background: rgba(255,255,255,0.85); z-index: 5; 
+        display: flex; flex-direction: column; align-items: center; 
+        justify-content: center; cursor: pointer; border-radius: 12px;
+    }
 </style>
 
 <div class="container-fluid" style="max-width: 900px;">
@@ -26,29 +32,28 @@
         <div class="col-md-7">
             <div class="card shadow-sm mb-2" style="border-left: 5px solid #6c5ce7; position: relative;">
                 <% if (!isPro) { %>
-                    <div onclick="ajakUpgrade('Analisis Profit')" style="position: absolute; width: 100%; height: 100%; background: rgba(255,255,255,0.8); z-index: 5; display: flex; flex-direction: column; align-items: center; justify-content: center; cursor: pointer; border-radius: 12px;">
+                    <div class="locked-overlay" onclick="ajakUpgrade('Analisis Profit')">
                         <i class="bi bi-lock-fill text-warning fs-4"></i>
                         <small class="fw-bold text-dark" style="font-size: 9px;">PROFIT ANALYTICS LOCKED</small>
                     </div>
                 <% } %>
-
                 <div class="card-body p-2">
                     <small class="fw-bold text-uppercase" style="color: #6c5ce7; font-size: 10px;">💰 Performa Owner (Nett)</small>
                     <div class="row text-center g-0 mt-1">
                         <div class="col-6">
                             <small class="text-muted d-block" style="font-size: 9px;">Hasil Kerja Mesin</small>
-                            <strong style="font-size: 12px;">Rp <%= Number(nilaiProduksi).toLocaleString('id-ID') %></strong>
+                            <strong style="font-size: 12px;">Rp <%= Number(nilaiProduksi || 0).toLocaleString('id-ID') %></strong>
                         </div>
                         <div class="col-6 border-start">
                             <small class="text-muted d-block" style="font-size: 9px;">Beban (Op + Stp)</small>
-                            <strong class="text-danger" style="font-size: 12px;">Rp <%= (Number(totalBiaya) + Number(config.beban_tetap)).toLocaleString('id-ID') %></strong>
+                            <strong class="text-danger" style="font-size: 12px;">Rp <%= (Number(totalBiaya || 0) + Number(config.beban_tetap || 0)).toLocaleString('id-ID') %></strong>
                         </div>
                     </div>
 
                     <div class="text-center mt-2 border-top pt-1 bg-dark rounded">
                         <small class="fw-bold text-white" style="font-size: 9px;">HAK PROFIT OWNER BULAN INI:</small>
                         <strong class="text-warning d-block" style="font-size: 18px;">
-                            Rp <%= Number(estimasiProfit).toLocaleString('id-ID') %>
+                            Rp <%= Number(estimasiProfit || 0).toLocaleString('id-ID') %>
                         </strong>
                     </div>
                 </div>
@@ -60,12 +65,12 @@
                     <div class="row text-center g-0 mt-1">
                         <div class="col-6">
                             <small class="text-muted d-block" style="font-size: 9px;">Sisa Hutang (Total)</small>
-                            <strong class="text-danger" style="font-size: 11px;">Rp <%= Number(sisaHutangRiil).toLocaleString('id-ID') %></strong>
+                            <strong class="text-danger" style="font-size: 11px;">Rp <%= Number(sisaHutangRiil || 0).toLocaleString('id-ID') %></strong>
                         </div>
                         <div class="col-6 border-start">
                             <small class="text-muted d-block" style="font-size: 9px;">Sisa Kontrakan</small>
                             <strong class="text-secondary" style="font-size: 11px;">
-                                <%= sisaBebanKontrakan <= 0 ? 'LUNAS' : 'Rp ' + Number(sisaBebanKontrakan).toLocaleString('id-ID') %>
+                                <%= sisaBebanKontrakan <= 0 ? 'LUNAS' : 'Rp ' + Number(sisaBebanKontrakan || 0).toLocaleString('id-ID') %>
                             </strong>
                         </div>
                     </div>
@@ -73,36 +78,14 @@
             </div>
         </div>
 
-    <div class="col-md-5">
-        <div class="card shadow-sm h-100" style="position: relative;">
-            <% if (!isPro) { %>
-                <div onclick="ajakUpgrade('Omzet Harian')" style="position: absolute; width: 100%; height: 100%; background: rgba(255,255,255,0.9); z-index: 5; display: flex; flex-direction: column; align-items: center; justify-content: center; cursor: pointer; border-radius: 12px;">
-                    <i class="bi bi-lock-fill text-primary fs-5"></i>
-                    <small class="fw-bold text-dark" style="font-size: 8px;">DAILY OMZET LOCKED</small>
-                </div>
-            <% } %>
-
-            <div class="p-2 bg-primary text-white fw-bold" style="font-size: 10px; border-radius: 12px 12px 0 0;">
-                <i class="bi bi-calendar3"></i> OMZET HARIAN
-            </div>
-            <div class="table-responsive" style="max-height: 155px; overflow-y: auto;">
-                <table class="table table-sm table-hover mb-0 compact-table">
-                    <tbody>
-                        <% monitorHarian.forEach(m => { %>
-                            <tr>
-                                <td><%= new Date(m.tanggal).toLocaleDateString('id-ID', {day:'2-digit', month:'2-digit'}) %></td>
-                                <td class="text-end fw-bold">Rp <%= Number(m.total_harian).toLocaleString('id-ID') %></td>
-                            </tr>
-                        <% }) %>
-                    </tbody>
-                </table>
-            </div>
-        </div>
-    </div>
-</div>
-
         <div class="col-md-5">
-            <div class="card shadow-sm h-100">
+            <div class="card shadow-sm h-100" style="position: relative;">
+                <% if (!isPro) { %>
+                    <div class="locked-overlay" onclick="ajakUpgrade('Omzet Harian')">
+                        <i class="bi bi-lock-fill text-primary fs-5"></i>
+                        <small class="fw-bold text-dark" style="font-size: 8px;">DAILY OMZET LOCKED</small>
+                    </div>
+                <% } %>
                 <div class="p-2 bg-primary text-white fw-bold" style="font-size: 10px; border-radius: 12px 12px 0 0;">
                     <i class="bi bi-calendar3"></i> OMZET HARIAN
                 </div>
@@ -112,7 +95,7 @@
                             <% monitorHarian.forEach(m => { %>
                                 <tr>
                                     <td><%= new Date(m.tanggal).toLocaleDateString('id-ID', {day:'2-digit', month:'2-digit'}) %></td>
-                                    <td class="text-end fw-bold">Rp <%= Number(m.total_harian).toLocaleString('id-ID') %></td>
+                                    <td class="text-end fw-bold">Rp <%= Number(m.total_harian || 0).toLocaleString('id-ID') %></td>
                                 </tr>
                             <% }) %>
                         </tbody>
@@ -124,14 +107,14 @@
 
     <div class="card shadow-sm mb-2" style="border-left: 5px solid #0984e3; background: #eef7ff; position: relative;">
         <% if (!isPro) { %>
-            <div onclick="ajakUpgrade('Rekap Piutang')" style="position: absolute; width: 100%; height: 100%; background: rgba(238, 247, 255, 0.7); z-index: 5; display: flex; align-items: center; justify-content: center; cursor: pointer; border-radius: 12px;">
+            <div class="locked-overlay" onclick="ajakUpgrade('Rekap Piutang')">
                 <span class="badge bg-primary px-3 py-2 shadow-sm"><i class="bi bi-lock-fill"></i> Buka Analisis Piutang (PRO)</span>
             </div>
         <% } %>
         <div class="card-body p-2 d-flex justify-content-between align-items-center">
             <div>
                 <small class="fw-bold text-uppercase" style="color: #0984e3; font-size: 10px;">🔍 Piutang Berjalan (Akumulatif)</small>
-                <h4 class="mb-0 fw-bold" style="color: #0984e3;">Rp <%= Number(piutangBerjalan).toLocaleString('id-ID') %></h4>
+                <h4 class="mb-0 fw-bold" style="color: #0984e3;">Rp <%= Number(piutangBerjalan || 0).toLocaleString('id-ID') %></h4>
                 <p class="mb-0 text-muted" style="font-size: 9px;">Total hasil kerja mesin yang belum dibayar pelanggan.</p>
             </div>
             <div class="text-primary opacity-25">
@@ -143,7 +126,7 @@
     <div class="card p-2 bg-dark text-white mb-2 shadow">
         <div class="d-flex justify-content-between align-items-center px-2">
             <small class="fw-bold" style="font-size: 10px; color: #aaa;">SALDO FISIK LACI (CASH ON HAND):</small>
-            <strong class="text-warning" style="font-size: 18px;">Rp <%= Number(saldoRiil).toLocaleString('id-ID') %></strong>
+            <strong class="text-warning" style="font-size: 18px;">Rp <%= Number(saldoRiil || 0).toLocaleString('id-ID') %></strong>
         </div>
     </div>
 
@@ -165,15 +148,7 @@
                     <% rincianKas.forEach(item => { %>
                         <tr class="<%= item.jenis === 'PEMASUKAN' ? 'row-pemasukan' : 'row-pengeluaran' %>">
                             <td style="font-size: 11px; white-space: nowrap;">
-                                <% if (item.tanggal) { %>
-                                    <%= new Date(item.tanggal).toLocaleDateString('id-ID', { 
-                                        day: '2-digit', 
-                                        month: '2-digit', 
-                                        year: 'numeric' 
-                                    }) %>
-                                <% } else { %>
-                                    <span style="color: #ccc;">-</span>
-                                <% } %>
+                                <%= item.tanggal ? new Date(item.tanggal).toLocaleDateString('id-ID', {day:'2-digit', month:'2-digit', year:'numeric'}) : '-' %>
                             </td>
                             <td>
                                 <strong><%= item.kategori %></strong>
@@ -210,22 +185,13 @@
     }
 
     function persiapanEditKas(id, tgl, jenis, kat, jml, ket, poId) {
-        // Konversi tanggal ke format YYYY-MM-DD agar bisa dibaca input type date
         let d = new Date(tgl);
         let formattedDate = d.toISOString().split('T')[0];
-        
-        const data = { 
-            id, 
-            tgl: formattedDate, 
-            jenis, 
-            kat, 
-            jml, 
-            ket, 
-            poId: (poId === 'null' || !poId) ? "" : poId 
-        };
+        const data = { id, tgl: formattedDate, jenis, kat, jml, ket, poId: (poId === 'null' || !poId) ? "" : poId };
         sessionStorage.setItem('editDataKas', JSON.stringify(data));
         window.location.href = '/input-kas';
     }
+
     function ajakUpgrade(fitur) {
         if (typeof Swal !== 'undefined') {
             Swal.fire({
@@ -234,7 +200,7 @@
                 icon: 'warning',
                 showCancelButton: true,
                 confirmButtonColor: '#2ecc71',
-                confirmButtonText: 'Hubungi Developer (Upgrade)',
+                confirmButtonText: 'Upgrade PRO Sekarang',
                 cancelButtonText: 'Nanti Dulu'
             }).then((result) => {
                 if (result.isConfirmed) {
