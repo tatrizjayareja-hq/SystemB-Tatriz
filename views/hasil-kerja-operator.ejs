@@ -7,115 +7,132 @@
     <style>
         body { font-family: 'Segoe UI', sans-serif; background: #e2e7e2; padding: 15px; margin: 0; }
         .header-box { background: white; padding: 15px; border-radius: 12px; box-shadow: 0 2px 5px rgba(0,0,0,0.05); margin-bottom: 15px; }
-        
-        /* Filter Styles */
         .filter-input { width: 100%; padding: 12px; border: 1px solid #ddd; border-radius: 8px; box-sizing: border-box; font-size: 16px; margin-top: 10px; }
-
-        /* Table Styles */
         .rekap-container { background: white; border-radius: 12px; overflow: hidden; box-shadow: 0 2px 8px rgba(0,0,0,0.1); }
         table { width: 100%; border-collapse: collapse; }
         th { background: #2d3436; color: white; padding: 12px; text-align: left; font-size: 14px; }
-        
-        /* Row Utama (Tanggal) */
         .row-tanggal { background: #fff; border-bottom: 1px solid #eee; cursor: pointer; transition: 0.2s; }
         .row-tanggal:hover { background: #f9f9f9; }
         .row-tanggal td { padding: 15px 12px; font-weight: bold; }
-        
-        /* Row Detail (Laci) */
         .row-detail { display: none; background: #fdfdfd; }
         .detail-box { padding: 10px; border-left: 4px solid #0984e3; margin: 5px 10px; background: white; border: 1px solid #eee; border-radius: 4px; }
         .inner-table { width: 100%; font-size: 13px; margin-top: 5px; }
         .inner-table th { background: #f1f2f6; color: #666; padding: 5px; }
         .inner-table td { border-bottom: 1px solid #f1f1f1; padding: 8px 5px; font-weight: normal; }
-
         .bonus-tag { background: #27ae60; color: white; padding: 2px 6px; border-radius: 4px; font-size: 11px; margin-left: 5px; }
         .arrow { float: right; transition: 0.3s; color: #0984e3; }
         .rotate { transform: rotate(180deg); }
     </style>
 </head>
 <body>
-    <div class="header-box">    
-        <h2 style="margin: 10px 0 5px 0;text-align:center;">Halo, <%= userName %>! 👋</h2>
-        <p style="margin: 0; color: #888; font-size: 13px;text-align:center">Berikut adalah rekap hasil kerja Anda.</p>       
-        <input type="text" id="filterInput" class="filter-input" placeholder="Cari Tanggal atau Nama PO..." onkeyup="liveFilter()">
-    </div>
-    <div class="header-box">
-        <a href="/operator" style="margin-top: 20px; text-align:right;background: #0984e3; color: white; padding: 5px 10px; border-radius: 8px; text-decoration: none; font-weight: bold;">+ Input Hasil Lagi</a>
-        <a href="/logout" style="margin-top: 20px; text-align:right;background: #e30909; color: white; padding: 5px 10px; border-radius: 8px; text-decoration: none; font-weight: bold;">🚪 Keluar</a>
-    </div>
     <% 
+        // 1. Inisialisasi Logika & Variabel
+        const isInternal = access.isInternal; // Dari middleware server.js
         let totalGajiMingguIni = 0;
+        let totalOmzetHarian = 0;
+        const tanggalUnik = new Set();
         
-        // Ambil tanggal hari ini dan tentukan awal minggu (Senin)
         const sekarang = new Date();
-        const day = sekarang.getDay(); // 0 (Minggu) s/d 6 (Sabtu)
-        const diff = sekarang.getDate() - day + (day === 0 ? -6 : 1); // Penyesuaian ke Senin
+        const day = sekarang.getDay(); 
+        const diff = sekarang.getDate() - day + (day === 0 ? -6 : 1);
         const awalMinggu = new Date(sekarang.setDate(diff));
         awalMinggu.setHours(0,0,0,0);
 
+        // 2. Pengelompokan Data
+        const grouped = {};
         rows.forEach(r => {
+            if (!grouped[r.tanggal]) grouped[r.tanggal] = { items: [], totalOmzet: 0, totalQty: 0 };
+            
+            const qty = Number(r.jumlah_setor) || 0;
+            const harga = Number(r.harga_operator) || 0;
+            const subtotal = qty * harga;
+
+            grouped[r.tanggal].items.push(r);
+            grouped[r.tanggal].totalOmzet += subtotal;
+            grouped[r.tanggal].totalQty += qty;
+
+            // Hitung Estimasi Gaji (Hanya jika Internal)
             const tglData = new Date(r.tanggal);
-            // Jika tanggal data lebih besar atau sama dengan hari Senin minggu ini
             if(tglData >= awalMinggu) {
-                totalGajiMingguIni += (Number(r.jumlah_setor) * Number(r.harga_operator));
+                tanggalUnik.add(r.tanggal);
             }
         });
-        %>
 
+        // 3. Hitung Bonus & Gaji Pokok (Logika Khusus Internal)
+        if (isInternal) {
+            let akumulasiBonus = 0;
+            Object.keys(grouped).forEach(tgl => {
+                const dHarian = grouped[tgl];
+                const tglD = new Date(tgl);
+                if (tglD >= awalMinggu && dHarian.totalOmzet >= config.target_bonus) {
+                    akumulasiBonus += config.nominal_bonus_dasar + 
+                        (Math.floor((dHarian.totalOmzet - config.target_bonus) / config.kelipatan_bonus) * config.nominal_bonus_lipat);
+                }
+            });
+            const gp = user.gaji_pokok || 0;
+            totalGajiMingguIni = (gp * tanggalUnik.size) + akumulasiBonus;
+        }
+
+        const sortedDates = Object.keys(grouped).sort((a, b) => new Date(b) - new Date(a));
+    %>
+
+    <div class="header-box">    
+        <h2 style="margin: 10px 0 5px 0;text-align:center;">Halo, <%= userName %>! 👋</h2>
+        <p style="margin: 0; color: #888; font-size: 13px;text-align:center">Laporan hasil kerja Anda di sistem Tatriz.</p>       
+        <input type="text" id="filterInput" class="filter-input" placeholder="Cari Tanggal atau Nama PO..." onkeyup="liveFilter()">
+    </div>
+
+    <% if (isInternal) { %>
         <div class="header-box" style="background: #27ae60; color: white; text-align: center;">
-            <small style="opacity: 0.9;">Estimasi Gaji Minggu Ini (Senin - Sekarang):</small>
+            <small style="opacity: 0.9;">Estimasi Gaji Minggu Ini (GP x Hari + Bonus):</small>
             <h2 style="margin: 5px 0 0 0;">Rp <%= totalGajiMingguIni.toLocaleString('id-ID') %></h2>
         </div>
+    <% } else { %>
+        <div class="header-box" style="background: #34495e; color: white; text-align: center;">
+            <h2 style="margin: 5px 0;">Pusat Monitor Produksi</h2>
+            <p style="margin: 0; font-size: 13px; opacity: 0.8;">Data setoran Anda telah terekam secara akurat.</p>
+        </div>
+    <% } %>
+
+    <div class="header-box" style="display: flex; gap: 10px; justify-content: center;">
+        <a href="/operator" style="background: #0984e3; color: white; padding: 8px 15px; border-radius: 8px; text-decoration: none; font-weight: bold; font-size: 14px;">+ Input Hasil</a>
+        <a href="/logout" style="background: #e30909; color: white; padding: 8px 15px; border-radius: 8px; text-decoration: none; font-weight: bold; font-size: 14px;">🚪 Keluar</a>
+    </div>
 
     <div class="rekap-container">
         <table>
             <thead>
                 <tr>
                     <th>Rekap Per Tanggal</th>
-                    <th style="text-align: right;">Total Upah</th>
+                    <th style="text-align: right;"><%= isInternal ? 'Pencapaian Omzet' : 'Total Setor' %></th>
                 </tr>
             </thead>
             <tbody id="rekapTable">
-                <% 
-                        // Mengelompokkan data berdasarkan tanggal
-                        const grouped = {};
-                        rows.forEach(r => {
-                            // Pastikan kunci tanggal ada
-                            if (!grouped[r.tanggal]) grouped[r.tanggal] = { items: [], total: 0 };
-                            
-                            // Konversi paksa ke Angka untuk mencegah NaN (Sangat Penting!)
-                            const qty = Number(r.jumlah_setor) || 0;
-                            const harga = Number(r.harga_operator) || 0;
-                            const subtotal = qty * harga;
-
-                            grouped[r.tanggal].items.push(r);
-                            grouped[r.tanggal].total += subtotal;
-                        });
-
-                        // Urutkan tanggal terbaru di atas
-                        const sortedDates = Object.keys(grouped).sort((a, b) => new Date(b) - new Date(a));
-
-                        sortedDates.forEach((tgl, index) => { 
-                            let dataHarian = grouped[tgl];
-                            let bonusHarian = 0;
-                            
-                            // Contoh Logika Bonus: 500rb dapat 10rb, dst.
-                            if (dataHarian.total >= 500000) {
-                                bonusHarian = 10000 + (Math.floor((dataHarian.total - 500000) / 100000) * 5000);
-                            }
-                        %>
+                <% sortedDates.forEach((tgl, index) => { 
+                    let dHarian = grouped[tgl];
+                    let bonusHarian = 0;
+                    
+                    if (isInternal && dHarian.totalOmzet >= config.target_bonus) {
+                        bonusHarian = config.nominal_bonus_dasar + 
+                            (Math.floor((dHarian.totalOmzet - config.target_bonus) / config.kelipatan_bonus) * config.nominal_bonus_lipat);
+                    }
+                %>
                 <tr class="row-tanggal" onclick="toggleLaci('<%= index %>')">
                     <td>
                         <span class="tgl-text">
-                            <%= new Date(tgl).toLocaleDateString('id-ID', { day: '2-digit', month: 'long', year: 'numeric' }) %>
+                            <%= new Date(tgl).toLocaleDateString('id-ID', { day: '2-digit', month: 'long' }) %>
                         </span>
-                            <% if(bonusHarian > 0) { %>
-                        <span class="bonus-tag">🎁 Bonus Rp <%= bonusHarian.toLocaleString() %></span>
+                        <% if(isInternal && bonusHarian > 0) { %>
+                            <span class="bonus-tag">🎁 Bonus Rp <%= bonusHarian.toLocaleString() %></span>
                         <% } %>
                         <span class="arrow" id="arrow-<%= index %>">▼</span>
                     </td>
                     <td style="text-align: right;">
-                        Rp <%= dataHarian.total.toLocaleString() %>
+                        <% if (isInternal) { %>
+                            Rp <%= dHarian.totalOmzet.toLocaleString() %>
+                        <% } else { %>
+                            <%= dHarian.totalQty %> Pcs
+                        <% } %>
                     </td>
                 </tr>
 
@@ -125,22 +142,26 @@
                             <table class="inner-table">
                                 <thead>
                                     <tr>
-                                        <th>Nama PO / Desain</th>
+                                        <th>PO / Desain</th>
                                         <th style="text-align: center;">Shift</th>
                                         <th style="text-align: center;">Qty</th>
-                                        <th style="text-align: right;">Subtotal</th>
+                                        <% if (isInternal) { %>
+                                            <th style="text-align: right;">Subtotal Omzet</th>
+                                        <% } %>
                                     </tr>
                                 </thead>
                                 <tbody>
-                                    <% dataHarian.items.forEach(item => { %>
-                                        <tr class="item-kerja">
-                                            <td class="po-text">
+                                    <% dHarian.items.forEach(item => { %>
+                                        <tr>
+                                            <td>
                                                 <b><%= item.nama_po %></b><br>
-                                                <small><%= item.jenis_bordir %> - <%= item.nama_desain %></small>
+                                                <small><%= item.nama_desain %></small>
                                             </td>
                                             <td style="text-align: center;"><%= item.shift %></td>
-                                            <td style="text-align: center;"><%= item.jumlah_setor %></td>
-                                            <td style="text-align: right;">Rp <%= (item.jumlah_setor * item.harga_operator).toLocaleString() %></td>
+                                            <td style="text-align: center;"><b><%= item.jumlah_setor %></b></td>
+                                            <% if (isInternal) { %>
+                                                <td style="text-align: right;">Rp <%= (item.jumlah_setor * item.harga_operator).toLocaleString() %></td>
+                                            <% } %>
                                         </tr>
                                     <% }) %>
                                 </tbody>
@@ -154,11 +175,9 @@
     </div>
 
     <script>
-        // FUNGSI BUKA TUTUP LACI
         function toggleLaci(idx) {
             const laci = document.getElementById('laci-' + idx);
             const arrow = document.getElementById('arrow-' + idx);
-            
             if (laci.style.display === 'table-row') {
                 laci.style.display = 'none';
                 arrow.classList.remove('rotate');
@@ -168,7 +187,6 @@
             }
         }
 
-        // FUNGSI LIVE FILTER
         function liveFilter() {
             let input = document.getElementById("filterInput").value.toLowerCase();
             let table = document.getElementById("rekapTable");
@@ -176,20 +194,17 @@
             let details = table.getElementsByClassName("row-detail");
 
             for (let i = 0; i < rows.length; i++) {
-                // Ambil teks dari Baris Tanggal dan Baris Detailnya
                 let tglText = rows[i].querySelector(".tgl-text").innerText.toLowerCase();
-                let poTexts = details[i].innerText.toLowerCase(); // Mencari juga di dalam detail (Nama PO)
+                let poTexts = details[i].innerText.toLowerCase();
 
                 if (tglText.includes(input) || poTexts.includes(input)) {
                     rows[i].style.display = "";
-                    // Jika sedang mengetik, jangan paksa buka laci agar tidak berantakan
                 } else {
                     rows[i].style.display = "none";
-                    details[i].style.display = "none"; // Sembunyikan detail jika baris utama hilang
+                    details[i].style.display = "none";
                 }
             }
         }
     </script>
-
 </body>
 </html>
