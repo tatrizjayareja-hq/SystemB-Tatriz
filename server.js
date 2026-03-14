@@ -1294,6 +1294,50 @@ app.get('/qc-monitor', isAdmin, async (req, res) => {
     }
 });
 
+app.get('/daftar-qc', isAdmin, async (req, res) => {
+    const tId = req.session.tenantId;
+    const bulanIni = req.query.bulan || new Date().toISOString().slice(0, 7);
+
+    const sql = `
+        SELECT 
+            q.id as "ID_QC", 
+            TO_CHAR(q.tanggal::DATE, 'YYYY-MM-DD') as "TANGGAL", 
+            u.nama_lengkap as "NAMA_QC", 
+            p.nama_po as "NAMA_PO", 
+            d.nama_desain as "NAMA_BORDIR", 
+            d.jenis_bordir as "JENIS", 
+            q.jumlah_qc as "JML"
+        FROM hasil_qc q
+        JOIN users u ON q.user_id = u.id
+        JOIN po_utama p ON q.po_id = p.id
+        JOIN po_detail d ON q.detail_id = d.id
+        WHERE TO_CHAR(q.tanggal::DATE, 'YYYY-MM') = $1 AND q.tenant_id = $2
+        ORDER BY q.tanggal DESC, q.id DESC
+    `;
+
+    try {
+        const result = await db.query(sql, [bulanIni, tId]);
+        res.render('admin/daftar-qc', { 
+            dataQC: result.rows || [], 
+            bulanIni, 
+            user: req.session 
+        });
+    } catch (err) {
+        console.error("🔥 Error Daftar QC:", err.message);
+        res.status(500).send("Gagal memuat log QC.");
+    }
+});
+
+// Route untuk Hapus Item Log QC
+app.get('/hapus-qc-log/:id', isAdmin, async (req, res) => {
+    try {
+        await db.query("DELETE FROM hasil_qc WHERE id = $1 AND tenant_id = $2", [req.params.id, req.session.tenantId]);
+        res.redirect('/daftar-qc');
+    } catch (err) {
+        res.status(500).send("Gagal hapus log QC.");
+    }
+});
+
 app.post('/update-qc-cepat', isAdmin, async (req, res) => {
     const { detail_id, jumlah_qc_baru } = req.body;
     const tId = req.session.tenantId;
@@ -1320,6 +1364,34 @@ app.post('/update-qc-cepat', isAdmin, async (req, res) => {
         await db.query("ROLLBACK").catch(() => {});
         console.error("🔥 Error Update QC Cepat:", err.message);
         res.status(500).send("Gagal memperbarui data QC.");
+    }
+});
+
+app.post('/update-qc-bulk', isAdmin, async (req, res) => {
+    const { data } = req.body;
+    const tId = req.session.tenantId;
+    const uId = req.session.userId;
+
+    try {
+        await db.query("BEGIN");
+        for (const item of data) {
+            // Hapus log QC lama untuk item ini agar totalnya menjadi angka baru yang diinput
+            await db.query("DELETE FROM hasil_qc WHERE detail_id = $1 AND tenant_id = $2", [item.detail_id, tId]);
+            
+            // Simpan angka baru sebagai log koreksi Admin
+            if (parseInt(item.jumlah) > 0) {
+                await db.query(
+                    "INSERT INTO hasil_qc (tenant_id, detail_id, user_id, jumlah_qc, tanggal) VALUES ($1, $2, $3, $4, CURRENT_DATE)",
+                    [tId, item.detail_id, uId, parseInt(item.jumlah)]
+                );
+            }
+        }
+        await db.query("COMMIT");
+        res.sendStatus(200);
+    } catch (err) {
+        await db.query("ROLLBACK").catch(() => {});
+        console.error("🔥 Error Update QC Bulk:", err.message);
+        res.status(500).send("Error");
     }
 });
 

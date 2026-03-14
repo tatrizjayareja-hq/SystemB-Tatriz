@@ -29,7 +29,6 @@
         #bulkActionArea { display: none; }
         .blink-warn { animation: blinker 1.5s linear infinite; color: #dc3545; font-weight: bold; }
         @keyframes blinker { 50% { opacity: 0; } }
-        /* Style tambahan untuk tombol kecil */
         .btn-xs { padding: 1px 5px; font-size: 10px; border-radius: 3px; }
     </style>
 </head>
@@ -168,7 +167,17 @@
                                 <div class="bg-white p-3 border-bottom border-start border-5 border-primary m-2 shadow-sm rounded">
                                     <div class="d-flex justify-content-between align-items-center mb-2">
                                         <h6 class="fw-bold text-primary mb-0"><i class="bi bi-speedometer2 me-2"></i>Monitor Progres Produksi</h6>
-                                        <a href="/daftar-produksi" class="btn btn-xs btn-outline-primary py-0 px-2" style="font-size: 10px;">Audit Log</a>
+                                        <div class="btn-group">
+                                            <button class="btn btn-xs btn-success fw-bold px-2" onclick="bukaPanelQC('<%= po.id %>', '<%= po.nama_po %>')">
+                                                <i class="bi bi-shield-check"></i> UPDATE QC
+                                            </button>
+                                            <a href="/daftar-qc" class="btn btn-xs btn-outline-success px-2">
+                                                <i class="bi bi-list-check"></i> Audit QC
+                                            </a>
+                                            <a href="/daftar-produksi" class="btn btn-xs btn-outline-primary px-2">
+                                                <i class="bi bi-list-ul"></i> Audit Prod
+                                            </a>
+                                        </div>
                                     </div>
                                     <table class="table table-sm table-bordered mb-0" style="font-size: 11px;">
                                         <thead class="table-dark">
@@ -178,7 +187,7 @@
                                                 <th>Setor Op / Target</th>
                                                 <th class="bg-success">Lulus QC</th>
                                                 <th>Reject (Op - QC)</th>
-                                                <th>Aksi QC</th>
+                                                <th>Status</th>
                                             </tr>
                                         </thead>
                                         <tbody>
@@ -192,26 +201,14 @@
                                                     <td class="text-start ps-2"><%= sub.jenis_bordir %></td>
                                                     <td class="text-start"><strong><%= sub.nama_desain %></strong></td>
                                                     <td><strong><%= totalOp %></strong> / <%= target %></td>
-                                                    
-                                                    <td class="fw-bold text-success" style="background: #f0fff4;">
-                                                        <%= totalQc %>
-                                                    </td>
-
-                                                    <td class="fw-bold">
-                                                        <% if (reject > 0) { %>
-                                                            <span class="text-danger"><i class="bi bi-x-octagon-fill"></i> <%= reject %></span>
-                                                        <% } else if (reject < 0) { %>
-                                                            <span class="text-warning"><%= reject %> (Audit QC)</span>
+                                                    <td class="fw-bold text-success" style="background: #f0fff4;"><%= totalQc %></td>
+                                                    <td class="fw-bold text-danger"><%= reject > 0 ? reject : 0 %></td>
+                                                    <td>
+                                                        <% if (totalQc >= target) { %>
+                                                            <span class="badge bg-success">QC Selesai</span>
                                                         <% } else { %>
-                                                            <span class="text-success">0</span>
+                                                            <span class="badge bg-warning text-dark">Proses</span>
                                                         <% } %>
-                                                    </td>
-
-                                                    <td onclick="event.stopPropagation()">
-                                                        <button class="btn btn-xs btn-outline-success py-0 px-2" 
-                                                                onclick="bukaModalQC('<%= sub.id %>', '<%= sub.nama_desain %>', '<%= totalQc %>')">
-                                                            <i class="bi bi-pencil-square"></i> EDIT QC
-                                                        </button>
                                                     </td>
                                                 </tr>
                                             <% }); %>
@@ -228,26 +225,23 @@
 </div>
 
 <div class="modal fade" id="modalQC" tabindex="-1" aria-hidden="true">
-    <div class="modal-dialog modal-sm modal-dialog-centered">
+    <div class="modal-dialog modal-dialog-centered">
         <div class="modal-content shadow-lg border-0">
-            <form action="/update-qc-cepat" method="POST">
-                <div class="modal-header bg-success text-white py-2">
-                    <h6 class="modal-title fw-bold"><i class="bi bi-shield-check"></i> Koreksi Hasil QC</h6>
-                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
-                </div>
-                <div class="modal-body text-center">
-                    <input type="hidden" name="detail_id" id="qc_detail_id">
-                    <p class="small mb-2 fw-bold text-muted" id="qc_nama_desain"></p>
-                    <label class="small fw-bold d-block mb-1">Total Lulus QC Baru:</label>
-                    <input type="number" name="jumlah_qc_baru" id="qc_jumlah_input" 
-                           class="form-control form-control-lg text-center fw-bold" 
-                           required min="0">
-                    <small class="text-muted" style="font-size: 10px;">*Menggantikan total riwayat QC sebelumnya.</small>
-                </div>
-                <div class="modal-footer p-2 border-0">
-                    <button type="submit" class="btn btn-success w-100 fw-bold">SIMPAN PERUBAHAN</button>
-                </div>
-            </form>
+            <div class="modal-header bg-success text-white py-2">
+                <h6 class="modal-title fw-bold"><i class="bi bi-shield-check"></i> Update Hasil Lulus QC</h6>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <p class="small mb-3 text-muted">PO: <strong id="qc_nama_po" class="text-dark"></strong></p>
+                <div id="container_input_qc">
+                    </div>
+                <small class="text-muted d-block mt-2" style="font-size: 10px;">
+                    * Mengubah angka di sini akan memperbarui total riwayat QC untuk item tersebut.
+                </small>
+            </div>
+            <div class="modal-footer p-2 border-0">
+                <button type="button" onclick="simpanQCBulk()" class="btn btn-success w-100 fw-bold shadow-sm">SIMPAN SEMUA PERUBAHAN</button>
+            </div>
         </div>
     </div>
 </div>
@@ -328,14 +322,51 @@
         jalankanFilter();
     }
 
-    // Fungsi Pemicu Modal QC
-    function bukaModalQC(id, nama, jumlah) {
-        document.getElementById('qc_detail_id').value = id;
-        document.getElementById('qc_nama_desain').innerText = nama;
-        document.getElementById('qc_jumlah_input').value = jumlah;
-        
-        var myModal = new bootstrap.Modal(document.getElementById('modalQC'));
-        myModal.show();
+    // LOGIKA PANEL QC BARU
+    function bukaPanelQC(poId, namaPo) {
+        document.getElementById('qc_nama_po').innerText = namaPo;
+        const container = document.getElementById('container_input_qc');
+        container.innerHTML = '<div class="text-center py-3"><div class="spinner-border spinner-border-sm text-success"></div></div>';
+
+        fetch(`/api/po-details/${poId}`)
+            .then(res => res.json())
+            .then(data => {
+                let html = '';
+                data.forEach(d => {
+                    html += `
+                    <div class="mb-3 border-bottom pb-2">
+                        <label class="small fw-bold d-block mb-1 text-uppercase" style="font-size:10px">${d.nama_desain} (${d.jenis_bordir})</label>
+                        <div class="input-group input-group-sm">
+                            <span class="input-group-text bg-light small">Lulus:</span>
+                            <input type="number" class="form-control fw-bold text-center input-qc-val" 
+                                   data-id="${d.id}" value="${d.total_qc || 0}" min="0">
+                            <span class="input-group-text bg-light small">Pcs</span>
+                        </div>
+                    </div>`;
+                });
+                container.innerHTML = html;
+                new bootstrap.Modal(document.getElementById('modalQC')).show();
+            });
+    }
+
+    async function simpanQCBulk() {
+        const inputs = document.querySelectorAll('.input-qc-val');
+        const dataKirim = Array.from(inputs).map(i => ({
+            detail_id: i.dataset.id,
+            jumlah: i.value
+        }));
+
+        const response = await fetch('/update-qc-bulk', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ data: dataKirim })
+        });
+
+        if (response.ok) {
+            window.location.reload();
+        } else {
+            alert("Gagal menyimpan data.");
+        }
     }
 
     window.onload = function() {

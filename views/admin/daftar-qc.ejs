@@ -1,0 +1,44 @@
+<%- include('../partials/header') %>
+<div class="container-fluid mt-4">
+    <div class="d-flex justify-content-between align-items-center mb-3">
+        <h4><i class="bi bi-shield-check"></i> Log Pemeriksaan QC</h4>
+        <input type="month" class="form-control form-control-sm" style="width: 200px;"
+               value="<%= bulanIni %>" onchange="location.href='?bulan='+this.value">
+    </div>
+
+    <div class="card shadow-sm border-0">
+        <div class="table-responsive">
+            <table class="table table-hover table-bordered align-middle mb-0" style="font-size: 13px;">
+                <thead class="table-success text-uppercase text-center">
+                    <tr>
+                        <th>ID QC</th>
+                        <th>Tanggal</th>
+                        <th>Petugas QC</th>
+                        <th>Nama PO</th>
+                        <th>Nama Bordir</th>
+                        <th>Jumlah Lulus</th>
+                        <th>Aksi</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <% dataQC.forEach(row => { %>
+                    <tr>
+                        <td class="text-center">QC-<%= row.ID_QC %></td>
+                        <td class="text-center"><%= row.TANGGAL.split('-').reverse().join('/') %></td>
+                        <td class="fw-bold"><%= row.NAMA_QC %></td>
+                        <td><%= row.NAMA_PO %></td>
+                        <td><%= row.JENIS %> - <%= row.NAMA_BORDIR %></td>
+                        <td class="text-center fw-bold"><%= row.JML %> Pcs</td>
+                        <td class="text-center">
+                            <a href="/hapus-qc-log/<%= row.ID_QC %>" class="btn btn-sm btn-danger" onclick="return confirm('Hapus log QC ini?')">
+                                <i class="bi bi-trash"></i>
+                            </a>
+                        </td>
+                    </tr>
+                    <% }) %>
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+<%- include('../partials/footer') %>
