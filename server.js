@@ -1794,17 +1794,11 @@ app.get('/admin/hapus-produksi/:id', isAdmin, async (req, res) => {
 app.get('/input-gaji', isAdmin, async (req, res) => {
     const tId = req.session.tenantId;
     const { tgl_awal, tgl_akhir } = req.query;
+    const isInternal = (tId === 1 || tId === 100); // Cek status Internal
 
     try {
         const config = await db.get("SELECT * FROM settings WHERE tenant_id = $1", [tId]);
-        const activeConfig = config || { 
-            target_bonus: 500000, 
-            nominal_bonus_dasar: 10000, 
-            kelipatan_bonus: 100000, 
-            nominal_bonus_lipat: 5000,
-            jam_kerja_reguler: 8, // Tambahkan default jika null
-            pembagi_lembur: 4      // Tambahkan default jika null
-        };
+        const activeConfig = config || { target_bonus: 0 };
 
         if (!tgl_awal || !tgl_akhir) {
             return res.render('admin/pilih-tanggal-gaji', { config: activeConfig, user: req.session });
@@ -1816,13 +1810,13 @@ app.get('/input-gaji', isAdmin, async (req, res) => {
             FROM users u
             LEFT JOIN hasil_kerja h ON u.id = h.operator_id AND h.tanggal BETWEEN $1 AND $2
             LEFT JOIN po_detail d ON h.detail_id = d.id
-            WHERE u.tenant_id = $3 AND u.role IN ('operator', 'QC')
+            WHERE u.tenant_id = $3 AND u.role IN ('operator', 'qc')
             ORDER BY u.nama_lengkap ASC
         `;
 
         const rows = await db.all(sql, [tgl_awal, tgl_akhir, tId]);
-
         const rekap = {};
+
         rows.forEach(row => {
             if (!rekap[row.id]) {
                 rekap[row.id] = { 
@@ -1837,105 +1831,32 @@ app.get('/input-gaji', isAdmin, async (req, res) => {
             }
         });
 
-        Object.values(rekap).forEach(op => {
-            Object.values(op.harian).forEach(totalHari => {
-                if (totalHari >= parseFloat(activeConfig.target_bonus)) {
-                    let kelipatan = parseFloat(activeConfig.kelipatan_bonus) || 100000;
-                    let bonusDasar = parseFloat(activeConfig.nominal_bonus_dasar) || 0;
-                    let bonusLipat = Math.floor((totalHari - parseFloat(activeConfig.target_bonus)) / kelipatan) * (parseFloat(activeConfig.nominal_bonus_lipat) || 0);
-                    op.bonus += (bonusDasar + bonusLipat);
-                }
+        // LOGIKA BONUS HANYA UNTUK INTERNAL
+        if (isInternal) {
+            Object.values(rekap).forEach(op => {
+                Object.values(op.harian).forEach(totalHari => {
+                    if (totalHari >= parseFloat(activeConfig.target_bonus)) {
+                        let kelipatan = parseFloat(activeConfig.kelipatan_bonus) || 100000;
+                        let bonusDasar = parseFloat(activeConfig.nominal_bonus_dasar) || 0;
+                        let bonusLipat = Math.floor((totalHari - parseFloat(activeConfig.target_bonus)) / kelipatan) * (parseFloat(activeConfig.nominal_bonus_lipat) || 0);
+                        op.bonus += (bonusDasar + bonusLipat);
+                    }
+                });
             });
-        });
+        }
 
-        res.render('admin/input-gaji', { rekap, tgl_awal, tgl_akhir, config: activeConfig, user: req.session });
+        res.render('admin/input-gaji', { 
+            rekap, 
+            tgl_awal, 
+            tgl_akhir, 
+            config: activeConfig, 
+            user: req.session,
+            isInternal: isInternal // Kirim flag ke EJS
+        });
 
     } catch (err) {
         console.error("🔥 Error Input Gaji:", err.message);
         res.status(500).send("Gagal memuat data gaji.");
-    }
-});
-
-// --- 2. PROSES CETAK SLIP (REVISI TOTAL - DENGAN ADJ MANUAL) ---
-app.post('/proses-print-gaji', isAdmin, async (req, res) => {
-    const tId = req.session.tenantId;
-    const { tgl_awal, tgl_akhir, operator_ids, nama, gp, hari_kerja, lembur, bonus, adj_manual, kasbon } = req.body;
-
-    try {
-        // AMBIL CONFIG (Gunakan db.get dan placeholder $1)
-        const config = await db.get("SELECT * FROM settings WHERE tenant_id = $1", [tId]);
-        
-        // Ambil variabel fleksibel dari DB
-        const jamReguler = parseInt(config?.jam_kerja_reguler) || 8;
-        const pembagiLembur = parseInt(config?.pembagi_lembur) || 4;
-
-        // Helper untuk memastikan input adalah array (agar tidak error jika hanya 1 karyawan)
-        const toArray = (val) => Array.isArray(val) ? val : [val];
-        
-        const ids = toArray(operator_ids);
-        const nmList = toArray(nama);
-        const gpList = toArray(gp);
-        const hkList = toArray(hari_kerja);
-        const lbList = toArray(lembur);
-        const bnList = toArray(bonus);
-        const adjList = toArray(adj_manual); // Deklarasikan adjList di sini
-        const kbList = toArray(kasbon);
-
-        let dataGaji = [];
-
-        for (let i = 0; i < ids.length; i++) {
-            let gajiPokok = Number(gpList[i]) || 0;
-            let inputHK = String(hkList[i] || "0").replace(',', '.');
-            let jamLembur = Number(lbList[i]) || 0;
-            let bonusTarget = Number(bnList[i]) || 0;
-            let penyesuaian = Number(adjList[i]) || 0; // Ambil nilai Adj dari list
-            let totalKasbon = Number(kbList[i]) || 0;
-
-            let hariFull = 0;
-            let jamSisa = 0;
-
-            if (inputHK.includes('.')) {
-                let bagian = inputHK.split('.');
-                hariFull = parseInt(bagian[0]) || 0;
-                jamSisa = parseInt(bagian[1]) || 0;
-            } else {
-                hariFull = parseInt(inputHK) || 0;
-            }
-
-            // RUMUS FLEKSIBEL (Menggunakan variabel dinamis & penyesuaian manual)
-            let nominalHari = hariFull * gajiPokok;
-            let nominalJamSisa = (gajiPokok / jamReguler) * jamSisa;
-            let nominalLembur = (gajiPokok / pembagiLembur) * jamLembur; 
-            
-            // TOTAL FINAL: Termasuk Penyesuaian (+/-)
-            let totalFinal = nominalHari + nominalJamSisa + nominalLembur + bonusTarget + penyesuaian - totalKasbon;
-
-            dataGaji.push({
-                nama: nmList[i],
-                gp: gajiPokok,
-                hari_kerja_tampil: inputHK,
-                hari_full: hariFull,
-                jam_sisa: jamSisa,
-                lembur: jamLembur,
-                bonus_target: bonusTarget,
-                adjustment: penyesuaian, // Kirim data adj ke EJS cetak jika ingin ditampilkan
-                kasbon: totalKasbon,
-                totalFinal: Math.round(totalFinal)
-            });
-        }
-
-        // Render ke halaman cetak dengan variabel asli (dataGaji, config, user)
-        res.render('admin/cetak-slip', { 
-            dataGaji, 
-            tgl_awal, 
-            tgl_akhir, 
-            config: config || { nama_perusahaan: "Tatriz" }, 
-            user: req.session 
-        });
-
-    } catch (err) {
-        console.error("🔥 Error Proses Slip:", err.message);
-        res.status(500).send("Gagal memproses cetak slip.");
     }
 });
 

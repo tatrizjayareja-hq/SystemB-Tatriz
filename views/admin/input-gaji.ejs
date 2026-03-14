@@ -27,12 +27,12 @@
                                 <th>GP / Hari</th>
                                 <th style="width: 100px;">Hari.Jam</th>
                                 <th style="width: 90px;">Lembur</th>
-                                <th>Bonus Target</th>
-                                <th style="width: 110px;">Adj (+/-)</th>
+                                <% if (isInternal) { %> <th>Bonus Target</th> <% } %> <th style="width: 110px;">Adj (+/-)</th>
                                 <th style="width: 110px;">Kasbon</th>
                                 <th class="bg-success">Total Terima</th>
                             </tr>
                         </thead>
+
                         <tbody>
                             <% Object.values(rekap).forEach((op, index) => { %>
                             <tr class="baris-gaji">
@@ -53,6 +53,8 @@
                                 <td>
                                     <input type="number" name="lembur" value="0" class="form-control form-control-sm text-center input-lembur">
                                 </td>
+                                
+                                <% if (isInternal) { %>
                                 <td>
                                     <div class="text-end px-2">
                                         <input type="hidden" name="bonus" class="input-bonus-target" value="<%= op.bonus %>">
@@ -61,6 +63,10 @@
                                         </span>
                                     </div>
                                 </td>
+                                <% } else { %>
+                                    <input type="hidden" name="bonus" class="input-bonus-target" value="0">
+                                <% } %>
+
                                 <td>
                                     <input type="number" name="adj_manual" value="0" class="form-control form-control-sm text-center fw-bold input-adj" style="color: #6c5ce7;">
                                 </td>
