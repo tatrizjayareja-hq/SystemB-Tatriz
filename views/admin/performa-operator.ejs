@@ -31,7 +31,7 @@
                 <% } %>
                 <span class="badge bg-danger"> < Rp 100.000 (Rendah)</span>
             </div>
-        <div class="table-responsive">
+        </div> <div class="table-responsive">
             <table class="table table-bordered table-hover align-middle mb-0" style="font-size: 12px;">
                 <thead class="table-dark text-center">
                     <tr>
@@ -43,7 +43,8 @@
                         <% if (isInternal) { %>
                             <th class="bg-warning text-dark">Total Upah (Op)</th>
                         <% } %>
-                        <th class="bg-primary">Total Produksi</th> </tr>
+                        <th class="bg-primary">Total Produksi</th> 
+                    </tr>
                 </thead>
 
                 <tbody>
@@ -57,7 +58,6 @@
                             let upah = dataTgl ? (dataTgl[op.id] || 0) : 0;
                             let cellClass = "";
                             
-                            // Logika warna tetap jalan: Tenant Umum pakai target bonus berbasis Harga Customer
                             if (upah === 0) {
                                 cellClass = "bg-light text-danger"; 
                             } else if (upah >= targetDinamis) {
@@ -89,6 +89,7 @@
 </div>
 
 <script>
+    // Script Chart.js tetap sama, pastikan data performaOps terkirim dari server
     const rawData = JSON.parse('<%- JSON.stringify(performaOps) %>');
     const sortedData = Object.values(rawData).sort((a, b) => b.totalUpah - a.totalUpah);
     
@@ -102,7 +103,7 @@
             data: {
                 labels: labels,
                 datasets: [{
-                    label: 'Total Borongan (Rp)',
+                    label: 'Total Produksi (Rp)',
                     data: datasetUpah,
                     backgroundColor: 'rgba(46, 204, 113, 0.7)',
                     borderColor: 'rgba(46, 204, 113, 1)',
