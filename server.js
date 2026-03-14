@@ -1902,30 +1902,23 @@ app.get('/cetak-nota-vendor', isAdmin, async (req, res) => {
 
 app.get('/performa-operator', isAdmin, async (req, res) => {
     const tId = req.session.tenantId;
+    const isInternal = (tId === 1 || tId === 100); // Logika Internal
     const bulanIni = req.query.bulan || new Date().toISOString().slice(0, 7);
 
     try {
-        // 1. Ambil Kebijakan Target dari Settings (Agar tidak hardcode)
         const configData = await db.get("SELECT target_bonus FROM settings WHERE tenant_id = $1", [tId]);
-        // Jika belum di-setup, default ke 500.000 sebagai fallback
         const targetDinamis = parseFloat(configData?.target_bonus || 500000);
 
-        // 2. Ambil daftar operator
-        const sqlOps = `
-            SELECT id, nama_lengkap 
-            FROM users 
-            WHERE tenant_id = $1 AND role = 'operator' 
-            ORDER BY nama_lengkap ASC
-        `;
+        const sqlOps = `SELECT id, nama_lengkap FROM users WHERE tenant_id = $1 AND role = 'operator' ORDER BY nama_lengkap ASC`;
         const opsRes = await db.query(sqlOps, [tId]);
         const operators = opsRes.rows;
 
-        // 3. Ambil data hasil kerja
+        // Penyesuaian SQL: Jika bukan internal, harga_operator dipaksa mengikuti harga_customer
         const sqlData = `
             SELECT 
                 TO_CHAR(h.tanggal::DATE, 'YYYY-MM-DD') as tgl_key, 
                 h.operator_id, 
-                SUM(h.jumlah_setor * d.harga_operator) as upah_op,
+                SUM(h.jumlah_setor * ${isInternal ? 'd.harga_operator' : 'd.harga_customer'}) as upah_op,
                 SUM(h.jumlah_setor * d.harga_customer) as omzet_cust
             FROM hasil_kerja h
             JOIN po_detail d ON h.detail_id = d.id
@@ -1953,7 +1946,6 @@ app.get('/performa-operator', isAdmin, async (req, res) => {
 
             if (performaOps[r.operator_id]) {
                 performaOps[r.operator_id].totalUpah += parseFloat(r.upah_op);
-                // MENGGUNAKAN TARGET DARI SETTINGS
                 if (parseFloat(r.upah_op) >= targetDinamis) {
                     performaOps[r.operator_id].kaliCapaiTarget += 1;
                 }
@@ -1969,8 +1961,9 @@ app.get('/performa-operator', isAdmin, async (req, res) => {
             matriks,
             performaOps,
             jumlahHari,
-            targetDinamis, // Kirim variabel ini ke EJS
-            config: res.locals.config || { nama_aplikasi: "Tatriz System" }
+            targetDinamis,
+            // Tambahkan variabel akses untuk digunakan di EJS
+            isInternal: isInternal 
         });
 
     } catch (err) {
