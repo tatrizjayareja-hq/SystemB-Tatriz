@@ -1,25 +1,78 @@
 <!DOCTYPE html>
 <html lang="id">
 <head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Input PO Baru - Tatriz SystemB</title>
     <style>
-        /* Tambahan CSS sedikit untuk merapikan tampilan non-internal */
-        .grid-standard { grid-template-columns: 2fr 2fr 1fr 2fr !important; }
+        body { font-family: 'Segoe UI', sans-serif; background: #f4f7f6; padding: 20px; }
+        .form-container { max-width: 900px; margin: auto; background: white; padding: 25px; border-radius: 12px; box-shadow: 0 4px 10px rgba(0,0,0,0.1); }
+        .grid-header { display: grid; grid-template-columns: 1fr 1fr; gap: 15px; margin-bottom: 20px; }
+        .sub-po-row { border: 1px solid #ddd; padding: 15px; border-radius: 8px; margin-bottom: 10px; background: #fafafa; position: relative; }
+        
+        .grid-sub { display: grid; gap: 10px; }
+        /* Grid Pro digunakan jika kolom Harga Op tampil (Internal) */
+        .grid-pro { grid-template-columns: 2fr 2fr 1fr 1.5fr 1.5fr; }
+        /* Grid Standard digunakan jika kolom Harga Op sembunyi (Umum) */
+        .grid-standard { grid-template-columns: 2fr 2fr 1fr 2fr; }
+
+        label { font-weight: bold; display: block; margin-bottom: 5px; font-size: 11px; color: #666; text-transform: uppercase; }
+        input, select { width: 100%; padding: 10px; border: 1px solid #ccc; border-radius: 6px; box-sizing: border-box; font-size: 14px; }
+        
+        .btn-add { background: #3498db; color: white; border: none; padding: 10px 20px; border-radius: 6px; cursor: pointer; margin-bottom: 20px; font-weight: bold; }
+        .btn-save { background: #195e0b; color: white; border: none; padding: 15px; width: 100%; border-radius: 8px; font-size: 18px; font-weight: bold; cursor: pointer; transition: 0.3s; }
+        
+        .remove-row { color: #e74c3c; cursor: pointer; font-size: 12px; font-weight: bold; position: absolute; top: 10px; right: 15px; }
+
+        @media (max-width: 600px) {
+            .grid-header { grid-template-columns: 1fr; }
+            .grid-pro, .grid-standard { grid-template-columns: 1fr; gap: 8px; }
+            .sub-po-row { padding-top: 35px; }
+        }
     </style>
 </head>
 <% 
-    // Menggunakan variabel access yang dikirim dari middleware server.js
-    const showOpPrice = access.isInternal; 
+    // Aturan Baru: Hanya Internal (ID 1 & 100) yang melihat Harga Operator
+    const isInternal = access.isInternal; 
 %>
-<body data-isinternal="<%= showOpPrice %>">
+<body data-isinternal="<%= isInternal %>">
 
 <div class="form-container">
     <a href="/dashboard" style="text-decoration: none; color: #666; font-size: 14px;">← Kembali</a>
     <h2 style="color: #195e0b;">📝 Input Pesanan Baru (PO)</h2>
     
     <form action="/save-po" method="POST">
+        <div class="grid-header">
+            <div>
+                <label>Tanggal</label>
+                <input type="date" name="tanggal" required id="tgl_sekarang">
+            </div>
+            <div>
+                <label>Status</label>
+                <select name="status">
+                    <option value="Design">Design</option>
+                    <option value="Produksi">Produksi</option>
+                    <option value="CMT">CMT (Luar)</option>
+                    <option value="QC">QC</option>
+                    <option value="Clear">Clear (Invoice)</option>
+                    <option value="Lunas">Lunas</option>
+                </select>
+            </div>
+            <div>
+                <label>Nama PO</label>
+                <input type="text" name="nama_po" required list="list_po">
+            </div>
+            <div>
+                <label>Customer</label>
+                <input type="text" name="customer" required list="list_customer">
+            </div>
+        </div>
+
+        <hr style="border: 0; border-top: 1px solid #eee; margin: 20px 0;">
+        
         <div id="sub-po-container">
             <div class="sub-po-row">
-                <div class="grid-sub <%= showOpPrice ? 'grid-pro' : 'grid-standard' %>">
+                <div class="grid-sub <%= isInternal ? 'grid-pro' : 'grid-standard' %>">
                     <div>
                         <label>Jenis</label>
                         <input type="text" name="jenis_bordir[]" list="list_jenis">
@@ -33,11 +86,11 @@
                         <input type="number" name="jumlah[]" required>
                     </div>
 
-                    <% if (showOpPrice) { %>
-                        <div>
-                            <label>Harga Op</label>
-                            <input type="number" name="harga_operator[]">
-                        </div>
+                    <% if (isInternal) { %>
+                    <div>
+                        <label>Harga Op</label>
+                        <input type="number" name="harga_operator[]">
+                    </div>
                     <% } else { %>
                         <input type="hidden" name="harga_operator[]" class="hidden-op">
                     <% } %>
@@ -55,11 +108,14 @@
     </form>
 </div>
 
+<datalist id="list_po"></datalist>
+<datalist id="list_customer"></datalist>
+<datalist id="list_jenis"></datalist>
+
 <script>
     document.getElementById('tgl_sekarang').valueAsDate = new Date();
 
     function sinkronkanHarga(el) {
-        // Jika bukan internal, kita paksa harga operator sama dengan harga customer di background
         const row = el.closest('.grid-sub');
         const hiddenOp = row.querySelector('.hidden-op');
         if (hiddenOp) hiddenOp.value = el.value;
@@ -67,7 +123,7 @@
 
     function tambahBaris() {
         const container = document.getElementById('sub-po-container');
-        // Ambil data dari atribut body
+        // Ambil data isinternal dari atribut data di body
         const isInternal = document.body.dataset.isinternal === 'true';
         
         const row = document.createElement('div');
@@ -75,13 +131,10 @@
         
         const gridClass = isInternal ? 'grid-pro' : 'grid-standard';
         
-        // Kondisi kolom operator di Javascript
-        let kolomOp = '';
-        if (isInternal) {
-            kolomOp = `<div><label>Harga Op</label><input type="number" name="harga_operator[]"></div>`;
-        } else {
-            kolomOp = `<input type="hidden" name="harga_operator[]" class="hidden-op">`;
-        }
+        // Kolom Op muncul sebagai input jika Internal, muncul sebagai Hidden jika Umum
+        const kolomOp = isInternal ? 
+            `<div><label>Harga Op</label><input type="number" name="harga_operator[]"></div>` : 
+            `<input type="hidden" name="harga_operator[]" class="hidden-op">`;
 
         row.innerHTML = `
             <span class="remove-row" onclick="this.parentElement.remove()">✖ Hapus</span>
@@ -96,5 +149,6 @@
         container.appendChild(row);
     }
 </script>
+
 </body>
 </html>
