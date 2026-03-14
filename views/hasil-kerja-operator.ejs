@@ -27,10 +27,7 @@
 <body>
     <% 
         // 1. Inisialisasi Logika & Variabel
-        const isInternal = access.isInternal; // Dari middleware server.js
-        let totalGajiMingguIni = 0;
-        let totalOmzetHarian = 0;
-        const tanggalUnik = new Set();
+        const isInternal = access.isInternal; 
         
         const sekarang = new Date();
         const day = sekarang.getDay(); 
@@ -38,8 +35,10 @@
         const awalMinggu = new Date(sekarang.setDate(diff));
         awalMinggu.setHours(0,0,0,0);
 
-        // 2. Pengelompokan Data
+        // 2. Pengelompokan Data & Hitung Hari Unik Minggu Ini
         const grouped = {};
+        const tanggalSetorMingguIni = new Set(); // Mengoleksi tanggal unik untuk hitung hari kerja riil
+
         rows.forEach(r => {
             if (!grouped[r.tanggal]) grouped[r.tanggal] = { items: [], totalOmzet: 0, totalQty: 0 };
             
@@ -51,26 +50,38 @@
             grouped[r.tanggal].totalOmzet += subtotal;
             grouped[r.tanggal].totalQty += qty;
 
-            // Hitung Estimasi Gaji (Hanya jika Internal)
+            // Cek apakah tanggal data masuk dalam rentang minggu ini
             const tglData = new Date(r.tanggal);
             if(tglData >= awalMinggu) {
-                tanggalUnik.add(r.tanggal);
+                tanggalSetorMingguIni.add(r.tanggal); // Tambahkan ke Set (otomatis unik)
             }
         });
 
-        // 3. Hitung Bonus & Gaji Pokok (Logika Khusus Internal)
+        // 3. Logika Penghitungan Gaji (Hanya Internal)
+        let totalGajiMingguIni = 0;
+        let totalBonusMingguIni = 0;
+
         if (isInternal) {
-            let akumulasiBonus = 0;
+            // Hitung Bonus Harian berdasarkan grouped data
             Object.keys(grouped).forEach(tgl => {
                 const dHarian = grouped[tgl];
                 const tglD = new Date(tgl);
+                
+                // Hanya hitung bonus untuk minggu ini
                 if (tglD >= awalMinggu && dHarian.totalOmzet >= config.target_bonus) {
-                    akumulasiBonus += config.nominal_bonus_dasar + 
-                        (Math.floor((dHarian.totalOmzet - config.target_bonus) / config.kelipatan_bonus) * config.nominal_bonus_lipat);
+                    const bonusDasar = Number(config.nominal_bonus_dasar) || 0;
+                    const bonusLipat = Number(config.nominal_bonus_lipat) || 0;
+                    const kelipatan = Number(config.kelipatan_bonus) || 100000;
+                    
+                    const bonusTambahan = Math.floor((dHarian.totalOmzet - config.target_bonus) / kelipatan) * bonusLipat;
+                    totalBonusMingguIni += (bonusDasar + bonusTambahan);
                 }
             });
+
+            // RUMUS: (Gaji Pokok x Jumlah Hari Unik) + Total Bonus
             const gp = user.gaji_pokok || 0;
-            totalGajiMingguIni = (gp * tanggalUnik.size) + akumulasiBonus;
+            const jmlHariKerja = tanggalSetorMingguIni.size;
+            totalGajiMingguIni = (gp * jmlHariKerja) + totalBonusMingguIni;
         }
 
         const sortedDates = Object.keys(grouped).sort((a, b) => new Date(b) - new Date(a));
