@@ -5,6 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Sistem Setup - Tatriz System</title>
     <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.1/font/bootstrap-icons.css">
     <style>
         :root {
             --primary: #2ecc71; --primary-dark: #27ae60; --dark: #2c3e50;
@@ -12,23 +13,23 @@
         }
         body { font-family: 'Segoe UI', sans-serif; background: var(--light); margin: 0; padding: 20px; }
         .setup-container { max-width: 850px; margin: auto; }
-        .card { background: white; padding: 25px; border-radius: 12px; box-shadow: 0 4px 15px rgba(0,0,0,0.05); margin-bottom: 25px; border: 1px solid #e1e4e8; }
+        .card { background: white; padding: 25px; border-radius: 12px; box-shadow: 0 4px 15px rgba(0,0,0,0.05); margin-bottom: 25px; border: 1px solid #e1e4e8; position: relative; }
         .section-title { font-size: 18px; font-weight: 800; color: var(--dark); margin-bottom: 20px; display: flex; align-items: center; gap: 10px; border-bottom: 2px solid var(--primary); padding-bottom: 8px; }
         .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
         .form-group { margin-bottom: 15px; }
-        label { display: block; margin-bottom: 5px; font-weight: 700; color: #555; font-size: 13px; text-transform: uppercase; }
-        input, textarea, select { width: 100%; padding: 12px; border: 1px solid #ddd; border-radius: 8px; box-sizing: border-box; font-size: 15px; }
+        label { display: block; margin-bottom: 5px; font-weight: 700; color: #555; font-size: 11px; text-transform: uppercase; letter-spacing: 0.5px; }
+        input, textarea, select { width: 100%; padding: 12px; border: 1px solid #ddd; border-radius: 8px; box-sizing: border-box; font-size: 15px; transition: 0.3s; }
+        input:focus { border-color: var(--primary); outline: none; box-shadow: 0 0 0 3px rgba(46, 204, 113, 0.1); }
         .btn { width: 100%; padding: 14px; border: none; color: white; font-weight: bold; border-radius: 8px; cursor: pointer; text-transform: uppercase; transition: 0.3s; }
-        .btn-save { background: var(--primary); font-size: 16px; margin-top: 20px; }
-        .btn-save:hover { background: var(--primary-dark); }
+        .btn-save { background: var(--dark); font-size: 16px; margin-top: 20px; border: 2px solid var(--dark); }
+        .btn-save:hover { background: #1a252f; }
         
-        /* State untuk akun standar */
-        .pro-locked { opacity: 0.6; cursor: not-allowed !important; }
-        .pro-locked input { background: #f9f9f9; pointer-events: none; }
+        /* Proteksi Akun Standar */
+        .pro-locked-field { background: #f8f9fa !important; color: #95a5a6 !important; cursor: not-allowed !important; border-style: dashed !important; }
+        .badge-pro { background: var(--warning); color: white; font-size: 9px; padding: 2px 6px; border-radius: 4px; vertical-align: middle; }
         
-        .badge-pro { background: var(--warning); color: white; font-size: 9px; padding: 2px 6px; border-radius: 4px; margin-left: 5px; }
         table { width: 100%; border-collapse: collapse; margin-top: 15px; }
-        th { background: #f8f9fa; padding: 12px; text-align: left; font-size: 12px; border-bottom: 2px solid #eee; }
+        th { background: #f8f9fa; padding: 12px; text-align: left; font-size: 11px; border-bottom: 2px solid #eee; color: #7f8c8d; }
         td { padding: 12px; border-bottom: 1px solid #eee; font-size: 14px; }
         .input-locked { background: #eee !important; cursor: not-allowed; color: #7f8c8d; font-weight: bold; }
     </style>
@@ -36,65 +37,77 @@
 <body>
 
 <% 
-    // Logika Penentu Akses
-    const isOwner = (user.tenantId === 1); 
-    const isPro = (user.tenantLevel >= 2 || isOwner);
+    const isInternal = (user.tenantId === 1 || user.tenantId === 100); 
+    const isPro = (user.tenantLevel >= 2 || isInternal);
 %>
 
 <div class="setup-container">
-    <div style="margin-bottom: 20px;">
-        <a href="/dashboard" style="text-decoration: none; color: var(--dark); font-weight: bold;">← Kembali ke Dashboard</a>
+    <div style="margin-bottom: 20px; display: flex; justify-content: space-between; align-items: center;">
+        <a href="/dashboard" style="text-decoration: none; color: var(--dark); font-weight: bold;"><i class="bi bi-arrow-left"></i> Dashboard</a>
+        <span class="badge-pro" style="font-size: 12px; padding: 5px 10px;">
+            LISENSI: <%= user.tenantLevel >= 2 ? 'AKUN PRO' : 'AKUN STANDAR' %>
+        </span>
     </div>
 
     <form action="/save-settings-all" method="POST" enctype="multipart/form-data">
+        
         <div class="card">
-            <div class="section-title">🏢 Profil & Identitas Perusahaan</div>
+            <div class="section-title"><i class="bi bi-building"></i> Profil & Identitas Perusahaan</div>
             <div class="grid-2">
-        <div class="form-group">
+                <div class="form-group">
                     <label>Nama Aplikasi</label>
                     <input type="text" value="Tatriz SystemB" readonly class="input-locked">
-        </div>
-        <div class="form-group">
+                </div>
+                <div class="form-group">
                     <label>Nama Perusahaan / Toko</label>
                     <input type="text" name="nama_perusahaan" value="<%= config.nama_perusahaan %>" required>
-        </div>
-        <div class="form-group">
+                </div>
+                <div class="form-group">
                     <label>Nomor HP / WhatsApp</label>
                     <input type="text" name="no_hp" value="<%= config.no_hp %>">
                 </div>
-        <div class="form-group">
+                <div class="form-group">
                     <label>Alamat Workshop</label>
                     <textarea name="alamat" rows="1"><%= config.alamat %></textarea>
                 </div>
             </div>
-        <div class="form-group">
-                    <label>Logo Perusahaan / Toko</label>
-                    <div style="display: flex; align-items: center; gap: 15px;">
-                        <img src="/uploads/<%= config.logo_path || 'default.png' %>" 
-                            style="width: 50px; height: 50px; border-radius: 8px; object-fit: cover; border: 1px solid #ddd;">
-                        
-                        <input type="file" name="logo" accept="image/*" style="padding: 8px;">
-                    </div>
-                    <small style="color: #666; font-size: 11px;">Format: JPG/PNG. Rekomendasi: Persegi (1:1)</small>
+            <div class="form-group">
+                <label>Logo Perusahaan / Nota</label>
+                <div style="display: flex; align-items: center; gap: 15px; background: #fdfdfd; padding: 10px; border-radius: 8px; border: 1px solid #eee;">
+                    <img src="<%= config.logo_path || '/uploads/default.png' %>" 
+                         style="width: 60px; height: 60px; border-radius: 8px; object-fit: cover; border: 2px solid #ddd; background: white;">
+                    <input type="file" name="logo" accept="image/*">
                 </div>
-            <hr style="margin: 20px 0; border: 0; border-top: 1px solid #eee;">
+            </div>
+        </div>
 
-        <div class="section-title">💰 Kebijakan Perusahaan</div>
+        <div class="card">
+            <div class="section-title"><i class="bi bi-cash-coin"></i> Kebijakan Finansial & Gaji</div>
             <div class="grid-2">
-                <% if (access.isInternal) { %>
-                    <div class="form-group">
-                        <label>Target Bonus Harian</label>
-                        <input type="number" name="target_bonus" value="<%= config.target_bonus %>">
-                    </div>
-                    
-                    <div class="form-group">
-                        <label>Bonus Dasar</label>
-                        <input type="number" name="nominal_bonus_dasar" value="<%= config.nominal_bonus_dasar %>">
-                    </div>
-                <% } else { %>
-                    <input type="hidden" name="target_bonus" value="<%= config.target_bonus || 0 %>">
-                    <input type="hidden" name="nominal_bonus_dasar" value="<%= config.nominal_bonus_dasar || 0 %>">
-                <% } %>
+                
+                <div class="form-group">
+                    <label>Saldo Dikunci (Uang Aman) <span class="badge-pro">PRO</span></label>
+                    <% if (isPro) { %>
+                        <input type="number" name="nominal_buffer" value="<%= config.nominal_buffer || 0 %>">
+                    <% } else { %>
+                        <input type="number" name="nominal_buffer" value="<%= config.nominal_buffer || 0 %>" 
+                               readonly class="pro-locked-field" 
+                               onclick="ajakUpgrade('Saldo Aman')">
+                    <% } %>
+                    <small style="font-size: 9px; color: #95a5a6;">Uang yang tidak boleh ditarik dari kas.</small>
+                </div>
+
+                <div class="form-group">
+                    <label>Beban Tetap Bulanan <span class="badge-pro">PRO</span></label>
+                    <% if (isPro) { %>
+                        <input type="number" name="beban_tetap" value="<%= config.beban_tetap || 0 %>">
+                    <% } else { %>
+                        <input type="number" name="beban_tetap" value="<%= config.beban_tetap || 0 %>" 
+                               readonly class="pro-locked-field" 
+                               onclick="ajakUpgrade('Beban Tetap')">
+                    <% } %>
+                    <small style="font-size: 9px; color: #95a5a6;">Contoh: Biaya Kontrakan + Listrik.</small>
+                </div>
 
                 <div class="form-group">
                     <label>Jam Kerja Reguler (Per Hari)</label>
@@ -102,33 +115,45 @@
                 </div>
 
                 <div class="form-group">
-                    <label>Pembagi Lembur (Gaji Pokok / X)</label>
+                    <label>Pembagi Lembur (GP / X)</label>
                     <input type="number" name="pembagi_lembur" value="<%= config.pembagi_lembur || 4 %>">
                 </div>
             </div>
 
-            <% if (access.isInternal) { %>
-                <div class="grid-2" style="margin-top: 10px;">
+            <% if (isInternal) { %>
+                <hr style="margin: 15px 0; border: 0; border-top: 1px dashed #eee;">
+                <div class="grid-2">
+                    <div class="form-group">
+                        <label>Target Bonus Harian</label>
+                        <input type="number" name="target_bonus" value="<%= config.target_bonus %>">
+                    </div>
+                    <div class="form-group">
+                        <label>Bonus Dasar</label>
+                        <input type="number" name="nominal_bonus_dasar" value="<%= config.nominal_bonus_dasar %>">
+                    </div>
                     <div class="form-group">
                         <label>Kelipatan Omzet Bonus</label>
                         <input type="number" name="kelipatan_bonus" value="<%= config.kelipatan_bonus || 100000 %>">
                     </div>
                     <div class="form-group">
-                        <label>Nominal Bonus per Lipatan</label>
+                        <label>Nominal per Lipatan</label>
                         <input type="number" name="nominal_bonus_lipat" value="<%= config.nominal_bonus_lipat || 5000 %>">
                     </div>
                 </div>
             <% } else { %>
+                <input type="hidden" name="target_bonus" value="<%= config.target_bonus || 0 %>">
+                <input type="hidden" name="nominal_bonus_dasar" value="<%= config.nominal_bonus_dasar || 0 %>">
                 <input type="hidden" name="kelipatan_bonus" value="<%= config.kelipatan_bonus || 0 %>">
                 <input type="hidden" name="nominal_bonus_lipat" value="<%= config.nominal_bonus_lipat || 0 %>">
             <% } %>
+        </div>
 
         <div class="card" style="border-left: 5px solid var(--blue);">
-            <div class="section-title" style="border-bottom-color: var(--blue);">⚙️ Mesin Produksi</div>
+            <div class="section-title" style="border-bottom-color: var(--blue);"><i class="bi bi-cpu"></i> Mesin Produksi</div>
             
             <% if (!isPro && machines.length >= 1) { %>
-                <div style="background: #fff9db; padding: 12px; border-radius: 8px; border: 1px solid #fab005; margin-bottom: 15px; font-size: 13px;">
-                    ⚠️ Akun Standar terbatas 1 Mesin. <b>Upgrade PRO</b> untuk tambah mesin.
+                <div onclick="ajakUpgrade('Multi Mesin')" style="background: #fff9db; padding: 12px; border-radius: 8px; border: 1px solid #fab005; margin-bottom: 15px; font-size: 13px; cursor: pointer;">
+                    <i class="bi bi-lock-fill"></i> Akun Standar terbatas 1 Mesin aktif. <b>Upgrade PRO</b> untuk menambah unit mesin.
                 </div>
             <% } else { %>
                 <div class="form-group">
@@ -140,38 +165,39 @@
             <table>
                 <thead>
                     <tr>
-                        <th>ID</th>
+                        <th style="width: 50px;">ID</th>
                         <th>Nama Mesin Aktif</th>
-                        <% if (isPro) { %>
-                            <th style="text-align: center;">Aksi</th>
-                        <% } %>
+                        <th style="text-align: center; width: 150px;">Aksi</th>
                     </tr>
                 </thead>
                 <tbody>
                     <% machines.forEach(m => { %>
                     <tr>
-                        <td>#<%= m.id %></td>
+                        <td style="color: #95a5a6;">#<%= m.id %></td>
                         <td><strong><%= m.nama_mesin %></strong></td>
-                        <% if (isPro) { %>
-                            <td style="text-align: center;">
-                                <button type="button" onclick="editMesin('<%= m.id %>', '<%= m.nama_mesin %>')" 
-                                        style="background: var(--warning); color: white; border: none; padding: 5px 10px; border-radius: 4px; cursor: pointer; font-size: 12px;">
-                                    EDIT
-                                </button>
-                                
-                                <button type="button" onclick="konfirmasiHapusMesin('<%= m.id %>')" 
-                                        style="background: var(--danger); color: white; border: none; padding: 5px 10px; border-radius: 4px; cursor: pointer; font-size: 12px; margin-left: 5px;">
-                                    HAPUS
-                                </button>
-                            </td>
-                        <% } %>
+                        <td style="text-align: center;">
+                            <% if (isPro) { %>
+                                <div style="display: flex; gap: 5px; justify-content: center;">
+                                    <button type="button" onclick="editMesin('<%= m.id %>', '<%= m.nama_mesin %>')" 
+                                            style="background: var(--blue); color: white; border: none; padding: 6px 12px; border-radius: 6px; cursor: pointer; font-size: 11px;">
+                                        <i class="bi bi-pencil"></i>
+                                    </button>
+                                    <button type="button" onclick="konfirmasiHapusMesin('<%= m.id %>')" 
+                                            style="background: var(--danger); color: white; border: none; padding: 6px 12px; border-radius: 6px; cursor: pointer; font-size: 11px;">
+                                        <i class="bi bi-trash"></i>
+                                    </button>
+                                </div>
+                            <% } else { %>
+                                <i class="bi bi-lock-fill text-muted" onclick="ajakUpgrade('Manajemen Mesin')"></i>
+                            <% } %>
+                        </td>
                     </tr>
                     <% }) %>
                 </tbody>
             </table>
         </div>
 
-        <button type="submit" class="btn btn-save">💾 SIMPAN SEMUA PERUBAHAN SETUP</button>
+        <button type="submit" class="btn btn-save shadow"><i class="bi bi-cloud-check-fill"></i> SIMPAN SEMUA PERUBAHAN SETUP</button>
     </form>
 </div>
 
@@ -179,17 +205,19 @@
     function ajakUpgrade(fitur) {
         Swal.fire({
             title: 'Fitur PRO!',
-            text: 'Pengaturan ' + fitur + ' hanya tersedia di paket PRO.',
+            text: 'Pengaturan ' + fitur + ' hanya tersedia di paket PRO untuk optimasi bisnis Anda.',
             icon: 'lock',
             showCancelButton: true,
-            confirmButtonText: 'Hubungi Developer'
+            confirmButtonColor: '#2ecc71',
+            confirmButtonText: 'Hubungi Developer',
+            cancelButtonText: 'Nanti Dulu'
         }).then((result) => {
             if (result.isConfirmed) {
-                window.open('https://wa.me/+6281315290003?text=Halo%20Admin%20Tatriz,%20saya%20tertarik%20untuk%20upgrade%20ke%20Akun%20PRO', '_blank');
-                }
+                window.open('https://wa.me/+6281315290003?text=Halo%20Admin%20Tatriz,%20saya%20tertarik%20upgrade%20PRO%20terkait%20fitur%20' + fitur, '_blank');
+            }
         });
     }
-    // Fungsi untuk Edit Mesin
+
     function editMesin(id, namaLama) {
         Swal.fire({
             title: 'Edit Nama Mesin',
@@ -197,46 +225,27 @@
             inputValue: namaLama,
             showCancelButton: true,
             confirmButtonText: 'Simpan',
-            confirmButtonColor: '#3498db',
         }).then((result) => {
             if (result.isConfirmed && result.value) {
-                // Kita buat form bayangan untuk kirim data ke rute /save-mesin yang ada di server
                 const form = document.createElement('form');
-                form.method = 'POST';
-                form.action = '/save-mesin';
-                
-                const inputId = document.createElement('input');
-                inputId.type = 'hidden';
-                inputId.name = 'mesin_id';
-                inputId.value = id;
-                
-                const inputNama = document.createElement('input');
-                inputNama.type = 'hidden';
-                inputNama.name = 'nama_mesin';
-                inputNama.value = result.value;
-                
-                form.appendChild(inputId);
-                form.appendChild(inputNama);
-                document.body.appendChild(form);
-                form.submit();
+                form.method = 'POST'; form.action = '/save-mesin';
+                const i1 = document.createElement('input'); i1.type='hidden'; i1.name='mesin_id'; i1.value=id;
+                const i2 = document.createElement('input'); i2.type='hidden'; i2.name='nama_mesin'; i2.value=result.value;
+                form.appendChild(i1); form.appendChild(i2);
+                document.body.appendChild(form); form.submit();
             }
         });
     }
 
-    // Fungsi untuk Konfirmasi Hapus
     function konfirmasiHapusMesin(id) {
         Swal.fire({
-            title: 'Yakin hapus mesin?',
-            text: "Data produksi yang terikat mesin ini mungkin akan kehilangan referensi nama mesin.",
+            title: 'Hapus mesin?',
             icon: 'warning',
             showCancelButton: true,
             confirmButtonColor: '#e74c3c',
-            cancelButtonColor: '#2c3e50',
             confirmButtonText: 'Ya, Hapus!'
         }).then((result) => {
-            if (result.isConfirmed) {
-                window.location.href = '/delete-mesin/' + id;
-            }
+            if (result.isConfirmed) { window.location.href = '/delete-mesin/' + id; }
         });
     }
 </script>
