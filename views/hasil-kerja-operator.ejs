@@ -19,94 +19,33 @@
         .inner-table { width: 100%; font-size: 13px; margin-top: 5px; }
         .inner-table th { background: #f1f2f6; color: #666; padding: 5px; }
         .inner-table td { border-bottom: 1px solid #f1f1f1; padding: 8px 5px; font-weight: normal; }
-        .bonus-tag { background: #27ae60; color: white; padding: 2px 6px; border-radius: 4px; font-size: 11px; margin-left: 5px; }
         .arrow { float: right; transition: 0.3s; color: #0984e3; }
         .rotate { transform: rotate(180deg); }
     </style>
 </head>
 <body>
     <% 
-        // 1. Inisialisasi Logika & Variabel
         const isInternal = access.isInternal; 
-        
-        const sekarang = new Date();
-        const day = sekarang.getDay(); 
-        const diff = sekarang.getDate() - day + (day === 0 ? -6 : 1);
-        const awalMinggu = new Date(sekarang.setDate(diff));
-        awalMinggu.setHours(0,0,0,0);
-
-        // 2. Pengelompokan Data & Hitung Hari Unik Minggu Ini
         const grouped = {};
-        const tanggalSetorMingguIni = new Set(); // Mengoleksi tanggal unik untuk hitung hari kerja riil
 
         rows.forEach(r => {
             if (!grouped[r.tanggal]) grouped[r.tanggal] = { items: [], totalOmzet: 0, totalQty: 0 };
-            
             const qty = Number(r.jumlah_setor) || 0;
             const harga = Number(r.harga_operator) || 0;
-            const subtotal = qty * harga;
-
+            
             grouped[r.tanggal].items.push(r);
-            grouped[r.tanggal].totalOmzet += subtotal;
+            grouped[r.tanggal].totalOmzet += (qty * harga);
             grouped[r.tanggal].totalQty += qty;
-
-            // Cek apakah tanggal data masuk dalam rentang minggu ini
-            const tglData = new Date(r.tanggal);
-            if(tglData >= awalMinggu) {
-                tanggalSetorMingguIni.add(r.tanggal); // Tambahkan ke Set (otomatis unik)
-            }
         });
-
-        // 3. Logika Penghitungan Gaji (Hanya Internal)
-        let totalGajiMingguIni = 0;
-        let totalBonusMingguIni = 0;
-
-        if (isInternal) {
-            // Hitung Bonus Harian berdasarkan grouped data
-            Object.keys(grouped).forEach(tgl => {
-                const dHarian = grouped[tgl];
-                const tglD = new Date(tgl);
-                
-                // Hanya hitung bonus untuk minggu ini
-                if (tglD >= awalMinggu && dHarian.totalOmzet >= config.target_bonus) {
-                    const bonusDasar = Number(config.nominal_bonus_dasar) || 0;
-                    const bonusLipat = Number(config.nominal_bonus_lipat) || 0;
-                    const kelipatan = Number(config.kelipatan_bonus) || 100000;
-                    
-                    const bonusTambahan = Math.floor((dHarian.totalOmzet - config.target_bonus) / kelipatan) * bonusLipat;
-                    totalBonusMingguIni += (bonusDasar + bonusTambahan);
-                }
-            });
-
-            // RUMUS: (Gaji Pokok x Jumlah Hari Unik) + Total Bonus
-            const gp = user.gaji_pokok || 0;
-            const jmlHariKerja = tanggalSetorMingguIni.size;
-            totalGajiMingguIni = (gp * jmlHariKerja) + totalBonusMingguIni;
-        }
 
         const sortedDates = Object.keys(grouped).sort((a, b) => new Date(b) - new Date(a));
     %>
 
     <div class="header-box">    
         <h2 style="margin: 10px 0 5px 0;text-align:center;">Halo, <%= userName %>! 👋</h2>
-        <p style="margin: 0; color: #888; font-size: 13px;text-align:center">Laporan hasil kerja Anda di sistem Tatriz.</p>       
+        <p style="margin: 0; color: #888; font-size: 13px;text-align:center">Rekapitulasi hasil setoran produksi Anda.</p>       
         <input type="text" id="filterInput" class="filter-input" placeholder="Cari Tanggal atau Nama PO..." onkeyup="liveFilter()">
     </div>
-
-    <% if (isInternal) { %>
-        <div class="header-box" style="background: #27ae60; color: white; text-align: center;">
-            <small style="opacity: 0.9;">Estimasi Gaji Minggu Ini (Senin - Sekarang):</small>
-            <h2 style="margin: 5px 0 0 0;">Rp <%= totalGajiMingguIni.toLocaleString('id-ID') %></h2>
-            <div style="font-size: 10px; margin-top: 5px; opacity: 0.8;">
-                (GP Rp<%= (user.gaji_pokok || 0).toLocaleString() %> x <%= tanggalSetorMingguIni.size %> Hari) + Bonus Rp<%= totalBonusMingguIni.toLocaleString() %>
-            </div>
-        </div>
-    <% } else { %>
-        <div class="header-box" style="background: #34495e; color: white; text-align: center;">
-            <h2 style="margin: 5px 0;">Pusat Monitor Produksi</h2>
-            <p style="margin: 0; font-size: 13px; opacity: 0.8;">Data setoran Anda telah terekam secara akurat.</p>
-        </div>
-    <% } %>
 
     <div class="header-box" style="display: flex; gap: 10px; justify-content: center;">
         <a href="/operator" style="background: #0984e3; color: white; padding: 8px 15px; border-radius: 8px; text-decoration: none; font-weight: bold; font-size: 14px;">+ Input Hasil</a>
@@ -117,28 +56,19 @@
         <table>
             <thead>
                 <tr>
-                    <th>Rekap Per Tanggal</th>
-                    <th style="text-align: right;"><%= isInternal ? 'Pencapaian Omzet' : 'Total Setor' %></th>
+                    <th>Tanggal Produksi</th>
+                    <th style="text-align: right;"><%= isInternal ? 'Pencapaian (Rp)' : 'Total Setor' %></th>
                 </tr>
             </thead>
             <tbody id="rekapTable">
                 <% sortedDates.forEach((tgl, index) => { 
                     let dHarian = grouped[tgl];
-                    let bonusHarian = 0;
-                    
-                    if (isInternal && dHarian.totalOmzet >= config.target_bonus) {
-                        bonusHarian = config.nominal_bonus_dasar + 
-                            (Math.floor((dHarian.totalOmzet - config.target_bonus) / config.kelipatan_bonus) * config.nominal_bonus_lipat);
-                    }
                 %>
                 <tr class="row-tanggal" onclick="toggleLaci('<%= index %>')">
                     <td>
                         <span class="tgl-text">
-                            <%= new Date(tgl).toLocaleDateString('id-ID', { day: '2-digit', month: 'long' }) %>
+                            <%= new Date(tgl).toLocaleDateString('id-ID', { day: '2-digit', month: 'long', year: 'numeric' }) %>
                         </span>
-                        <% if(isInternal && bonusHarian > 0) { %>
-                            <span class="bonus-tag">🎁 Bonus Rp <%= bonusHarian.toLocaleString() %></span>
-                        <% } %>
                         <span class="arrow" id="arrow-<%= index %>">▼</span>
                     </td>
                     <td style="text-align: right;">
@@ -156,11 +86,11 @@
                             <table class="inner-table">
                                 <thead>
                                     <tr>
-                                        <th>PO / Desain</th>
+                                        <th>Nama PO / Desain</th>
                                         <th style="text-align: center;">Shift</th>
                                         <th style="text-align: center;">Qty</th>
                                         <% if (isInternal) { %>
-                                            <th style="text-align: right;">Subtotal Omzet</th>
+                                            <th style="text-align: right;">Subtotal</th>
                                         <% } %>
                                     </tr>
                                 </thead>
