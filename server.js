@@ -931,6 +931,7 @@ app.get('/api/piutang-detail/:customer', isAdmin, async (req, res) => {
 });
 
 app.get('/laporan-kas', isAdmin, async (req, res) => {
+    const isPro = (tId === 1 || req.session.tenantLevel >= 2)
     const tId = req.session.tenantId;
     const bulanIni = req.query.bulan || new Date().toISOString().slice(0, 7);
     
@@ -999,7 +1000,8 @@ app.get('/laporan-kas', isAdmin, async (req, res) => {
             piutangBerjalan: parseFloat(rowP?.piutang_total || 0),
             monitorHarian: monitorRes.rows || [],
             rincianKas: rincianRes.rows || [],
-            config: conf
+            config: conf,
+            isPro: isPro
         });
 
     } catch (err) {

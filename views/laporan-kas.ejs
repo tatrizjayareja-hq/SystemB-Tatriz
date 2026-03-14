@@ -24,7 +24,14 @@
 
     <div class="row g-2 mb-2">
         <div class="col-md-7">
-            <div class="card shadow-sm mb-2" style="border-left: 5px solid #6c5ce7;">
+            <div class="card shadow-sm mb-2" style="border-left: 5px solid #6c5ce7; position: relative;">
+                <% if (!isPro) { %>
+                    <div onclick="ajakUpgrade('Analisis Profit')" style="position: absolute; width: 100%; height: 100%; background: rgba(255,255,255,0.8); z-index: 5; display: flex; flex-direction: column; align-items: center; justify-content: center; cursor: pointer; border-radius: 12px;">
+                        <i class="bi bi-lock-fill text-warning fs-4"></i>
+                        <small class="fw-bold text-dark" style="font-size: 9px;">PROFIT ANALYTICS LOCKED</small>
+                    </div>
+                <% } %>
+
                 <div class="card-body p-2">
                     <small class="fw-bold text-uppercase" style="color: #6c5ce7; font-size: 10px;">💰 Performa Owner (Nett)</small>
                     <div class="row text-center g-0 mt-1">
@@ -66,6 +73,34 @@
             </div>
         </div>
 
+    <div class="col-md-5">
+        <div class="card shadow-sm h-100" style="position: relative;">
+            <% if (!isPro) { %>
+                <div onclick="ajakUpgrade('Omzet Harian')" style="position: absolute; width: 100%; height: 100%; background: rgba(255,255,255,0.9); z-index: 5; display: flex; flex-direction: column; align-items: center; justify-content: center; cursor: pointer; border-radius: 12px;">
+                    <i class="bi bi-lock-fill text-primary fs-5"></i>
+                    <small class="fw-bold text-dark" style="font-size: 8px;">DAILY OMZET LOCKED</small>
+                </div>
+            <% } %>
+
+            <div class="p-2 bg-primary text-white fw-bold" style="font-size: 10px; border-radius: 12px 12px 0 0;">
+                <i class="bi bi-calendar3"></i> OMZET HARIAN
+            </div>
+            <div class="table-responsive" style="max-height: 155px; overflow-y: auto;">
+                <table class="table table-sm table-hover mb-0 compact-table">
+                    <tbody>
+                        <% monitorHarian.forEach(m => { %>
+                            <tr>
+                                <td><%= new Date(m.tanggal).toLocaleDateString('id-ID', {day:'2-digit', month:'2-digit'}) %></td>
+                                <td class="text-end fw-bold">Rp <%= Number(m.total_harian).toLocaleString('id-ID') %></td>
+                            </tr>
+                        <% }) %>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+
         <div class="col-md-5">
             <div class="card shadow-sm h-100">
                 <div class="p-2 bg-primary text-white fw-bold" style="font-size: 10px; border-radius: 12px 12px 0 0;">
@@ -87,7 +122,12 @@
         </div>
     </div>
 
-    <div class="card shadow-sm mb-2" style="border-left: 5px solid #0984e3; background: #eef7ff;">
+    <div class="card shadow-sm mb-2" style="border-left: 5px solid #0984e3; background: #eef7ff; position: relative;">
+        <% if (!isPro) { %>
+            <div onclick="ajakUpgrade('Rekap Piutang')" style="position: absolute; width: 100%; height: 100%; background: rgba(238, 247, 255, 0.7); z-index: 5; display: flex; align-items: center; justify-content: center; cursor: pointer; border-radius: 12px;">
+                <span class="badge bg-primary px-3 py-2 shadow-sm"><i class="bi bi-lock-fill"></i> Buka Analisis Piutang (PRO)</span>
+            </div>
+        <% } %>
         <div class="card-body p-2 d-flex justify-content-between align-items-center">
             <div>
                 <small class="fw-bold text-uppercase" style="color: #0984e3; font-size: 10px;">🔍 Piutang Berjalan (Akumulatif)</small>
@@ -185,6 +225,25 @@
         };
         sessionStorage.setItem('editDataKas', JSON.stringify(data));
         window.location.href = '/input-kas';
+    }
+    function ajakUpgrade(fitur) {
+        if (typeof Swal !== 'undefined') {
+            Swal.fire({
+                title: 'Fitur Terkunci!',
+                text: 'Fitur ' + fitur + ' hanya tersedia untuk pengguna Akun PRO. Tingkatkan manajemen bordir Anda sekarang!',
+                icon: 'warning',
+                showCancelButton: true,
+                confirmButtonColor: '#2ecc71',
+                confirmButtonText: 'Hubungi Developer (Upgrade)',
+                cancelButtonText: 'Nanti Dulu'
+            }).then((result) => {
+                if (result.isConfirmed) {
+                    window.open('https://wa.me/+6281315290003?text=Halo%20Admin%20Tatriz,%20saya%20tertarik%20upgrade%20PRO%20untuk%20' + fitur, '_blank');
+                }
+            });
+        } else {
+            alert("Fitur " + fitur + " hanya tersedia untuk Akun PRO. Silakan hubungi admin.");
+        }
     }
 </script>
 <%- include('partials/footer') %>

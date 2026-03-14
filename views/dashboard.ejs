@@ -141,9 +141,21 @@
         <div class="menu-card">
             <a href="/po-data" class="menu-item"><i class="bi bi-journal-text"></i> Data Pesanan (PO)</a>
             <a href="/laporan-kas" class="menu-item"><i class="bi bi-cash-stack"></i> Laporan Keuangan</a>
-            <a href="/input-kerja-admin" class="menu-item"><i class="bi bi-plus-circle-fill"></i> Input Data Operator -admin-</a>
+            <a href="/input-kerja-admin" class="menu-item"><i class="bi bi-plus-circle-fill"></i> Input Data Operator <small style="font-size: 9px; color: #95a5a6; margin-left: 5px;">Admin</small></a>
             <a href="/daftar-produksi" class="menu-item"><i class="bi bi-list-check"></i> Log Produksi Harian</a>
-            <a href="/performa-operator" class="menu-item"><i class="bi bi-bar-chart-line"></i> Performa Operator <small style="color: var(--warning); font-size: 9px; margin-left: auto;">PRO</small></a>
+            
+            <% if (user.tenantId === 1 || user.tenantLevel >= 2) { %>
+                <a href="/performa-operator" class="menu-item">
+                    <i class="bi bi-bar-chart-line"></i> Performa Operator 
+                    <small style="color: var(--warning); font-size: 9px; margin-left: auto;">PRO</small>
+                </a>
+            <% } else { %>
+                <a href="javascript:void(0)" onclick="ajakUpgrade('Analisis Performa')" class="menu-item menu-locked">
+                    <i class="bi bi-bar-chart-line"></i> Performa Operator 
+                    <i class="bi bi-lock-fill"></i>
+                </a>
+            <% } %>
+
             <a href="/input-gaji" class="menu-item"><i class="bi bi-calculator"></i> Hitung Gaji Karyawan</a>
             <a href="/nota-manual" class="menu-item"><i class="bi bi-printer"></i> Cetak Nota Manual</a>
             <a href="/piutang-customer" class="menu-item"><i class="bi bi-receipt"></i> Cetak Nota / Customer</a>
@@ -156,10 +168,6 @@
                     <a href="/cek-balance" class="menu-item"><i class="bi bi-shield-check"></i> Cek Audit Balance <small style="color: var(--warning); font-size: 9px; margin-left: auto;">PRO</small></a>
                     <a href="/backup-database" class="menu-item" style="color: var(--warning);"><i class="bi bi-cloud-download"></i> Backup Database</a>
                 <% } else { %>
-                    <a href="javascript:void(0)" onclick="ajakUpgrade('Analisis Performa')" class="menu-item menu-locked">
-                        <i class="bi bi-bar-chart-line"></i> Performa Operator 
-                        <i class="bi bi-lock-fill"></i>
-                    </a>
                     <a href="javascript:void(0)" onclick="ajakUpgrade('Pengelolaan CMT')" class="menu-item menu-locked">
                         <i class="bi bi-briefcase"></i> Data Order CMT 
                         <i class="bi bi-lock-fill"></i>
