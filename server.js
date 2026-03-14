@@ -2247,6 +2247,26 @@ app.get('/backup-database', isAdmin, async (req, res) => {
         );
         sheetKas.addRows(kasRes.rows);
 
+        // --- SHEET 3: DATA QC ---
+        const sheetQC = workbook.addWorksheet('Data Lulus QC');
+        sheetQC.columns = [
+            { header: 'Tanggal QC', key: 'tgl_qc', width: 15 },
+            { header: 'Nama PO', key: 'nama_po', width: 25 },
+            { header: 'Item Desain', key: 'nama_desain', width: 25 },
+            { header: 'Petugas QC', key: 'nama_qc', width: 20 },
+            { header: 'Jumlah Lulus', key: 'jumlah_qc', width: 15 }
+        ];
+
+        const qcRes = await db.query(`
+            SELECT TO_CHAR(q.tanggal, 'YYYY-MM-DD') as tgl_qc, p.nama_po, d.nama_desain, u.nama_lengkap as nama_qc, q.jumlah_qc 
+            FROM hasil_qc q
+            JOIN po_detail d ON q.detail_id = d.id
+            JOIN po_utama p ON d.po_id = p.id
+            JOIN users u ON q.user_id = u.id
+            WHERE q.tenant_id = $1 ORDER BY q.tanggal DESC`, [tId]);
+
+        sheetQC.addRows(qcRes.rows);
+
         // --- STYLING & FORMATTING ---
         [sheetProduksi, sheetKas].forEach(sheet => {
             // Header Tebal
