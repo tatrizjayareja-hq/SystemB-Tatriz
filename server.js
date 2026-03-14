@@ -182,13 +182,28 @@ app.use(async (req, res, next) => {
     };
     res.locals.uangKunci = { saldoLaci: 0, totalUangDikunci: 0, profitBolehAmbil: 0, statusAman: true };
     
-    // Sinkronisasi data user untuk EJS (Level 1 vs Level 2)
+    // Sinkronisasi data user untuk EJS
     res.locals.user = req.session.userId ? {
         ...req.session,
         tenantLevel: req.session.tenantLevel || 1
     } : null;
 
     const tId = req.session ? req.session.tenantId : null;
+    const tLevel = req.session ? req.session.tenantLevel : 1;
+
+    // --- LOGIKA PEMBEDA TENANT & AKSES ---
+    // isInternal: Owner (1) & Cabang Pilihan (100) -> Bisa lihat Harga Op & Bonus
+    const isInternal = (tId === 1 || tId === 100);
+    
+    res.locals.access = {
+        isInternal: isInternal, 
+        // canManageAssets: Internal atau Tenant Umum PRO (Level 2) bisa tambah mesin
+        canManageAssets: (isInternal || tLevel >= 2),
+        // isSuperAdmin: Hanya Tenant 1 yang bisa akses master-users/fitur developer
+        isSuperAdmin: (tId === 1),
+        type: isInternal ? 'INTERNAL' : (tLevel >= 2 ? 'PRO' : 'STD')
+    };
+
     if (!tId) return next();
 
     try {
@@ -208,7 +223,7 @@ app.use(async (req, res, next) => {
             SELECT SUM(CASE WHEN jenis = 'PEMASUKAN' THEN jumlah ELSE -jumlah END) as saldo 
             FROM arus_kas WHERE tenant_id = $1`, [tId]);
         
-        // 4. Hitung Beban Kontrakan Terbayar (Gunakan TO_CHAR agar lebih stabil di Postgres)
+        // 4. Hitung Beban Kontrakan Terbayar
         const bebanRes = await db.get(`
             SELECT SUM(jumlah) as terbayar FROM arus_kas 
             WHERE kategori = 'BIAYA KONTRAKAN' 
@@ -219,7 +234,7 @@ app.use(async (req, res, next) => {
         const terbayar = parseFloat(bebanRes?.terbayar || 0);
         const conf = res.locals.config;
         
-        // 5. Logika Uang Dikunci (Buffer + Sisa Kontrakan yang belum dibayar bulan ini)
+        // 5. Logika Uang Dikunci
         const targetBeban = parseFloat(conf.beban_tetap) || 0;
         const sisaBebanKontrakan = Math.max(0, targetBeban - terbayar);
         const uangDikunci = (parseFloat(conf.nominal_buffer) || 0) + sisaBebanKontrakan;
@@ -292,13 +307,23 @@ app.post('/save-settings-all', upload.single('logo'), async (req, res) => {
     const tId = req.session.tenantId;
     if (!tId) return res.send("<script>alert('Sesi habis, silakan login kembali'); window.location='/';</script>");
 
-    // 1. Tangkap semua variabel termasuk kebijakan gaji & bonus baru
-    const { 
+    // Ambil data lama dulu untuk proteksi nilai bonus
+    const oldConfig = await db.get("SELECT * FROM settings WHERE tenant_id = $1", [tId]);
+    const isInternal = (tId === 1 || tId === 100);
+
+    let { 
         nama_perusahaan, alamat, no_hp, nominal_buffer, 
         target_bonus, nominal_bonus_dasar, beban_tetap,
-        jam_kerja_reguler, pembagi_lembur, kelipatan_bonus, nominal_bonus_lipat, // Variabel Baru
+        jam_kerja_reguler, pembagi_lembur, kelipatan_bonus, nominal_bonus_lipat,
         nama_mesin_baru 
     } = req.body;
+
+    if (!isInternal) {
+        target_bonus = oldConfig.target_bonus;
+        nominal_bonus_dasar = oldConfig.nominal_bonus_dasar;
+        kelipatan_bonus = oldConfig.kelipatan_bonus;
+        nominal_bonus_lipat = oldConfig.nominal_bonus_lipat;
+    }
 
     try {
         let logoUrl = null;
@@ -334,10 +359,10 @@ app.post('/save-settings-all', upload.single('logo'), async (req, res) => {
             parseFloat(target_bonus) || 0, 
             parseFloat(nominal_bonus_dasar) || 0, 
             parseFloat(beban_tetap) || 0,
-            parseInt(jam_kerja_reguler) || 8,        // Default 8 jam
-            parseInt(pembagi_lembur) || 4,           // Default GP/4
-            parseInt(kelipatan_bonus) || 100000,     // Default lipatan 100rb
-            parseInt(nominal_bonus_lipat) || 5000    // Default bonus lipatan 5rb
+            parseInt(jam_kerja_reguler) || 8,
+            parseInt(pembagi_lembur) || 4,
+            parseInt(kelipatan_bonus) || 0,
+            parseInt(nominal_bonus_lipat) || 0
         ];
 
         // 4. Penanganan Logo Path & Tenant ID (Gunakan index $12 dan $13)
@@ -353,17 +378,21 @@ app.post('/save-settings-all', upload.single('logo'), async (req, res) => {
 
         // 5. Tambah Mesin Baru (Jika diisi)
         if (nama_mesin_baru && nama_mesin_baru.trim() !== "") {
-            await db.query(
-                "INSERT INTO mesin (tenant_id, nama_mesin) VALUES ($1, $2)",
-                [tId, nama_mesin_baru.trim()]
-            );
+            const tLevel = req.session.tenantLevel;
+            const canAdd = (isInternal || tLevel >= 2);
+            
+            if (canAdd) {
+                await db.query(
+                    "INSERT INTO mesin (tenant_id, nama_mesin) VALUES ($1, $2)",
+                    [tId, nama_mesin_baru.trim()]
+                );
+            }
         }
 
         res.send("<script>alert('Semua perubahan berhasil disimpan!'); window.location='/setup';</script>");
-
     } catch (err) {
-        console.error("🔥 Setup Save Error Detail:", err);
-        res.status(500).send("Gagal simpan: " + err.message);
+        console.error("🔥 Setup Save Error:", err);
+        res.status(500).send("Gagal simpan.");
     }
 });
 
@@ -378,23 +407,21 @@ app.post('/register-tenant', async (req, res) => {
     const { nama_toko, username, password, activation_code } = req.body;
 
     try {
-        // 1. Ambil Kode Aktivasi yang sah dari Tenant 1 (Pusat)
+        // ... (bagian 1, 2, dan 3 tetap sama) ...
         const masterRes = await db.query("SELECT registration_secret FROM settings WHERE tenant_id = 1");
         const validCode = masterRes.rows[0]?.registration_secret || 'SYSTEMB2026';
 
-        // 2. Validasi Kode
         if (activation_code !== validCode) {
             return res.send("<script>alert('Kode Aktivasi Salah atau Kadaluwarsa!'); window.history.back();</script>");
         }
 
-        // 3. Tentukan Tenant ID baru
         const row = await db.query("SELECT MAX(tenant_id) as maxid FROM settings");
         let currentMax = parseInt(row.rows[0]?.maxid || 0);
         let newTenantId = (currentMax < 100) ? 100 : currentMax + 1;
 
         await db.query("BEGIN");
 
-        // 4. Simpan ke Settings (Nama aplikasi otomatis: Tatriz SystemB)
+        // 4. Simpan ke Settings
         await db.query(
             "INSERT INTO settings (tenant_id, nama_perusahaan, level, nama_aplikasi, registration_secret) VALUES ($1, $2, 1, $3, $4)",
             [newTenantId, nama_toko, 'Tatriz SystemB', validCode] 
@@ -404,6 +431,12 @@ app.post('/register-tenant', async (req, res) => {
         await db.query(
             "INSERT INTO users (tenant_id, username, password, role, nama_lengkap) VALUES ($1, $2, $3, 'admin', $4)",
             [newTenantId, username, password, 'Owner ' + nama_toko]
+        );
+
+        // --- TAMBAHAN: Simpan 1 Mesin Default (WAJIB ADA) ---
+        await db.query(
+            "INSERT INTO mesin (tenant_id, nama_mesin) VALUES ($1, $2)",
+            [newTenantId, 'Mesin Utama']
         );
 
         await db.query("COMMIT");
@@ -2136,12 +2169,14 @@ app.get('/backup-database', isAdmin, async (req, res) => {
 
 // --- 1. HALAMAN MASTER USERS + LOG ---
 app.get('/master-users', isAdmin, async (req, res) => {
-    if (req.session.tenantId !== 1) {
-        return res.status(403).send("Akses Ditolak: Fitur Khusus Developer!");
+    // Gunakan akses yang sudah divalidasi oleh middleware
+    if (!res.locals.access || !res.locals.access.isSuperAdmin) {
+        console.warn(`🚨 Akses ilegal ke /master-users oleh User ID: ${req.session.userId} dari Tenant: ${req.session.tenantId}`);
+        return res.status(403).render('404', { message: "Akses Ditolak: Fitur Khusus Super Admin!" });
     }
 
     try {
-        // Ambil Data User & Tenant
+        // Gunakan parameter $1 untuk menghindari SQL Injection (walaupun tId 1 sudah pasti, ini praktik terbaik)
         const userSql = `
             SELECT u.id, u.username, u.nama_lengkap, u.role, u.tenant_id, 
                    s.nama_perusahaan, s.level, s.is_active 
@@ -2151,7 +2186,6 @@ app.get('/master-users', isAdmin, async (req, res) => {
         `;
         const users = await db.query(userSql);
 
-        // Ambil 10 Log Terakhir
         const logSql = `
             SELECT l.*, u.username as admin_name 
             FROM dev_logs l
@@ -2165,8 +2199,9 @@ app.get('/master-users', isAdmin, async (req, res) => {
             devLogs: logs.rows || []
         });
     } catch (err) {
-        console.error(err);
-        res.status(500).send("Gagal memuat data master.");
+        console.error("🔥 Master Users Error:", err.message);
+        // Jangan kirim detail error database ke client
+        res.status(500).send("Terjadi kesalahan internal pada server.");
     }
 });
 
