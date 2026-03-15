@@ -1978,23 +1978,21 @@ app.get('/nota-manual', isAdmin, async (req, res) => {
 app.get('/cetak-nota-vendor', isAdmin, async (req, res) => {
     const tId = req.session.tenantId;
     let ids = req.query.ids;
+    let vendorName = req.query.vendor || 'Umum / Rekanan'; // Tangkap nama vendor
     
     if (!ids) return res.send("Pilih minimal satu PO.");
     const idList = ids.split(',').map(id => parseInt(id));
 
     try {
         const config = await db.get("SELECT * FROM settings WHERE tenant_id = $1", [tId]);
-        
-        // Ambil Header PO
         const orders = await db.all(`SELECT * FROM po_utama WHERE id = ANY($1::int[]) AND tenant_id = $2`, [idList, tId]);
-        
-        // Ambil Rincian Detail
         const details = await db.all(`SELECT * FROM po_detail WHERE po_id = ANY($1::int[])`, [idList]);
 
         res.render('admin/print-nota-vendor', { 
             orders, 
             details, 
-            config: config || {} 
+            config: config || {},
+            vendorName: vendorName // Kirim ke EJS
         });
     } catch (err) {
         res.status(500).send("Error cetak nota vendor: " + err.message);
