@@ -27,7 +27,7 @@
 
     <div class="info-nota">
         <div>
-            Vendor: <strong>Umum / Rekanan</strong><br>
+            Vendor: <strong><%= vendorName %></strong><br>
             Tgl Cetak: <%= new Date().toLocaleDateString('id-ID') %>
         </div>
         <div style="text-align: right;">
@@ -75,7 +75,7 @@
 
     <div class="footer">
         <div style="width: 40%;">Hormat Kami,<br><br><br><br>( <%= config.nama_perusahaan %> )</div>
-        <div style="width: 40%;">Penerima (Vendor),<br><br><br><br>( .................... )</div>
+        <div style="width: 40%;">Penerima (Vendor),<br><br><br><br>( <%= vendorName %> )</div>
     </div>
 </body>
 </html>
