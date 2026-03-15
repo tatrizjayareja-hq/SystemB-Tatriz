@@ -6,6 +6,7 @@
     <title>Manajemen Pesanan - Tatriz</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.0/font/bootstrap-icons.css">
+    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
     
     <style>
         body { background: #f4f7f6; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; }
@@ -26,10 +27,16 @@
         }
         .dropdown-content a:hover, .dropdown-content button:hover { background-color: #f8f9fa; color: #0d6efd; }
         .show { display: block; }
-        #bulkActionArea { display: none; }
+        #bulkActionArea { display: none; position: relative; overflow: hidden; }
         .blink-warn { animation: blinker 1.5s linear infinite; color: #dc3545; font-weight: bold; }
         @keyframes blinker { 50% { opacity: 0; } }
         .btn-xs { padding: 1px 5px; font-size: 10px; border-radius: 3px; }
+
+        .locked-overlay-small {
+            position: absolute; top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(255, 255, 255, 0.8); backdrop-filter: blur(4px);
+            z-index: 10; display: flex; align-items: center; justify-content: center; cursor: pointer;
+        }
     </style>
 </head>
 <body>
@@ -50,14 +57,29 @@
     </div>
 
     <div id="bulkActionArea" class="alert alert-info border-info d-flex justify-content-between align-items-center shadow-sm">
+        <% if (!isPro) { %>
+            <div class="locked-overlay-small" onclick="ajakUpgrade('Nota Gabungan')">
+                <span class="badge bg-dark shadow-sm">
+                    <i class="bi bi-lock-fill text-warning"></i> FITUR NOTA GABUNGAN (PRO)
+                </span>
+            </div>
+        <% } %>
+
         <div>
             <i class="bi bi-check-all fs-5"></i>
             <strong id="countSelected" class="ms-2">0 PO Terpilih</strong>
             <small class="text-muted ms-2">(Customer harus sama)</small>
         </div>
-        <button onclick="prosesNotaGabungan()" class="btn btn-dark btn-sm fw-bold">
-            <i class="bi bi-file-earmark-pdf"></i> BUAT NOTA GABUNGAN
-        </button>
+        
+        <% if (isPro) { %>
+            <button onclick="prosesNotaGabungan()" class="btn btn-dark btn-sm fw-bold">
+                <i class="bi bi-file-earmark-pdf"></i> BUAT NOTA GABUNGAN
+            </button>
+        <% } else { %>
+            <button onclick="ajakUpgrade('Nota Gabungan')" class="btn btn-dark btn-sm fw-bold">
+                <i class="bi bi-file-earmark-pdf"></i> BUAT NOTA GABUNGAN
+            </button>
+        <% } %>
     </div>
 
     <div class="card shadow-sm border-0 mb-4">
@@ -118,7 +140,6 @@
                                 <% } %>
                             </td>
                             <td class="text-center fw-bold"><%= po.qty_tampil || 0 %></td>
-                            
                             <td class="text-center">
                                 <% if (po.is_over) { %>
                                     <span class="blink-warn"><i class="bi bi-exclamation-triangle-fill"></i> TIDAK SINKRON</span>
@@ -126,11 +147,9 @@
                                     <span class="text-success"><i class="bi bi-check-circle-fill"></i> Normal</span>
                                 <% } %>
                             </td>
-
                             <td class="text-end fw-bold text-success">
                                 <%= (po.total_harga_customer || 0).toLocaleString('id-ID') %>
                             </td>
-
                             <td onclick="event.stopPropagation()">
                                 <form action="/update-status/<%= po.id %>" method="POST" class="d-flex gap-1">
                                     <select name="status_baru" class="form-select form-select-sm py-0" style="font-size: 11px;">
@@ -145,7 +164,6 @@
                                     <button type="submit" class="btn btn-sm btn-primary py-0"><i class="bi bi-save"></i></button>
                                 </form>
                             </td>
-
                             <td class="text-center" onclick="event.stopPropagation()">
                                 <div class="action-dropdown">
                                     <button class="btn btn-sm btn-outline-dark py-0 px-2" onclick="toggleMenu(event, '<%= po.id %>')">
@@ -171,26 +189,15 @@
                                             <button class="btn btn-xs btn-success fw-bold px-2" onclick="bukaPanelQC('<%= po.id %>', '<%= po.nama_po %>')">
                                                 <i class="bi bi-shield-check"></i> UPDATE QC
                                             </button>
-                                            <a href="/daftar-qc" class="btn btn-xs btn-outline-success px-2">
-                                                <i class="bi bi-list-check"></i> Audit QC
-                                            </a>
-                                            <a href="/daftar-produksi" class="btn btn-xs btn-outline-primary px-2">
-                                                <i class="bi bi-list-ul"></i> Audit Prod
-                                            </a>
-                                            <a href="/edit-po/<%= po.id %>" class="btn btn-xs btn-outline-primary px-2">
-                                                <i class="bi bi-list-ul"></i> Audit PO
-                                            </a>
+                                            <a href="/daftar-qc" class="btn btn-xs btn-outline-success px-2"><i class="bi bi-list-check"></i> Audit QC</a>
+                                            <a href="/daftar-produksi" class="btn btn-xs btn-outline-primary px-2"><i class="bi bi-list-ul"></i> Audit Prod</a>
+                                            <a href="/edit-po/<%= po.id %>" class="btn btn-xs btn-outline-primary px-2"><i class="bi bi-pencil-square"></i> Audit PO</a>
                                         </div>
                                     </div>
                                     <table class="table table-sm table-bordered mb-0" style="font-size: 11px;">
                                         <thead class="table-dark">
                                             <tr class="text-center">
-                                                <th>Jenis</th>
-                                                <th>Nama Desain</th>
-                                                <th>Setor Op / Target</th>
-                                                <th class="bg-success">Lulus QC</th>
-                                                <th>Reject (Op - QC)</th>
-                                                <th>Status</th>
+                                                <th>Jenis</th><th>Nama Desain</th><th>Setor Op / Target</th><th class="bg-success">Lulus QC</th><th>Reject (Op-QC)</th><th>Status</th>
                                             </tr>
                                         </thead>
                                         <tbody>
@@ -205,7 +212,15 @@
                                                     <td class="text-start"><strong><%= sub.nama_desain %></strong></td>
                                                     <td><strong><%= totalOp %></strong> / <%= target %></td>
                                                     <td class="fw-bold text-success" style="background: #f0fff4;"><%= totalQc %></td>
-                                                    <td class="fw-bold text-danger"><%= reject > 0 ? reject : 0 %></td>
+                                                    <td class="fw-bold">
+                                                        <% if (reject > 0) { %>
+                                                            <span class="text-danger"><i class="bi bi-x-octagon-fill"></i> <%= reject %></span>
+                                                        <% } else if (reject < 0) { %>
+                                                            <span class="text-warning"><%= reject %> (Audit QC)</span>
+                                                        <% } else { %>
+                                                            <span class="text-success">0</span>
+                                                        <% } %>
+                                                    </td>
                                                     <td>
                                                         <% if (totalQc >= target) { %>
                                                             <span class="badge bg-success">QC Selesai</span>
@@ -236,11 +251,8 @@
             </div>
             <div class="modal-body">
                 <p class="small mb-3 text-muted">PO: <strong id="qc_nama_po" class="text-dark"></strong></p>
-                <div id="container_input_qc">
-                    </div>
-                <small class="text-muted d-block mt-2" style="font-size: 10px;">
-                    * Mengubah angka di sini akan memperbarui total riwayat QC untuk item tersebut.
-                </small>
+                <div id="container_input_qc"></div>
+                <small class="text-muted d-block mt-2" style="font-size: 10px;">* Mengubah angka di sini akan memperbarui total riwayat QC.</small>
             </div>
             <div class="modal-footer p-2 border-0">
                 <button type="button" onclick="simpanQCBulk()" class="btn btn-success w-100 fw-bold shadow-sm">SIMPAN SEMUA PERUBAHAN</button>
@@ -286,24 +298,23 @@
             let text = row.innerText.toLowerCase();
             let status = row.querySelector("select").value;
             let match = text.includes(inputNama) && (inputStatus === "ALL" || status === inputStatus);
-            
             if (match && !(hideLunas && status === "Lunas")) {
                 row.style.display = "";
             } else {
                 row.style.display = "none";
                 let id = row.querySelector('.po-checkbox').value;
-                let detailRow = document.getElementById('detail-' + id);
-                if(detailRow) detailRow.style.display = "none";
+                let dr = document.getElementById('detail-' + id);
+                if(dr) dr.style.display = "none";
             }
         });
     }
 
     function updateCounter() {
-        const checked = document.querySelectorAll('.po-checkbox:checked');
+        const chk = document.querySelectorAll('.po-checkbox:checked');
         const bar = document.getElementById('bulkActionArea');
-        if (checked.length > 0) {
+        if (chk.length > 0) {
             bar.style.display = 'flex';
-            document.getElementById('countSelected').innerText = checked.length + " PO Terpilih";
+            document.getElementById('countSelected').innerText = chk.length + " PO Terpilih";
         } else {
             bar.style.display = 'none';
         }
@@ -313,7 +324,6 @@
         const checked = document.querySelectorAll('.po-checkbox:checked');
         let ids = Array.from(checked).map(cb => cb.value);
         let customers = new Set(Array.from(checked).map(cb => cb.getAttribute('data-customer')));
-
         if (customers.size > 1) return alert("❌ Nota Gabungan hanya untuk 1 Customer yang sama.");
         window.open(`/cetak-nota-gabungan?ids=${ids.join(',')}`, '_blank');
     }
@@ -325,62 +335,62 @@
         jalankanFilter();
     }
 
-    // LOGIKA PANEL QC BARU
     function bukaPanelQC(poId, namaPo) {
         document.getElementById('qc_nama_po').innerText = namaPo;
         const container = document.getElementById('container_input_qc');
         container.innerHTML = '<div class="text-center py-3"><div class="spinner-border spinner-border-sm text-success"></div></div>';
-
-        fetch(`/api/po-details/${poId}`)
-            .then(res => res.json())
-            .then(data => {
-                let html = '';
-                data.forEach(d => {
-                    html += `
-                    <div class="mb-3 border-bottom pb-2">
-                        <label class="small fw-bold d-block mb-1 text-uppercase" style="font-size:10px">${d.nama_desain} (${d.jenis_bordir})</label>
-                        <div class="input-group input-group-sm">
-                            <span class="input-group-text bg-light small">Lulus:</span>
-                            <input type="number" class="form-control fw-bold text-center input-qc-val" 
-                                   data-id="${d.id}" value="${d.total_qc || 0}" min="0">
-                            <span class="input-group-text bg-light small">Pcs</span>
-                        </div>
-                    </div>`;
-                });
-                container.innerHTML = html;
-                new bootstrap.Modal(document.getElementById('modalQC')).show();
+        fetch(`/api/po-details/${poId}`).then(res => res.json()).then(data => {
+            let html = '';
+            data.forEach(d => {
+                html += `<div class="mb-3 border-bottom pb-2">
+                    <label class="small fw-bold d-block mb-1 text-uppercase" style="font-size:10px">${d.nama_desain} (${d.jenis_bordir})</label>
+                    <div class="input-group input-group-sm">
+                        <span class="input-group-text bg-light small">Lulus:</span>
+                        <input type="number" class="form-control fw-bold text-center input-qc-val" data-id="${d.id}" value="${d.total_qc || 0}" min="0">
+                        <span class="input-group-text bg-light small">Pcs</span>
+                    </div>
+                </div>`;
             });
+            container.innerHTML = html;
+            new bootstrap.Modal(document.getElementById('modalQC')).show();
+        });
     }
 
     async function simpanQCBulk() {
         const inputs = document.querySelectorAll('.input-qc-val');
-        const dataKirim = Array.from(inputs).map(i => ({
-            detail_id: i.dataset.id,
-            jumlah: i.value
-        }));
-
+        const dataKirim = Array.from(inputs).map(i => ({ detail_id: i.dataset.id, jumlah: i.value }));
         const response = await fetch('/update-qc-bulk', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ data: dataKirim })
         });
+        if (response.ok) window.location.reload();
+        else alert("Gagal menyimpan data.");
+    }
 
-        if (response.ok) {
-            window.location.reload();
-        } else {
-            alert("Gagal menyimpan data.");
-        }
+    function ajakUpgrade(fitur) {
+        Swal.fire({
+            title: 'Fitur PRO!',
+            text: 'Fitur ' + fitur + ' hanya tersedia untuk pengguna Akun PRO.',
+            icon: 'warning',
+            showCancelButton: true,
+            confirmButtonColor: '#2ecc71',
+            confirmButtonText: 'Upgrade PRO Sekarang',
+            cancelButtonText: 'Nanti Dulu'
+        }).then((result) => {
+            if (result.isConfirmed) {
+                window.open('https://wa.me/+6281315290003?text=Halo%20Admin%20Tatriz,%20saya%20tertarik%20upgrade%20PRO%20untuk%20' + fitur, '_blank');
+            }
+        });
     }
 
     window.onload = function() {
-        const savedNama = localStorage.getItem('filterNama');
-        const savedStatus = localStorage.getItem('filterStatus');
-        const savedHideLunas = localStorage.getItem('hideLunas');
-
-        if (savedNama !== null) document.getElementById('liveSearch').value = savedNama;
-        if (savedStatus !== null) document.getElementById('filterStatus').value = savedStatus;
-        if (savedHideLunas !== null) document.getElementById('checkLunas').checked = (savedHideLunas === 'true');
-
+        const sn = localStorage.getItem('filterNama');
+        const ss = localStorage.getItem('filterStatus');
+        const shl = localStorage.getItem('hideLunas');
+        if (sn !== null) document.getElementById('liveSearch').value = sn;
+        if (ss !== null) document.getElementById('filterStatus').value = ss;
+        if (shl !== null) document.getElementById('checkLunas').checked = (shl === 'true');
         jalankanFilter();
     };
 </script>

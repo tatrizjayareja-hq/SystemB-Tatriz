@@ -624,6 +624,7 @@ app.post('/save-po', isAdmin, async (req, res) => {
 app.get('/po-data', async (req, res) => {
     if (!req.session.userId) return res.redirect('/');
     const tId = req.session.tenantId;
+    const isPro = (tId === 1 || req.session.tenantLevel >= 2);
 
     try {
         // Query Header PO (Tetap sama, ditambahkan alias u agar konsisten)
@@ -666,7 +667,8 @@ app.get('/po-data', async (req, res) => {
         res.render('po-data', { 
             orders: orders, 
             details: details,
-            user: req.session 
+            user: req.session,
+            isPro: isPro 
         });
 
     } catch (err) {
