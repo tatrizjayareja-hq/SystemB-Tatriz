@@ -1647,6 +1647,25 @@ app.get('/daftar-produksi', isAdmin, async (req, res) => {
     }
 });
 
+// --- RUTE UPDATE STATUS PO (CEPAT DARI TABEL) ---
+app.post('/update-status/:id', isAdmin, async (req, res) => {
+    const poId = req.params.id;
+    const tId = req.session.tenantId;
+    const { status_baru } = req.body;
+
+    try {
+        // Update status di po_utama berdasarkan ID dan Tenant
+        const sql = `UPDATE po_utama SET status = $1 WHERE id = $2 AND tenant_id = $3`;
+        await db.query(sql, [status_baru, poId, tId]);
+
+        // Opsional: Anda bisa menambahkan log atau pesan sukses
+        res.redirect('/po-data');
+    } catch (err) {
+        console.error("🔥 Error Update Status Cepat:", err.message);
+        res.status(500).send("Gagal memperbarui status: " + err.message);
+    }
+});
+
 app.post('/update-produksi', isAdmin, async (req, res) => {
     const tId = req.session.tenantId;
     const { 
