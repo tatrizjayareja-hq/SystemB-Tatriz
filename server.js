@@ -792,7 +792,7 @@ app.post('/update-po/:id', isAdmin, async (req, res) => {
         await db.query(`UPDATE po_utama SET total_harga_customer = $1 WHERE id = $2`, [totalTagihanBaru, poId]);
         
         await db.query("COMMIT"); // Simpan semua perubahan
-        res.send("<script>window.location='po-data';</script>");
+        res.send("<script>window.location='/po-data';</script>");
 
     } catch (err) {
         await db.query("ROLLBACK").catch(() => {}); // Batalkan jika ada yang gagal
@@ -1590,7 +1590,7 @@ app.post('/admin/simpan-kerja', isAdmin, async (req, res) => {
 
         // 5. Response Berdasarkan Role
         if (req.session.role === 'admin') {
-            res.send("<script>window.location='input-kerja-admin';</script>");
+            res.send("<script>window.location='/input-kerja-admin';</script>");
         } else {
             res.redirect('/hasil-saya');
         }
