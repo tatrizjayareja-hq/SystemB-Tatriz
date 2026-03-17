@@ -612,7 +612,7 @@ app.post('/save-po', isAdmin, async (req, res) => {
         await db.query("UPDATE po_utama SET total_harga_customer = $1 WHERE id = $2", [totalTagihan, poId]);
 
         await db.query("COMMIT");
-        res.send("<script>alert('Data PO Berhasil Disimpan!'); window.location='/po-data';</script>");
+        res.redirect('back');
 
     } catch (err) {
         await db.query("ROLLBACK");
@@ -792,7 +792,7 @@ app.post('/update-po/:id', isAdmin, async (req, res) => {
         await db.query(`UPDATE po_utama SET total_harga_customer = $1 WHERE id = $2`, [totalTagihanBaru, poId]);
         
         await db.query("COMMIT"); // Simpan semua perubahan
-        res.send("<script>alert('PO Berhasil Diperbarui!'); window.location='/po-data';</script>");
+        res.redirect('back');
 
     } catch (err) {
         await db.query("ROLLBACK").catch(() => {}); // Batalkan jika ada yang gagal
@@ -1253,7 +1253,7 @@ app.post('/simpan-qc', isQC, async (req, res) => {
             [tId, po_id, detail_id, uId, parseInt(jumlah_qc)]
         );
 
-        res.send("<script>alert('Hasil QC Berhasil Disimpan!'); window.location='/qc-input';</script>");
+        res.redirect('back');
     } catch (err) {
         console.error("🔥 Simpan QC Error:", err.message);
         res.status(500).send("Gagal menyimpan data QC. Pastikan tabel 'hasil_qc' sudah dibuat di Supabase.");
@@ -1551,9 +1551,7 @@ app.post('/admin/simpan-kerja', isAdmin, async (req, res) => {
     let targetUserId = user_id_manual ? parseInt(user_id_manual) : req.session.userId;
 
     // 2. Validasi Jumlah
-    if (!jumlah_setor || parseInt(jumlah_setor) <= 0) {
-        return res.send("<script>alert('Jumlah tidak valid!'); window.history.back();</script>");
-    }
+    const finalJumlahSetor = parseInt(jumlah_setor) || 0;
 
     try {
         // Mulai Transaksi agar data aman
@@ -1573,7 +1571,7 @@ app.post('/admin/simpan-kerja', isAdmin, async (req, res) => {
             parseInt(mesin_id), 
             tanggal, 
             shift, 
-            parseInt(jumlah_setor)
+            finalJumlahSetor
         ]);
 
         // 4. AUTO-UPDATE STATUS KE QC JIKA TARGET TERCAPAI
@@ -1592,7 +1590,7 @@ app.post('/admin/simpan-kerja', isAdmin, async (req, res) => {
 
         // 5. Response Berdasarkan Role
         if (req.session.role === 'admin') {
-            res.send("<script>alert('Data Berhasil Disimpan (Mode Admin)!'); window.location='/dashboard';</script>");
+            res.redirect('back');
         } else {
             res.redirect('/hasil-saya');
         }
