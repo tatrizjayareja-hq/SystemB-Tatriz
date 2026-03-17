@@ -612,7 +612,7 @@ app.post('/save-po', isAdmin, async (req, res) => {
         await db.query("UPDATE po_utama SET total_harga_customer = $1 WHERE id = $2", [totalTagihan, poId]);
 
         await db.query("COMMIT");
-        res.send("<script>window.location=document.referrer;</script>");
+        res.send("<script>window.location='po-baru';</script>");
 
     } catch (err) {
         await db.query("ROLLBACK");
@@ -792,7 +792,7 @@ app.post('/update-po/:id', isAdmin, async (req, res) => {
         await db.query(`UPDATE po_utama SET total_harga_customer = $1 WHERE id = $2`, [totalTagihanBaru, poId]);
         
         await db.query("COMMIT"); // Simpan semua perubahan
-        res.send("<script>window.location=document.referrer;</script>");
+        res.send("<script>window.location='po-data';</script>");
 
     } catch (err) {
         await db.query("ROLLBACK").catch(() => {}); // Batalkan jika ada yang gagal
@@ -1253,7 +1253,7 @@ app.post('/simpan-qc', isQC, async (req, res) => {
             [tId, po_id, detail_id, uId, parseInt(jumlah_qc)]
         );
 
-        res.send("<script>window.location=document.referrer;</script>");
+        res.send("<script>window.location='admin/qc-input';</script>");
     } catch (err) {
         console.error("🔥 Simpan QC Error:", err.message);
         res.status(500).send("Gagal menyimpan data QC. Pastikan tabel 'hasil_qc' sudah dibuat di Supabase.");
@@ -1590,7 +1590,7 @@ app.post('/admin/simpan-kerja', isAdmin, async (req, res) => {
 
         // 5. Response Berdasarkan Role
         if (req.session.role === 'admin') {
-            res.send("<script>window.location=document.referrer;</script>");
+            res.send("<script>window.location='input-kerja-admin';</script>");
         } else {
             res.redirect('/hasil-saya');
         }
