@@ -1881,76 +1881,86 @@ app.get('/input-gaji', isAdmin, async (req, res) => {
     }
 });
 
-app.post('/proses-print-gaji', (req, res) => {
+// --- 2. PROSES CETAK SLIP (REVISI TOTAL - DENGAN ADJ MANUAL) ---
+app.post('/proses-print-gaji', isAdmin, async (req, res) => {
+    const tId = req.session.tenantId;
+    const { tgl_awal, tgl_akhir, operator_ids, nama, gp, hari_kerja, lembur, bonus, adj_manual, kasbon } = req.body;
+
     try {
-        const { 
-            tgl_awal, tgl_akhir, operator_ids, nama, gp, 
-            hari_kerja, lembur, bonus, adj_manual, kasbon 
-        } = req.body;
-
-        // Pastikan config tersedia (ambil dari database atau file config Anda)
-        const config = {
-            nama_perusahaan: "NAMA PERUSAHAAN ANDA",
-            logo_path: "/images/logo.png",
-            jam_kerja_reguler: 8,
-            pembagi_lembur: 4
-        };
-
-        // Konversi data ke Array jika hanya satu baris yang diinput
-        const listIds = Array.isArray(operator_ids) ? operator_ids : [operator_ids];
+        // AMBIL CONFIG (Gunakan db.get dan placeholder $1)
+        const config = await db.get("SELECT * FROM settings WHERE tenant_id = $1", [tId]);
         
-        const dataGaji = listIds.map((id, i) => {
-            const gpVal = parseFloat(Array.isArray(gp) ? gp[i] : gp) || 0;
-            const hkRaw = (Array.isArray(hari_kerja) ? hari_kerja[i] : hari_kerja).toString();
-            const lemburVal = parseFloat(Array.isArray(lembur) ? lembur[i] : lembur) || 0;
-            const bonusVal = parseFloat(Array.isArray(bonus) ? bonus[i] : bonus) || 0;
-            const adjVal = parseFloat(Array.isArray(adj_manual) ? adj_manual[i] : adj_manual) || 0;
-            const kasbonVal = parseFloat(Array.isArray(kasbon) ? kasbon[i] : kasbon) || 0;
+        // Ambil variabel fleksibel dari DB
+        const jamReguler = parseInt(config?.jam_kerja_reguler) || 8;
+        const pembagiLembur = parseInt(config?.pembagi_lembur) || 4;
 
-            // Logika pecah Hari.Jam (Contoh: 6.4 -> 6 Hari, 4 Jam)
+        // Helper untuk memastikan input adalah array (agar tidak error jika hanya 1 karyawan)
+        const toArray = (val) => Array.isArray(val) ? val : [val];
+        
+        const ids = toArray(operator_ids);
+        const nmList = toArray(nama);
+        const gpList = toArray(gp);
+        const hkList = toArray(hari_kerja);
+        const lbList = toArray(lembur);
+        const bnList = toArray(bonus);
+        const adjList = toArray(adj_manual); // Deklarasikan adjList di sini
+        const kbList = toArray(kasbon);
+
+        let dataGaji = [];
+
+        for (let i = 0; i < ids.length; i++) {
+            let gajiPokok = Number(gpList[i]) || 0;
+            let inputHK = String(hkList[i] || "0").replace(',', '.');
+            let jamLembur = Number(lbList[i]) || 0;
+            let bonusTarget = Number(bnList[i]) || 0;
+            let penyesuaian = Number(adjList[i]) || 0; // Ambil nilai Adj dari list
+            let totalKasbon = Number(kbList[i]) || 0;
+
             let hariFull = 0;
             let jamSisa = 0;
-            if (hkRaw.includes('.')) {
-                const parts = hkRaw.split('.');
-                hariFull = parseInt(parts[0]) || 0;
-                jamSisa = parseInt(parts[1]) || 0;
+
+            if (inputHK.includes('.')) {
+                let bagian = inputHK.split('.');
+                hariFull = parseInt(bagian[0]) || 0;
+                jamSisa = parseInt(bagian[1]) || 0;
             } else {
-                hariFull = parseInt(hkRaw) || 0;
+                hariFull = parseInt(inputHK) || 0;
             }
 
-            // Hitung Nominal
-            const nominalHK = hariFull * gpVal;
-            const nominalJamSisa = (gpVal / config.jam_kerja_reguler) * jamSisa;
-            const nominalLembur = (gpVal / config.pembagi_lembur) * lemburVal;
+            // RUMUS FLEKSIBEL (Menggunakan variabel dinamis & penyesuaian manual)
+            let nominalHari = hariFull * gajiPokok;
+            let nominalJamSisa = (gajiPokok / jamReguler) * jamSisa;
+            let nominalLembur = (gajiPokok / pembagiLembur) * jamLembur; 
             
-            const totalFinal = nominalHK + nominalJamSisa + nominalLembur + bonusVal + adjVal - kasbonVal;
+            // TOTAL FINAL: Termasuk Penyesuaian (+/-)
+            let totalFinal = nominalHari + nominalJamSisa + nominalLembur + bonusTarget + penyesuaian - totalKasbon;
 
-            return {
-                nama: Array.isArray(nama) ? nama[i] : nama,
-                gp: gpVal,
+            dataGaji.push({
+                nama: nmList[i],
+                gp: gajiPokok,
+                hari_kerja_tampil: inputHK,
                 hari_full: hariFull,
                 jam_sisa: jamSisa,
-                lembur: lemburVal,
-                bonus_target: bonusVal,
-                adjustment: adjVal,
-                kasbon: kasbonVal,
-                totalFinal: totalFinal
-            };
-        });
+                lembur: jamLembur,
+                bonus_target: bonusTarget,
+                adjustment: penyesuaian, // Kirim data adj ke EJS cetak jika ingin ditampilkan
+                kasbon: totalKasbon,
+                totalFinal: Math.round(totalFinal)
+            });
+        }
 
-        // Cek apakah cetak thermal atau A5
-        const viewName = req.query.mode === 'thermal' ? 'print/slip-thermal' : 'print/slip-gaji';
-
-        res.render(viewName, { 
+        // Render ke halaman cetak dengan variabel asli (dataGaji, config, user)
+        res.render('admin/cetak-slip', { 
             dataGaji, 
             tgl_awal, 
             tgl_akhir, 
-            config 
+            config: config || { nama_perusahaan: "Tatriz" }, 
+            user: req.session 
         });
 
-    } catch (error) {
-        console.error(error);
-        res.status(500).send("Terjadi kesalahan saat memproses slip gaji.");
+    } catch (err) {
+        console.error("🔥 Error Proses Slip:", err.message);
+        res.status(500).send("Gagal memproses cetak slip.");
     }
 });
 
