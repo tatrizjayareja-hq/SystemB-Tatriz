@@ -1881,6 +1881,79 @@ app.get('/input-gaji', isAdmin, async (req, res) => {
     }
 });
 
+app.post('/proses-print-gaji', (req, res) => {
+    try {
+        const { 
+            tgl_awal, tgl_akhir, operator_ids, nama, gp, 
+            hari_kerja, lembur, bonus, adj_manual, kasbon 
+        } = req.body;
+
+        // Pastikan config tersedia (ambil dari database atau file config Anda)
+        const config = {
+            nama_perusahaan: "NAMA PERUSAHAAN ANDA",
+            logo_path: "/images/logo.png",
+            jam_kerja_reguler: 8,
+            pembagi_lembur: 4
+        };
+
+        // Konversi data ke Array jika hanya satu baris yang diinput
+        const listIds = Array.isArray(operator_ids) ? operator_ids : [operator_ids];
+        
+        const dataGaji = listIds.map((id, i) => {
+            const gpVal = parseFloat(Array.isArray(gp) ? gp[i] : gp) || 0;
+            const hkRaw = (Array.isArray(hari_kerja) ? hari_kerja[i] : hari_kerja).toString();
+            const lemburVal = parseFloat(Array.isArray(lembur) ? lembur[i] : lembur) || 0;
+            const bonusVal = parseFloat(Array.isArray(bonus) ? bonus[i] : bonus) || 0;
+            const adjVal = parseFloat(Array.isArray(adj_manual) ? adj_manual[i] : adj_manual) || 0;
+            const kasbonVal = parseFloat(Array.isArray(kasbon) ? kasbon[i] : kasbon) || 0;
+
+            // Logika pecah Hari.Jam (Contoh: 6.4 -> 6 Hari, 4 Jam)
+            let hariFull = 0;
+            let jamSisa = 0;
+            if (hkRaw.includes('.')) {
+                const parts = hkRaw.split('.');
+                hariFull = parseInt(parts[0]) || 0;
+                jamSisa = parseInt(parts[1]) || 0;
+            } else {
+                hariFull = parseInt(hkRaw) || 0;
+            }
+
+            // Hitung Nominal
+            const nominalHK = hariFull * gpVal;
+            const nominalJamSisa = (gpVal / config.jam_kerja_reguler) * jamSisa;
+            const nominalLembur = (gpVal / config.pembagi_lembur) * lemburVal;
+            
+            const totalFinal = nominalHK + nominalJamSisa + nominalLembur + bonusVal + adjVal - kasbonVal;
+
+            return {
+                nama: Array.isArray(nama) ? nama[i] : nama,
+                gp: gpVal,
+                hari_full: hariFull,
+                jam_sisa: jamSisa,
+                lembur: lemburVal,
+                bonus_target: bonusVal,
+                adjustment: adjVal,
+                kasbon: kasbonVal,
+                totalFinal: totalFinal
+            };
+        });
+
+        // Cek apakah cetak thermal atau A5
+        const viewName = req.query.mode === 'thermal' ? 'print/slip-thermal' : 'print/slip-gaji';
+
+        res.render(viewName, { 
+            dataGaji, 
+            tgl_awal, 
+            tgl_akhir, 
+            config 
+        });
+
+    } catch (error) {
+        console.error(error);
+        res.status(500).send("Terjadi kesalahan saat memproses slip gaji.");
+    }
+});
+
 app.get('/cetak-nota/:id', isAdmin, async (req, res) => {
     const tId = req.session.tenantId;
     const poId = req.params.id;
