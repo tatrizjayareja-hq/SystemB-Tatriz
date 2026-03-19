@@ -612,7 +612,7 @@ app.post('/save-po', isAdmin, async (req, res) => {
         await db.query("UPDATE po_utama SET total_harga_customer = $1 WHERE id = $2", [totalTagihan, poId]);
 
         await db.query("COMMIT");
-        res.send("<script>window.location='po-baru';</script>");
+        res.send("<script>window.location='po-data';</script>");
 
     } catch (err) {
         await db.query("ROLLBACK");
