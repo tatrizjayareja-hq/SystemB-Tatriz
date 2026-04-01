@@ -946,7 +946,7 @@ app.get('/laporan-kas', isAdmin, async (req, res) => {
         const sqlData = `
             SELECT 
                 (SELECT SUM(h.jumlah_setor * d.harga_customer) FROM hasil_kerja h JOIN po_detail d ON h.detail_id = d.id WHERE TO_CHAR(h.tanggal::DATE, 'YYYY-MM') = $1 AND h.tenant_id = $2) as prod_bln,
-                (SELECT SUM(jumlah) FROM arus_kas WHERE jenis = 'PENGELUARAN' AND kategori NOT IN ('BIAYA KONTRAKAN', 'BAYAR HUTANG') AND TO_CHAR(tanggal::DATE, 'YYYY-MM') = $1 AND tenant_id = $2) as op_bln,
+                (SELECT SUM(jumlah) FROM arus_kas WHERE jenis = 'PENGELUARAN' AND kategori NOT IN ('BIAYA KONTRAKAN', 'BAYAR HUTANG', 'JATAH PROFIT OWNER') AND TO_CHAR(tanggal::DATE, 'YYYY-MM') = $1 AND tenant_id = $2) as op_bln,
                 (SELECT SUM(jumlah) FROM arus_kas WHERE kategori = 'BIAYA KONTRAKAN' AND TO_CHAR(tanggal::DATE, 'YYYY-MM') = $1 AND tenant_id = $2) as k_bayar_bln,
                 (SELECT SUM(CASE WHEN kategori = 'HUTANG' THEN jumlah WHEN kategori = 'BAYAR HUTANG' THEN -jumlah ELSE 0 END) FROM arus_kas WHERE tenant_id = $2) as hutang_riil,
                 (SELECT SUM(CASE WHEN jenis = 'PEMASUKAN' THEN jumlah ELSE -jumlah END) FROM arus_kas WHERE tenant_id = $2) as saldo_laci

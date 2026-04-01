@@ -4,7 +4,7 @@
   "description": "",
   "main": "server.js",
   "dependencies": {
-    "@supabase/supabase-js": "^2.98.0",
+    "@supabase/supabase-js": "^2.101.1",
     "abbrev": "^1.1.1",
     "accepts": "^2.0.0",
     "adler-32": "^1.3.1",
