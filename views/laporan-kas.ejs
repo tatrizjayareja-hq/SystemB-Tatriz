@@ -52,7 +52,7 @@
                             <strong style="font-size: 12px;">Rp <%= Number(nilaiProduksi || 0).toLocaleString('id-ID') %></strong>
                         </div>
                         <div class="col-6 border-start">
-                            <small class="text-muted d-block" style="font-size: 9px;">Beban (Op + Stp)</small>
+                            <small class="text-muted d-block" style="font-size: 9px;">Beban Operasional</small>
                             <strong class="text-danger" style="font-size: 12px;">Rp <%= (Number(totalBiaya || 0) + Number(config.beban_tetap || 0)).toLocaleString('id-ID') %></strong>
                         </div>
                     </div>
