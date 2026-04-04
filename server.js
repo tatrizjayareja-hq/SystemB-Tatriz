@@ -1122,25 +1122,35 @@ app.get('/analisis-profit', isAdmin, async (req, res) => {
         const conf = configRes.rows[0] || { beban_tetap: 0 };
         const bebanTetap = parseFloat(conf.beban_tetap || 0);
 
-        // 2. Query Profit (Perbaikan: Menggunakan alias yang jelas untuk PostgreSQL)
-        // PostgreSQL kadang rewel jika subquery mereferensikan tabel induk tanpa join yang tepat
+        // 2. Query Profit per Bulan
+        // Perbaikan: Kita bungkus dulu produksi per bulan, lalu JOIN dengan operasional per bulan
         const sqlProfitBulanan = `
             SELECT 
-                TO_CHAR(h.tanggal::DATE, 'YYYY-MM') as bulan,
-                SUM(h.jumlah_setor * d.harga_customer) as prod_bln,
-                COALESCE((
-                    SELECT SUM(ak.jumlah) 
-                    FROM arus_kas ak 
-                    WHERE ak.tenant_id = $1 
-                    AND ak.jenis = 'PENGELUARAN' 
-                    AND ak.kategori NOT IN ('BIAYA KONTRAKAN', 'BAYAR HUTANG', 'JATAH PROFIT OWNER')
-                    AND TO_CHAR(ak.tanggal::DATE, 'YYYY-MM') = TO_CHAR(h.tanggal::DATE, 'YYYY-MM')
-                ), 0) as op_bln
-            FROM hasil_kerja h
-            JOIN po_detail d ON h.detail_id = d.id
-            WHERE h.tenant_id = $1
-            GROUP BY TO_CHAR(h.tanggal::DATE, 'YYYY-MM')
-            ORDER BY bulan DESC
+                prod.bulan,
+                prod.prod_bln,
+                COALESCE(ops.total_op, 0) as op_bln
+            FROM (
+                /* Sub-tabel Produksi */
+                SELECT 
+                    TO_CHAR(h.tanggal::DATE, 'YYYY-MM') as bulan,
+                    SUM(h.jumlah_setor * d.harga_customer) as prod_bln
+                FROM hasil_kerja h
+                JOIN po_detail d ON h.detail_id = d.id
+                WHERE h.tenant_id = $1
+                GROUP BY TO_CHAR(h.tanggal::DATE, 'YYYY-MM')
+            ) prod
+            LEFT JOIN (
+                /* Sub-tabel Pengeluaran Operasional */
+                SELECT 
+                    TO_CHAR(tanggal::DATE, 'YYYY-MM') as bulan,
+                    SUM(jumlah) as total_op
+                FROM arus_kas 
+                WHERE tenant_id = $1 
+                AND jenis = 'PENGELUARAN' 
+                AND kategori NOT IN ('BIAYA KONTRAKAN', 'BAYAR HUTANG', 'JATAH PROFIT OWNER')
+                GROUP BY TO_CHAR(tanggal::DATE, 'YYYY-MM')
+            ) ops ON prod.bulan = ops.bulan
+            ORDER BY prod.bulan DESC
         `;
         
         const profitRes = await db.query(sqlProfitBulanan, [tId]);
@@ -1178,8 +1188,8 @@ app.get('/analisis-profit', isAdmin, async (req, res) => {
         });
 
     } catch (err) {
-        console.error("🔥 Analisis Profit Error Detail:", err.message); // Ini akan muncul di log Vercel/Terminal
-        res.status(500).send("Terjadi kesalahan sistem: " + err.message); // Agar kita tahu error pastinya
+        console.error("🔥 Analisis Profit Error Detail:", err.message);
+        res.status(500).send("Terjadi kesalahan sistem: " + err.message);
     }
 });
 
