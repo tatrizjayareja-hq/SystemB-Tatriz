@@ -2,7 +2,7 @@
 <html lang="id">
 <head>
     <meta charset="UTF-8">
-    <title>Nota Pembayaran Vendor CMT</title>
+    <title>Nota Vendor - SJ #<%= sj.id %></title>
     <style>
         body { font-family: 'Courier New', Courier, monospace; width: 148mm; margin: auto; padding: 10mm; border: 1px solid #eee; }
         .header { text-align: center; border-bottom: 2px double #333; padding-bottom: 10px; margin-bottom: 15px; }
@@ -21,18 +21,18 @@
     </div>
 
     <div class="header">
-        <h2 style="margin:0; font-size: 16px;">NOTA PEMBAYARAN CMT (VENDOR)</h2>
+        <h2 style="margin:0; font-size: 16px;">SURAT JALAN / NOTA CMT</h2>
         <small><%= config.nama_perusahaan %></small>
     </div>
 
     <div class="info-nota">
         <div>
-            Vendor: <strong><%= vendorName %></strong><br>
-            Tgl Cetak: <%= new Date().toLocaleDateString('id-ID') %>
+            Vendor: <strong><%= sj.nama_vendor %></strong><br>
+            Tgl Kirim: <%= new Date(sj.tanggal_kirim).toLocaleDateString('id-ID') %>
         </div>
         <div style="text-align: right;">
-            Jumlah PO: <%= orders.length %><br>
-            Status: <strong>PROSES BAYAR</strong>
+            No. SJ: <strong>#<%= sj.id %></strong><br>
+            Status: <strong><%= sj.status %></strong>
         </div>
     </div>
 
@@ -48,34 +48,30 @@
         <tbody>
             <% 
                let grandTotal = 0; 
-               orders.forEach(po => { 
-                 let subDetails = details.filter(d => Number(d.po_id) === Number(po.id));
-                 subDetails.forEach(item => {
-                   let sub = Number(item.jumlah) * Number(item.harga_cmt);
-                   grandTotal += sub;
+               items.forEach(item => { 
+                 let sub = Number(item.qty_dikirim) * Number(item.harga_cmt_saat_ini);
+                 grandTotal += sub;
             %>
                 <tr>
                     <td>
-                        <strong><%= po.nama_po %></strong><br>
+                        <strong><%= item.nama_po %></strong><br>
                         <small><%= item.nama_desain %> (<%= item.jenis_bordir %>)</small>
                     </td>
-                    <td style="text-align: center;"><%= item.jumlah %></td>
-                    <td style="text-align: right;"><%= Number(item.harga_cmt).toLocaleString('id-ID') %></td>
+                    <td style="text-align: center;"><%= item.qty_dikirim %></td>
+                    <td style="text-align: right;"><%= Number(item.harga_cmt_saat_ini).toLocaleString('id-ID') %></td>
                     <td style="text-align: right;"><%= sub.toLocaleString('id-ID') %></td>
                 </tr>
-            <%   }); 
-               }); 
-            %>
+            <% }); %>
         </tbody>
     </table>
 
     <div class="total-box">
-        TOTAL BAYAR VENDOR: Rp <%= grandTotal.toLocaleString('id-ID') %>
+        ESTIMASI TAGIHAN VENDOR: Rp <%= grandTotal.toLocaleString('id-ID') %>
     </div>
 
     <div class="footer">
-        <div style="width: 40%;">Hormat Kami,<br><br><br><br>( <%= config.nama_perusahaan %> )</div>
-        <div style="width: 40%;">Penerima (Vendor),<br><br><br><br>( <%= vendorName %> )</div>
+        <div style="width: 40%;">Pengirim (Admin),<br><br><br><br>( <%= config.nama_perusahaan %> )</div>
+        <div style="width: 40%;">Penerima (Vendor),<br><br><br><br>( <%= sj.nama_vendor %> )</div>
     </div>
 </body>
 </html>

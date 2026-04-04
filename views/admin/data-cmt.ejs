@@ -136,21 +136,9 @@
                                 <button onclick="toggleLaci('<%= sj.id %>')" class="btn btn-primary btn-sm px-2" style="font-size: 10px;">
                                     <i class="bi bi-list-ul"></i> ISI
                                 </button>
-                                <% if(sj.status === 'PROSES') { %>
-                                    <button onclick="tandaiSelesai('<%= sj.id %>')" class="btn btn-success btn-sm px-2" style="font-size: 10px;">
-                                        <i class="bi bi-check-circle"></i> TERIMA
-                                    </button>
-                                <% } %>
-                            </div>
-                            <div class="mt-2 pt-2 border-top d-flex gap-1">
-                                <button onclick="toggleLaci('<%= sj.id %>')" class="btn btn-primary btn-sm px-2" style="font-size: 10px;">
-                                    <i class="bi bi-list-ul"></i> ISI
-                                </button>
-                                
                                 <a href="/cetak-nota-vendor?sj_id=<%= sj.id %>" target="_blank" class="btn btn-dark btn-sm px-2" style="font-size: 10px;">
                                     <i class="bi bi-printer"></i> NOTA
                                 </a>
-
                                 <% if(sj.status === 'PROSES') { %>
                                     <button onclick="tandaiSelesai('<%= sj.id %>')" class="btn btn-success btn-sm px-2" style="font-size: 10px;">
                                         <i class="bi bi-check-circle"></i> TERIMA
