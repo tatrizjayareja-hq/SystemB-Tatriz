@@ -2315,40 +2315,137 @@ app.get('/admin/data-cmt', isAdmin, async (req, res) => {
     const tId = req.session.tenantId;
 
     try {
-        // 1. Query Utama: PO Status CMT
-        // PostgreSQL mewajibkan semua kolom non-aggregate masuk ke GROUP BY
+        // 1. Ambil PO status CMT
         const sqlOrders = `
-            SELECT p.id, p.tanggal, p.nama_po, p.customer, p.status, p.tenant_id,
-            SUM(d.jumlah * (d.harga_customer - d.harga_cmt)) as total_untung
+            SELECT p.id, p.tanggal, p.nama_po, p.customer, p.status,
+            SUM(d.jumlah * (d.harga_customer - d.harga_cmt)) as estimasi_untung_total
             FROM po_utama p
             JOIN po_detail d ON p.id = d.po_id
             WHERE p.status = 'CMT' AND p.tenant_id = $1
-            GROUP BY p.id, p.tanggal, p.nama_po, p.customer, p.status, p.tenant_id
+            GROUP BY p.id, p.tanggal, p.nama_po, p.customer, p.status
             ORDER BY p.tanggal DESC
         `;
+        const orders = await db.query(sqlOrders, [tId]);
 
-        const ordersRes = await db.query(sqlOrders, [tId]);
-        const orders = ordersRes.rows;
-
-        // 2. Query Detail: Untuk rincian di dalam "Laci" (Drawer)
+        // 2. Query Detail Desain dengan hitungan SISA SALDO
+        // Sisa = Qty PO - Total Qty yang sudah masuk ke Surat Jalan
         const sqlDetails = `
-            SELECT d.* FROM po_detail d
+            SELECT d.*, 
+            (d.jumlah - COALESCE((SELECT SUM(qty_dikirim) FROM cmt_surat_jalan_detail WHERE po_detail_id = d.id), 0)) as sisa_siap_kirim
+            FROM po_detail d
             JOIN po_utama p ON d.po_id = p.id
             WHERE p.status = 'CMT' AND p.tenant_id = $1
         `;
+        const details = await db.query(sqlDetails, [tId]);
 
-        const detailsRes = await db.query(sqlDetails, [tId]);
-        const allDetails = detailsRes.rows;
+        // 3. Ambil riwayat Surat Jalan yang pernah dibuat (untuk monitoring vendor)
+        const historySJ = await db.query(`
+            SELECT * FROM cmt_surat_jalan 
+            WHERE tenant_id = $1 
+            ORDER BY CASE WHEN status = 'PROSES' THEN 1 ELSE 2 END, tanggal_kirim DESC 
+            LIMIT 20
+        `, [tId]);
 
-        // 3. Render ke halaman
         res.render('admin/data-cmt', { 
-            orders: orders || [], 
-            details: allDetails || [] 
+            orders: orders.rows, 
+            details: details.rows,
+            historySJ: historySJ.rows
         });
 
     } catch (err) {
         console.error("Database Error CMT:", err.message);
-        res.status(500).send("Gagal memuat data CMT: " + err.message);
+        res.status(500).send("Gagal memuat data CMT");
+    }
+});
+
+app.post('/admin/simpan-sj-cmt', isAdmin, async (req, res) => {
+    const tId = req.session.tenantId;
+    const { nama_vendor, tanggal_kirim, detail_ids, qty_kirim, harga_cmt } = req.body;
+
+    try {
+        await db.query("BEGIN");
+
+        // 1. Simpan Header Surat Jalan
+        const sjRes = await db.query(
+            "INSERT INTO cmt_surat_jalan (tenant_id, nama_vendor, tanggal_kirim) VALUES ($1, $2, $3) RETURNING id",
+            [tId, nama_vendor, tanggal_kirim]
+        );
+        const sjId = sjRes.rows[0].id;
+
+        // 2. Simpan Detail (Barang-barang yang dibawa vendor tersebut)
+        let totalBiayaSj = 0;
+        const idList = Array.isArray(detail_ids) ? detail_ids : [detail_ids];
+        const qtyList = Array.isArray(qty_kirim) ? qty_kirim : [qty_kirim];
+        const hargaList = Array.isArray(harga_cmt) ? harga_cmt : [harga_cmt];
+
+        for (let i = 0; i < idList.length; i++) {
+            const qty = parseInt(qtyList[i]) || 0;
+            if (qty > 0) {
+                const hrg = parseFloat(hargaList[i]) || 0;
+                totalBiayaSj += (qty * hrg);
+                await db.query(
+                    "INSERT INTO cmt_surat_jalan_detail (sj_id, po_detail_id, qty_dikirim, harga_cmt_saat_ini) VALUES ($1, $2, $3, $4)",
+                    [sjId, idList[i], qty, hrg]
+                );
+            }
+        }
+
+        // 3. Update total biaya di header
+        await db.query("UPDATE cmt_surat_jalan SET total_biaya_vendor = $1 WHERE id = $2", [totalBiayaSj, sjId]);
+
+        await db.query("COMMIT");
+        res.redirect('/admin/data-cmt');
+    } catch (err) {
+        await db.query("ROLLBACK");
+        res.status(500).send("Gagal simpan Surat Jalan");
+    }
+});
+
+app.get('/admin/selesai-sj-cmt/:id', isAdmin, async (req, res) => {
+    const tId = req.session.tenantId;
+    const sjId = req.params.id;
+    const userId = req.session.userId; // Admin yang mengonfirmasi
+
+    try {
+        await db.query("BEGIN");
+
+        // 1. Ambil detail barang yang ada di Surat Jalan tersebut
+        const sjDetail = await db.query(`
+            SELECT d.*, sj.nama_vendor, p.po_id 
+            FROM cmt_surat_jalan_detail d
+            JOIN cmt_surat_jalan sj ON d.sj_id = sj.id
+            JOIN po_detail p ON d.po_detail_id = p.id
+            WHERE d.sj_id = $1 AND sj.tenant_id = $2
+        `, [sjId, tId]);
+
+        if (sjDetail.rows.length === 0) {
+            throw new Error("Detail Surat Jalan tidak ditemukan.");
+        }
+
+        // 2. Loop setiap item untuk dimasukkan ke hasil_kerja (Produksi Pusat)
+        for (const item of sjDetail.rows) {
+            await db.query(`
+                INSERT INTO hasil_kerja 
+                (tenant_id, operator_id, po_id, detail_id, tanggal, shift, jumlah_setor, mesin_id) 
+                VALUES ($1, $2, $3, $4, CURRENT_DATE, 'Pagi', $5, 0)
+            `, [tId, userId, item.po_id, item.po_detail_id, item.qty_dikirim]);
+            
+            // Catatan: mesin_id diset 0 atau ID khusus untuk menandakan pengerjaan Luar/CMT
+        }
+
+        // 3. Update status Surat Jalan menjadi SELESAI
+        await db.query(
+            "UPDATE cmt_surat_jalan SET status = 'SELESAI' WHERE id = $1 AND tenant_id = $2",
+            [sjId, tId]
+        );
+
+        await db.query("COMMIT");
+        res.send("<script>alert('Barang CMT telah diterima & masuk ke riwayat produksi!'); window.location='/admin/data-cmt';</script>");
+
+    } catch (err) {
+        await db.query("ROLLBACK");
+        console.error("🔥 Error Selesai CMT:", err.message);
+        res.status(500).send("Gagal memproses penyelesaian CMT: " + err.message);
     }
 });
 

@@ -1,216 +1,159 @@
-<!DOCTYPE html>
-<html lang="id">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Monitoring CMT - Tatriz</title>
-    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.1/font/bootstrap-icons.css">
-    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
-    <style>
-        body { font-family: 'Segoe UI', sans-serif; background: #f4f7f6; padding: 20px; margin: 0; }
-        .filter-card { background: white; padding: 20px; border-radius: 12px; margin-bottom: 20px; box-shadow: 0 4px 6px rgba(0,0,0,0.05); }
-        .grid-filter { display: grid; grid-template-columns: 2fr 1fr 1fr; gap: 20px; align-items: center; }
-        
-        table { width: 100%; border-collapse: collapse; background: white; border-radius: 12px; overflow: hidden; box-shadow: 0 4px 10px rgba(0,0,0,0.05); }
-        th { background: #59cf77; color: white; padding: 15px 12px; text-align: left; font-size: 14px; }
-        td { padding: 12px; border-bottom: 1px solid #eee; font-size: 14px; }
-        
-        .check-col { width: 40px; text-align: center; }
-        .clickable-row { cursor: pointer; transition: 0.2s; }
-        .clickable-row:hover { background: #f1fdf4; }
+<%- include('../partials/header') %>
+<style>
+    .badge-sisa { font-size: 10px; padding: 3px 8px; border-radius: 20px; }
+    .card-sj { border-left: 5px solid #e67e22; transition: 0.3s; }
+    .card-sj:hover { transform: translateY(-3px); box-shadow: 0 4px 15px rgba(0,0,0,0.1); }
+    .input-qty-sj { width: 80px !important; text-align: center; border-color: #e67e22; }
+    .bg-vendor { background-color: #fff9f4; }
+</style>
 
-        .detail-row { display: none; background: #fdfdfd; }
-        .detail-content { padding: 15px; border-left: 5px solid #e67e22; margin: 10px; background: white; border-radius: 8px; box-shadow: inset 0 2px 4px rgba(0,0,0,0.05); }
-
-        #bulkActionArea { display: none; background: #e8f5e9; padding: 15px; border-radius: 8px; margin-bottom: 15px; border: 1px solid #59cf77; align-items: center; justify-content: space-between; }
-        
-        .btn-quick { 
-            background: #3498db; color: white; border: none; padding: 8px 14px; 
-            border-radius: 6px; cursor: pointer; font-size: 11px; font-weight: bold; 
-            margin: 2px; text-decoration: none; display: inline-block;
-        }
-        .btn-quick.qc { background: #f1c40f; color: #2c3e50; }
-        .btn-quick.lunas { background: #27ae60; }
-        .untung-text { color: #27ae60; font-weight: bold; }
-        
-        .btn-bulk { padding: 10px 15px; border-radius: 8px; border: none; font-weight: bold; cursor: pointer; color: white; }
-    </style>
-</head>
-<body>
-
-    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
-        <a href="/dashboard" style="text-decoration: none; color: #666; font-weight: bold;">← Kembali</a>
-        <h3 style="margin:0;">🚜 Monitoring Produksi CMT</h3>
-        <div style="width: 50px;"></div>
+<div class="container-fluid mt-3" style="max-width: 1100px;">
+    <div class="d-flex justify-content-between align-items-center mb-3">
+        <h4 class="fw-bold mb-0">🚜 Kelola CMT & Vendor</h4>
+        <a href="/dashboard" class="btn btn-outline-secondary btn-sm">Kembali</a>
     </div>
 
-    <div id="bulkActionArea">
-        <div><strong id="countSelected">0 PO Terpilih</strong></div>
-        <div>
-            <button onclick="prosesNotaGabungan()" class="btn-bulk" style="background: #2c3e50; margin-right: 5px;">📝 NOTA CUSTOMER</button>
-            <button onclick="mintaNamaVendor()" class="btn-bulk" style="background: #d63031;">💰 BAYAR VENDOR (CMT)</button>
-        </div>
-    </div>
+    <div class="row">
+        <div class="col-md-8">
+            <div class="card shadow-sm mb-4">
+                <div class="card-header bg-dark text-white py-3">
+                    <h6 class="mb-0 fw-bold"><i class="bi bi-box-seam me-2"></i> Stok Antrean Bordir CMT</h6>
+                </div>
+                <div class="card-body p-0">
+                    <form action="/admin/simpan-sj-cmt" method="POST" id="formSJ">
+                        <div class="p-3 bg-vendor border-bottom">
+                            <div class="row g-2">
+                                <div class="col-md-6">
+                                    <label class="small fw-bold">NAMA VENDOR / PENGERJA:</label>
+                                    <input type="text" name="nama_vendor" class="form-control form-control-sm" placeholder="Contoh: Pak Haji / Workshop B" required>
+                                </div>
+                                <div class="col-md-6">
+                                    <label class="small fw-bold">TANGGAL KIRIM:</label>
+                                    <input type="date" name="tanggal_kirim" class="form-control form-control-sm" id="tglSJ" required>
+                                </div>
+                            </div>
+                        </div>
 
-    <div class="filter-card">
-        <div class="grid-filter">
-            <input type="text" id="liveSearch" placeholder="Cari PO / Customer..." onkeyup="jalankanFilter()" style="padding: 10px; border-radius: 8px; border: 1px solid #ddd;">
-            <label style="cursor: pointer; font-weight: bold; text-align: center;"><input type="checkbox" id="checkLunas" onchange="jalankanFilter()"> Auto-Hide Selesai</label>
-            <div style="text-align: right; font-size: 11px; color: #888;">*Klik baris untuk lihat detail desain</div>
-        </div>
-    </div>
-
-    <table>
-        <thead>
-            <tr>
-                <th class="check-col"><input type="checkbox" onclick="pilihSemua(this)"></th>
-                <th>Tgl</th>
-                <th>Nama PO & Customer</th>
-                <th>Total Biaya CMT</th>
-                <th>Laba Bersih</th>
-                <th style="text-align: center;">Aksi</th>
-            </tr>
-        </thead>
-        <tbody>
-        <% orders.forEach(po => { %>
-            <% 
-                let subDetails = details.filter(d => Number(d.po_id) === Number(po.id)); 
-                let totalBiayaCMT = subDetails.reduce((sum, sub) => sum + (Number(sub.jumlah) * Number(sub.harga_cmt)), 0);
-            %>
-        
-            <tr class="clickable-row" onclick="toggleDetail('<%= po.id %>')">
-                <td class="check-col" onclick="event.stopPropagation()">
-                    <input type="checkbox" class="po-checkbox" value="<%= po.id %>" onchange="updateCounter()">
-                </td>
-                <td style="font-size: 12px;"><%= po.tanggal.split('-').reverse().join('/') %></td>
-                <td>
-                    <strong><%= po.nama_po %></strong><br>
-                    <small style="color: #7f8c8d;"><%= po.customer %></small>
-                </td>
-                
-                <td style="color: #d63031; font-weight: bold;">
-                    <small style="color: #999; font-weight: normal; font-size: 10px; display: block;">Biaya CMT:</small>
-                    Rp <%= Number(totalBiayaCMT).toLocaleString('id-ID') %>
-                </td>
-
-                <td class="untung-text">
-                    <small style="color: #999; font-weight: normal; font-size: 10px; display: block;">Laba Bersih:</small>
-                    Rp <%= Number(po.total_untung || 0).toLocaleString('id-ID') %>
-                </td>
-
-                <td style="text-align: center;" onclick="event.stopPropagation()">
-                    <div style="display: flex; gap: 5px; justify-content: center;">
-                        <a href="/edit-po/<%= po.id %>" class="btn-quick">EDIT</a>
-                        <button class="btn-quick qc" onclick="updateStatus('<%= po.id %>', 'QC')">SET QC</button>
-                        <button class="btn-quick lunas" onclick="updateStatus('<%= po.id %>', 'Lunas')">LUNAS</button>
-                    </div>
-                </td>
-            </tr>
-
-            <tr id="detail-<%= po.id %>" class="detail-row">
-                <td colspan="6"> 
-                    <div class="detail-content">
-                        <table style="width: 100%; font-size: 12px; background: none; box-shadow: none; border-radius: 0;">
-                            <thead style="background: #eee;">
-                                <tr>
-                                    <th style="color: #333; background: none; padding: 8px;">Nama Desain</th>
-                                    <th style="color: #333; background: none; padding: 8px;">Qty</th>
-                                    <th style="color: #333; background: none; padding: 8px;">Hrg CMT</th>
-                                    <th style="color: #333; background: none; padding: 8px;">Hrg Cust</th>
-                                    <th style="color: #333; background: none; padding: 8px;">Keuntungan</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                <% subDetails.forEach(sub => { %> 
+                        <div class="table-responsive">
+                            <table class="table table-hover align-middle mb-0" style="font-size: 12px;">
+                                <thead class="table-light">
                                     <tr>
-                                        <td><%= sub.nama_desain %> (<%= sub.jenis_bordir %>)</td>
-                                        <td><%= sub.jumlah %></td>
-                                        <td>Rp <%= Number(sub.harga_cmt).toLocaleString('id-ID') %></td>
-                                        <td>Rp <%= Number(sub.harga_customer).toLocaleString('id-ID') %></td>
-                                        <td class="untung-text">
-                                            Rp <%= (Number(sub.jumlah) * (Number(sub.harga_customer) - Number(sub.harga_cmt))).toLocaleString('id-ID') %>
+                                        <th width="40">Pilih</th>
+                                        <th>PO / Desain</th>
+                                        <th class="text-center">Sisa Saldo</th>
+                                        <th width="120" class="text-center">Kirim Qty</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    <% orders.forEach(po => { 
+                                        let sub = details.filter(d => d.po_id == po.id);
+                                        sub.forEach(dsn => {
+                                            if(dsn.sisa_siap_kirim > 0) {
+                                    %>
+                                    <tr>
+                                        <td class="text-center">
+                                            <input type="checkbox" name="detail_ids" value="<%= dsn.id %>" class="form-check-input check-dsn" onchange="toggleInput(this)">
+                                            <input type="hidden" name="harga_cmt" value="<%= dsn.harga_cmt %>" disabled class="input-harga">
+                                        </td>
+                                        <td>
+                                            <strong><%= po.nama_po %></strong><br>
+                                            <span class="text-muted"><%= dsn.nama_desain %> (<%= dsn.jenis_bordir %>)</span>
+                                        </td>
+                                        <td class="text-center">
+                                            <span class="badge bg-info badge-sisa"><%= dsn.sisa_siap_kirim %> / <%= dsn.jumlah %> Pcs</span>
+                                        </td>
+                                        <td class="text-center">
+                                            <input type="number" name="qty_kirim" class="form-control form-control-sm input-qty-sj d-none" 
+                                                   max="<%= dsn.sisa_siap_kirim %>" min="1" placeholder="Qty">
                                         </td>
                                     </tr>
-                                <% }) %>
-                            </tbody>
-                        </table>
+                                    <% } }) }) %>
+                                    <% if (details.filter(d => d.sisa_siap_kirim > 0).length === 0) { %>
+                                        <tr><td colspan="4" class="text-center py-4 text-muted">Semua stok CMT sudah terbagi ke vendor.</td></tr>
+                                    <% } %>
+                                </tbody>
+                            </table>
+                        </div>
+                        
+                        <div class="p-3 text-end bg-light">
+                            <button type="submit" class="btn btn-warning btn-sm fw-bold">
+                                <i class="bi bi-send-plus"></i> BUAT SURAT JALAN KE VENDOR
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-md-4">
+            <h6 class="fw-bold mb-3"><i class="bi bi-clock-history"></i> Surat Jalan Terbaru</h6>
+            <% historySJ.forEach(sj => { %>
+            <div class="card card-sj shadow-sm mb-2 border-0">
+                <div class="card-body p-2">
+                    <div class="d-flex justify-content-between align-items-start">
+                        <div>
+                            <small class="text-muted" style="font-size: 10px;"><%= new Date(sj.tanggal_kirim).toLocaleDateString('id-ID') %></small>
+                            <h6 class="mb-0 fw-bold text-uppercase"><%= sj.nama_vendor %></h6>
+                            <small class="fw-bold text-danger">Total Biaya: Rp <%= Number(sj.total_biaya_vendor).toLocaleString('id-ID') %></small>
+                        </div>
+                        <span class="badge bg-warning text-dark" style="font-size: 9px;"><%= sj.status %></span>
                     </div>
-                </td>
-            </tr>
-        <% }) %>
-        </tbody>
-    </table>
+                    <div class="mt-2 pt-2 border-top d-flex gap-1">
+                        <button onclick="lihatDetailSJ('<%= sj.id %>')" class="btn btn-primary btn-sm px-3" style="font-size: 10px;">DETAIL</button>
+                        <button onclick="tandaiSelesai('<%= sj.id %>')" class="btn btn-success btn-sm px-3" style="font-size: 10px;">SELESAI</button>
+                    </div>
+                </div>
+            </div>
+            <% }) %>
+            <% if(historySJ.length === 0) { %>
+                <div class="text-center p-4 bg-white rounded border">
+                    <i class="bi bi-truck text-muted fs-2"></i><br>
+                    <small class="text-muted">Belum ada pengiriman ke vendor.</small>
+                </div>
+            <% } %>
+        </div>
+    </div>
+</div>
 
-    <script>
-        function toggleDetail(id) {
-            const row = document.getElementById('detail-' + id);
-            row.style.display = (row.style.display === 'table-row') ? 'none' : 'table-row';
+<script>
+    document.getElementById('tglSJ').valueAsDate = new Date();
+
+    function toggleInput(checkbox) {
+        const row = checkbox.closest('tr');
+        const qtyInput = row.querySelector('.input-qty-sj');
+        const hargaInput = row.querySelector('.input-harga');
+        
+        if (checkbox.checked) {
+            qtyInput.classList.remove('d-none');
+            qtyInput.required = true;
+            hargaInput.disabled = false;
+        } else {
+            qtyInput.classList.add('d-none');
+            qtyInput.required = false;
+            qtyInput.value = '';
+            hargaInput.disabled = true;
         }
+    }
 
-        function updateStatus(id, status) {
-            if(confirm('Ubah status PO ini ke ' + status + '?')) {
-                const form = document.createElement('form');
-                form.method = 'POST';
-                form.action = '/update-status/' + id;
-                const input = document.createElement('input');
-                input.type = 'hidden'; input.name = 'status_baru'; input.value = status;
-                form.appendChild(input);
-                document.body.appendChild(form);
-                form.submit();
+    function lihatDetailSJ(id) {
+        // Ini nanti bisa disambung ke fungsi untuk cetak nota vendor
+        window.open(`/cetak-nota-vendor?sj_id=${id}`, '_blank');
+    }
+
+    function tandaiSelesai(id) {
+        Swal.fire({
+            title: 'Konfirmasi Selesai?',
+            text: "Barang dari vendor sudah kembali dan lulus QC?",
+            icon: 'question',
+            showCancelButton: true,
+            confirmButtonColor: '#27ae60',
+            confirmButtonText: 'Ya, Selesai!'
+        }).then((result) => {
+            if (result.isConfirmed) {
+                // Nanti buatkan route /admin/selesai-sj-cmt/:id
+                window.location.href = `/admin/selesai-sj-cmt/${id}`;
             }
-        }
-
-        function jalankanFilter() {
-            let input = document.getElementById("liveSearch").value.toLowerCase();
-            let rows = document.querySelectorAll("tbody tr.clickable-row");
-            rows.forEach(row => {
-                let text = row.innerText.toLowerCase();
-                row.style.display = text.includes(input) ? "" : "none";
-            });
-        }
-
-        function updateCounter() {
-            const checked = document.querySelectorAll('.po-checkbox:checked');
-            document.getElementById('bulkActionArea').style.display = checked.length > 0 ? 'flex' : 'none';
-            document.getElementById('countSelected').innerText = checked.length + " PO Terpilih";
-        }
-
-        function pilihSemua(master) {
-            document.querySelectorAll('.po-checkbox').forEach(cb => cb.checked = master.checked);
-            updateCounter();
-        }
-
-        function prosesNotaGabungan() {
-            const checked = document.querySelectorAll('.po-checkbox:checked');
-            let ids = Array.from(checked).map(cb => cb.value);
-            window.open(`/cetak-nota-gabungan?ids=${ids.join(',')}`, '_blank');
-        }
-
-        // FUNGSI BARU: Menggunakan SweetAlert2 untuk input nama sebelum cetak
-        function mintaNamaVendor() {
-            const checked = document.querySelectorAll('.po-checkbox:checked');
-            let ids = Array.from(checked).map(cb => cb.value);
-
-            Swal.fire({
-                title: 'Nama Vendor CMT',
-                input: 'text',
-                inputLabel: 'Masukkan nama vendor untuk nota ini',
-                inputPlaceholder: 'Contoh: Pak Haji Bordir / Workshop A',
-                showCancelButton: true,
-                confirmButtonText: 'Lanjut Cetak',
-                confirmButtonColor: '#d63031',
-                inputValidator: (value) => {
-                    if (!value) {
-                        return 'Nama vendor tidak boleh kosong!'
-                    }
-                }
-            }).then((result) => {
-                if (result.isConfirmed) {
-                    const vendor = encodeURIComponent(result.value);
-                    window.open(`/cetak-nota-vendor?ids=${ids.join(',')}&vendor=${vendor}`, '_blank');
-                }
-            });
-        }
-    </script>
-</body>
-</html>
+        })
+    }
+</script>
+<%- include('../partials/footer') %>
