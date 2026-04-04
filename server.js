@@ -2431,42 +2431,36 @@ app.post('/admin/simpan-sj-cmt', isAdmin, async (req, res) => {
     let { nama_vendor, tanggal_kirim, detail_ids, qty_kirim, harga_cmt } = req.body;
 
     try {
-        await db.query("BEGIN");
+        // PERBAIKAN 1: Kapitalisasi Nama Vendor agar konsisten untuk pencarian nota gabungan
+        const namaVendorBersih = nama_vendor ? nama_vendor.trim().toUpperCase() : "";
 
-        // 1. Pastikan semua input berupa Array (untuk menangani jika hanya 1 data yang dicentang)
+        // PERBAIKAN 2: Pastikan detail_ids selalu berupa array agar bisa diloop (handle jika hanya 1 yang dicentang)
         const idList = Array.isArray(detail_ids) ? detail_ids : (detail_ids ? [detail_ids] : []);
         
         // JIKA TIDAK ADA YANG DICENTANG
         if (idList.length === 0) {
-            throw new Error("Pilih minimal satu desain untuk dikirim.");
+            return res.send("<script>alert('Pilih minimal satu desain untuk dikirim.'); window.history.back();</script>");
         }
 
-        // 2. Simpan Header Surat Jalan
+        // PERBAIKAN 3: Sinkronisasi Qty dan Harga 
+        // Mengambil hanya nilai yang tidak kosong (karena input non-centang di-disabled di sisi client)
+        const qtyList = Array.isArray(qty_kirim) ? qty_kirim.filter(q => q !== '') : (qty_kirim ? [qty_kirim] : []);
+        const hargaList = Array.isArray(harga_cmt) ? harga_cmt.filter(h => h !== '') : (harga_cmt ? [harga_cmt] : []);
+
+        await db.query("BEGIN");
+
+        // 2. Simpan Header Surat Jalan (Gunakan namaVendorBersih)
         const sjRes = await db.query(
             "INSERT INTO cmt_surat_jalan (tenant_id, nama_vendor, tanggal_kirim) VALUES ($1, $2, $3) RETURNING id",
-            [tId, nama_vendor, tanggal_kirim]
+            [tId, namaVendorBersih, tanggal_kirim]
         );
         const sjId = sjRes.rows[0].id;
 
         // 3. Simpan Detail
         let totalBiayaSj = 0;
 
-        // Note: Kita gunakan Loop berdasarkan idList (yang dicentang)
-        // Kita perlu mencari nilai qty yang bersesuaian. 
-        // Agar aman, di sisi EJS nanti kita pastikan input qty punya nama yang unik atau logic yang sinkron.
-        
         for (let i = 0; i < idList.length; i++) {
             const currentId = idList[i];
-            
-            // Mencari index qty yang sesuai di form (Jika di EJS qty_kirim dikirim sebagai array semua baris)
-            // Namun, cara paling ampuh adalah mencocokkan jumlah index jika input di EJS sudah difilter di sisi client.
-            
-            // Jika Anda menggunakan kode EJS yang saya berikan sebelumnya (dimana qty hanya aktif jika centang):
-            // Maka idList, qtyList, dan hargaList yang MASUK ke server HANYA yang aktif.
-            
-            const qtyList = Array.isArray(qty_kirim) ? qty_kirim.filter(q => q !== '') : [qty_kirim];
-            const hargaList = Array.isArray(harga_cmt) ? harga_cmt : [harga_cmt];
-
             const qty = parseInt(qtyList[i]) || 0;
             const hrg = parseFloat(hargaList[i]) || 0;
 
@@ -2484,8 +2478,9 @@ app.post('/admin/simpan-sj-cmt', isAdmin, async (req, res) => {
 
         await db.query("COMMIT");
         res.redirect('/admin/data-cmt');
+
     } catch (err) {
-        await db.query("ROLLBACK");
+        if (db) await db.query("ROLLBACK");
         console.error("🔥 Simpan SJ Error:", err.message);
         res.status(500).send("Gagal simpan Surat Jalan: " + err.message);
     }

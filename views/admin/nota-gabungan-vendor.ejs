@@ -4,31 +4,63 @@
     <meta charset="UTF-8">
     <title>Nota Gabungan - <%= vendorName %></title>
     <style>
-        body { font-family: 'Courier New', monospace; width: 148mm; margin: auto; padding: 10px; }
-        .header { text-align: center; border-bottom: 2px solid #333; margin-bottom: 10px; }
-        table { width: 100%; border-collapse: collapse; margin-bottom: 10px; }
-        th { border-bottom: 1px solid #333; text-align: left; font-size: 12px; }
-        td { padding: 4px; font-size: 11px; }
-        .group-header { background: #eee; font-weight: bold; font-size: 11px; }
-        .total-box { text-align: right; font-weight: bold; font-size: 14px; border-top: 2px solid #333; }
-        @media print { .no-print { display: none; } }
+        body { 
+            font-family: 'Courier New', Courier, monospace; 
+            width: 148mm; 
+            margin: auto; 
+            padding: 10mm; 
+            border: 1px solid #eee; 
+            color: #333;
+        }
+        .header { text-align: center; border-bottom: 2px double #333; padding-bottom: 10px; margin-bottom: 15px; }
+        .info-rekap { display: flex; justify-content: space-between; font-size: 12px; margin-bottom: 15px; }
+        table { width: 100%; border-collapse: collapse; margin-bottom: 20px; }
+        th { border-bottom: 1px solid #333; text-align: left; font-size: 12px; padding: 5px; }
+        td { padding: 5px; font-size: 11px; border-bottom: 1px dotted #ccc; }
+        .group-header { background: #f2f2f2; font-weight: bold; }
+        .group-header td { border-bottom: 1px solid #333; padding: 6px 5px; }
+        .total-box { 
+            text-align: right; 
+            font-weight: bold; 
+            font-size: 15px; 
+            border-top: 2px solid #333; 
+            padding-top: 8px; 
+            margin-top: 10px;
+        }
+        .footer { display: flex; justify-content: space-between; margin-top: 40px; text-align: center; font-size: 10px; }
+        @media print { 
+            .no-print { display: none; } 
+            body { border: none; padding: 0; }
+        }
     </style>
 </head>
 <body>
-    <div class="no-print"><button onclick="window.print()">PRINT</button></div>
+    <div class="no-print" style="margin-bottom: 20px; text-align: right;">
+        <button onclick="window.print()" style="padding: 10px 20px; cursor: pointer; background: #2c3e50; color: white; border: none; border-radius: 5px; font-weight: bold;">🖨️ CETAK REKAP</button>
+    </div>
     
     <div class="header">
-        <h2 style="margin:0;">REKAP TAGIHAN CMT</h2>
+        <h2 style="margin:0; font-size: 18px;">REKAP TAGIHAN CMT (GABUNGAN)</h2>
         <small><%= config.nama_perusahaan %></small>
     </div>
 
-    <p style="font-size: 12px;">Vendor: <strong><%= vendorName %></strong><br>Tgl Rekap: <%= new Date().toLocaleDateString('id-ID') %></p>
+    <div class="info-rekap">
+        <div>
+            Vendor: <strong><%= vendorName %></strong><br>
+            Tgl Cetak: <%= new Date().toLocaleDateString('id-ID') %>
+        </div>
+        <div style="text-align: right;">
+            Total Surat Jalan: <%= sjs.length %><br>
+            Status: <strong>PROSES BAYAR</strong>
+        </div>
+    </div>
 
     <table>
         <thead>
             <tr>
-                <th>Item / PO</th>
+                <th>Item / Deskripsi PO</th>
                 <th style="text-align:center;">Qty</th>
+                <th style="text-align:right;">Hrg CMT</th>
                 <th style="text-align:right;">Subtotal</th>
             </tr>
         </thead>
@@ -38,17 +70,24 @@
                sjs.forEach(sj => { 
             %>
                 <tr class="group-header">
-                    <td colspan="3">SJ #<%= sj.id %> (<%= new Date(sj.tanggal_kirim).toLocaleDateString('id-ID') %>)</td>
+                    <td colspan="4">
+                        SURAT JALAN #<%= sj.id %> — Tgl: <%= new Date(sj.tanggal_kirim).toLocaleDateString('id-ID') %>
+                    </td>
                 </tr>
                 <% 
-                   let rowItems = items.filter(i => i.sj_id == sj.id);
+                   // Perbaikan: Gunakan toString() agar filter ID selalu akurat
+                   let rowItems = items.filter(i => i.sj_id.toString() === sj.id.toString());
                    rowItems.forEach(item => { 
                      let sub = Number(item.qty_dikirim) * Number(item.harga_cmt_saat_ini);
                      grandTotal += sub;
                 %>
                 <tr>
-                    <td><%= item.nama_po %> - <%= item.nama_desain %></td>
+                    <td>
+                        <strong><%= item.nama_po %></strong><br>
+                        <small style="color: #666;"><%= item.nama_desain %></small>
+                    </td>
                     <td style="text-align:center;"><%= item.qty_dikirim %></td>
+                    <td style="text-align:right;"><%= Number(item.harga_cmt_saat_ini).toLocaleString('id-ID') %></td>
                     <td style="text-align:right;"><%= sub.toLocaleString('id-ID') %></td>
                 </tr>
                 <% }) %>
@@ -57,7 +96,12 @@
     </table>
 
     <div class="total-box">
-        TOTAL SALDO VENDOR: Rp <%= grandTotal.toLocaleString('id-ID') %>
+        TOTAL SALDO YANG HARUS DIBAYAR: Rp <%= grandTotal.toLocaleString('id-ID') %>
+    </div>
+
+    <div class="footer">
+        <div style="width: 40%;">Admin Produksi,<br><br><br><br>( <%= config.nama_perusahaan %> )</div>
+        <div style="width: 40%;">Vendor / Pengerja,<br><br><br><br>( <%= vendorName %> )</div>
     </div>
 </body>
 </html>
