@@ -2459,6 +2459,35 @@ app.get('/admin/selesai-sj-cmt/:id', isAdmin, async (req, res) => {
     }
 });
 
+// --- RUTE HAPUS SURAT JALAN (MENGEMBALIKAN SALDO PO) ---
+app.get('/admin/hapus-sj-cmt/:id', isAdmin, async (req, res) => {
+    const tId = req.session.tenantId;
+    const sjId = req.params.id;
+
+    try {
+        await db.query("BEGIN");
+
+        // Cek dulu apakah statusnya masih PROSES
+        const sj = await db.get("SELECT status FROM cmt_surat_jalan WHERE id = $1 AND tenant_id = $2", [sjId, tId]);
+        
+        if (!sj) return res.send("<script>alert('Data tidak ditemukan'); window.history.back();</script>");
+        
+        if (sj.status === 'SELESAI') {
+            return res.send("<script>alert('SJ yang sudah SELESAI tidak bisa dihapus karena sudah masuk stok produksi.'); window.history.back();</script>");
+        }
+
+        // Hapus Surat Jalan (Detail akan ikut terhapus otomatis karena CASCADE)
+        await db.query("DELETE FROM cmt_surat_jalan WHERE id = $1 AND tenant_id = $2", [sjId, tId]);
+
+        await db.query("COMMIT");
+        res.redirect('/admin/data-cmt');
+    } catch (err) {
+        await db.query("ROLLBACK");
+        console.error("🔥 Error Hapus SJ:", err.message);
+        res.status(500).send("Gagal menghapus data.");
+    }
+});
+
 app.get('/cek-balance', isAdmin, async (req, res) => {
     const tId = req.session.tenantId;
     const bulanIni = req.query.bulan || new Date().toISOString().slice(0, 7);

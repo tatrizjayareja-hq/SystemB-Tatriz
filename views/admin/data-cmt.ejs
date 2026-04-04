@@ -110,8 +110,8 @@
                             <div style="font-size: 9px; font-weight: bold; color: #666; margin-bottom: 5px; text-transform: uppercase; border-bottom: 1px solid #eee;">Rincian Barang:</div>
                             <table class="table table-sm table-borderless mb-0" style="font-size: 10px;">
                                 <% 
-                                // Gunakan Number() untuk memastikan ID dibandingkan secara akurat antar row database
-                                let items = allSjDetails.filter(i => Number(i.sj_id) === Number(sj.id));
+                                // Gunakan pembanding yang sangat ketat untuk menghindari 'detil kosong'
+                                let items = allSjDetails.filter(i => i.sj_id.toString() === sj.id.toString());
                                 if(items.length > 0) {
                                     items.forEach(item => { 
                                 %>
@@ -120,25 +120,36 @@
                                         <strong><%= item.nama_po %></strong><br>
                                         <small class="text-muted"><%= item.nama_desain %></small>
                                     </td>
-                                    <td class="text-end fw-bold align-middle"><%= item.qty_dikirim %> Pcs</td>
+                                    <td class="text-end fw-bold align-middle text-nowrap"><%= item.qty_dikirim %> Pcs</td>
                                 </tr>
                                 <%     }); 
                                 } else { %>
                                 <tr>
-                                    <td colspan="2" class="text-center text-muted small">Rincian data tidak tersedia</td>
+                                    <td colspan="2" class="text-center text-muted small py-2">Rincian tidak terbaca</td>
                                 </tr>
                                 <% } %>
                             </table>
                         </div>
 
-                        <div class="mt-2 pt-2 border-top d-flex gap-1">
-                            <button onclick="toggleLaci('<%= sj.id %>')" class="btn btn-primary btn-sm px-3" style="font-size: 10px;">
-                                <i class="bi bi-list-ul"></i> DETAIL
-                            </button>
-                            <% if(sj.status === 'PROSES') { %>
-                                <button onclick="tandaiSelesai('<%= sj.id %>')" class="btn btn-success btn-sm px-3" style="font-size: 10px;">
-                                    <i class="bi bi-check-circle"></i> SELESAI
+                        <div class="mt-2 pt-2 border-top d-flex justify-content-between align-items-center">
+                            <div class="d-flex gap-1">
+                                <button onclick="toggleLaci('<%= sj.id %>')" class="btn btn-primary btn-sm px-2" style="font-size: 10px;">
+                                    <i class="bi bi-list-ul"></i> ISI
                                 </button>
+                                <% if(sj.status === 'PROSES') { %>
+                                    <button onclick="tandaiSelesai('<%= sj.id %>')" class="btn btn-success btn-sm px-2" style="font-size: 10px;">
+                                        <i class="bi bi-check-circle"></i> TERIMA
+                                    </button>
+                                <% } %>
+                            </div>
+
+                            <% if(sj.status === 'PROSES') { %>
+                                <a href="/admin/hapus-sj-cmt/<%= sj.id %>" 
+                                class="btn btn-outline-danger btn-sm px-2" 
+                                style="font-size: 10px; border:none;" 
+                                onclick="return confirm('Batalkan pengiriman ini? Saldo PO akan dikembalikan ke antrean.')">
+                                    <i class="bi bi-trash"></i>
+                                </a>
                             <% } %>
                         </div>
                     </div>
