@@ -57,38 +57,26 @@
                         </div>
                     </div>
 
-                    <div class="text-center mt-2 border-top pt-1 bg-dark rounded">
-                        <small class="fw-bold text-white" style="font-size: 9px;">HAK PROFIT OWNER BULAN INI:</small>
-                        <strong class="text-warning d-block" style="font-size: 18px;">
-                            Rp <%= Number(estimasiProfit || 0).toLocaleString('id-ID') %>
-                        </strong>
+                    <div class="card shadow-sm mb-2" style="border-left: 5px solid #27ae60; position: relative; overflow: hidden; background: #f9fffb;">
+                        <% if (!isPro) { %>
+                            <div class="locked-overlay" onclick="ajakUpgrade('Analisis Akumulasi Profit')">
+                                <i class="bi bi-lock-fill text-success fs-5 mb-1"></i>
+                                <small class="fw-bold text-dark" style="font-size: 8px;">Rincian Tabungan Profit Locked</small>
+                            </div>
+                        <% } %>
+                        <div class="card-body p-2 d-flex justify-content-between align-items-center">
+                            <div>
+                                <small class="fw-bold text-uppercase" style="color: #27ae60; font-size: 10px;">📈 Tabungan Jatah Profit (Akumulasi)</small>
+                                <h5 class="mb-0 fw-bold" style="color: #2d3436;">
+                                    Detail Riwayat Profit & Penarikan
+                                </h5>
+                                <a href="/analisis-profit" class="text-decoration-none fw-bold" style="font-size: 10px; color: #27ae60;">LIHAT RINCIAN & LOG TARIK →</a>
+                            </div>
+                            <div class="text-success opacity-25">
+                                <i class="bi bi-safe2-fill" style="font-size: 2rem;"></i>
+                            </div>
+                        </div>
                     </div>
-                </div>
-            </div>
-
-            <div class="card shadow-sm mb-2" style="border-left: 5px solid #27ae60; position: relative; overflow: hidden; background: #f9fffb;">
-                <% if (!isPro) { %>
-                    <div class="locked-overlay" onclick="ajakUpgrade('Analisis Akumulasi Profit')">
-                        <i class="bi bi-lock-fill text-success fs-5 mb-1"></i>
-                        <small class="fw-bold text-dark" style="font-size: 8px;">Rincian Tabungan Profit Locked</small>
-                    </div>
-                <% } %>
-                <div class="card-body p-2 d-flex justify-content-between align-items-center">
-                    <div>
-                        <small class="fw-bold text-uppercase" style="color: #27ae60; font-size: 10px;">📈 Tabungan Jatah Profit (Akumulasi)</small>
-                        <h5 class="mb-0 fw-bold" style="color: #2d3436; font-size: 13px;">Riwayat & Penarikan</h5>
-                        <a href="/analisis-profit" class="text-decoration-none fw-bold" style="font-size: 10px; color: #27ae60;">LIHAT RINCIAN & LOG TARIK →</a>
-                    </div>
-                    <div class="text-success opacity-25">
-                        <i class="bi bi-safe2-fill" style="font-size: 2rem;"></i>
-                    </div>
-                </div>
-            </div>
-
-            <div class="card shadow-sm" style="border-left: 5px solid #e17055; background-color: #fff9f7;">
-                </div>
-        </div>
-        </div>
 
                     <div class="text-center mt-2 border-top pt-1 bg-dark rounded">
                         <small class="fw-bold text-white" style="font-size: 9px;">HAK PROFIT OWNER BULAN INI:</small>
