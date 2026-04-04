@@ -56,8 +56,16 @@
                             <strong class="text-danger" style="font-size: 12px;">Rp <%= (Number(totalBiaya || 0) + Number(config.beban_tetap || 0)).toLocaleString('id-ID') %></strong>
                         </div>
                     </div>
+                    <div class="text-center mt-2 border-top pt-1 bg-dark rounded">
+                        <small class="fw-bold text-white" style="font-size: 9px;">HAK PROFIT OWNER BULAN INI:</small>
+                        <strong class="text-warning d-block" style="font-size: 18px;">
+                            Rp <%= Number(estimasiProfit || 0).toLocaleString('id-ID') %>
+                        </strong>
+                    </div>
+                </div>
+            </div>
 
-                    <div class="card shadow-sm mb-2" style="border-left: 5px solid #27ae60; position: relative; overflow: hidden; background: #f9fffb;">
+            <div class="card shadow-sm mb-2" style="border-left: 5px solid #27ae60; position: relative; overflow: hidden; background: #f9fffb;">
                         <% if (!isPro) { %>
                             <div class="locked-overlay" onclick="ajakUpgrade('Analisis Akumulasi Profit')">
                                 <i class="bi bi-lock-fill text-success fs-5 mb-1"></i>
@@ -77,15 +85,6 @@
                             </div>
                         </div>
                     </div>
-
-                    <div class="text-center mt-2 border-top pt-1 bg-dark rounded">
-                        <small class="fw-bold text-white" style="font-size: 9px;">HAK PROFIT OWNER BULAN INI:</small>
-                        <strong class="text-warning d-block" style="font-size: 18px;">
-                            Rp <%= Number(estimasiProfit || 0).toLocaleString('id-ID') %>
-                        </strong>
-                    </div>
-                </div>
-            </div>
 
             <div class="card shadow-sm" style="border-left: 5px solid #e17055; background-color: #fff9f7;">
                 <div class="card-body p-2">
