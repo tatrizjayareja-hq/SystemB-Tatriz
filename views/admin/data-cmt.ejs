@@ -5,6 +5,7 @@
     .card-sj:hover { transform: translateY(-3px); box-shadow: 0 4px 15px rgba(0,0,0,0.1); }
     .input-qty-sj { width: 80px !important; text-align: center; border-color: #e67e22; }
     .bg-vendor { background-color: #fff9f4; }
+    .area-detail-laci { background: #f8f9fa; border: 1px dashed #ddd; border-radius: 8px; margin-top: 10px; padding: 10px; font-size: 11px; }
 </style>
 
 <div class="container-fluid mt-3" style="max-width: 1100px;">
@@ -57,7 +58,7 @@
                                         </td>
                                         <td>
                                             <strong><%= po.nama_po %></strong><br>
-                                            <span class="text-muted"><%= dsn.nama_desain %> (<%= dsn.jenis_bordir %>)</span>
+                                            <span class="text-muted text-uppercase" style="font-size: 10px;"><%= dsn.nama_desain %> (<%= dsn.jenis_bordir %>)</span>
                                         </td>
                                         <td class="text-center">
                                             <span class="badge bg-info badge-sisa"><%= dsn.sisa_siap_kirim %> / <%= dsn.jumlah %> Pcs</span>
@@ -94,17 +95,35 @@
                         <div>
                             <small class="text-muted" style="font-size: 10px;"><%= new Date(sj.tanggal_kirim).toLocaleDateString('id-ID') %></small>
                             <h6 class="mb-0 fw-bold text-uppercase"><%= sj.nama_vendor %></h6>
-                            <small class="fw-bold text-danger">Total Biaya: Rp <%= Number(sj.total_biaya_vendor).toLocaleString('id-ID') %></small>
+                            <small class="fw-bold text-danger">Estimasi: Rp <%= Number(sj.total_biaya_vendor).toLocaleString('id-ID') %></small>
                         </div>
-                        <span class="badge bg-warning text-dark" style="font-size: 9px;"><%= sj.status %></span>
+                        <span class="badge <%= sj.status === 'PROSES' ? 'bg-warning text-dark' : 'bg-success' %>" style="font-size: 9px;"><%= sj.status %></span>
                     </div>
+
+                    <div id="laci-<%= sj.id %>" class="area-detail-laci d-none">
+                        <table class="table table-sm table-borderless mb-0">
+                            <% 
+                               let items = allSjDetails.filter(i => i.sj_id == sj.id);
+                               items.forEach(item => { 
+                            %>
+                            <tr class="border-bottom border-white">
+                                <td><%= item.nama_po %><br><small class="text-muted"><%= item.nama_desain %></small></td>
+                                <td class="text-end fw-bold align-middle"><%= item.qty_dikirim %> Pcs</td>
+                            </tr>
+                            <% }) %>
+                        </table>
+                    </div>
+
                     <div class="mt-2 pt-2 border-top d-flex gap-1">
-                        <button onclick="lihatDetailSJ('<%= sj.id %>')" class="btn btn-primary btn-sm px-3" style="font-size: 10px;">DETAIL</button>
-                        <button onclick="tandaiSelesai('<%= sj.id %>')" class="btn btn-success btn-sm px-3" style="font-size: 10px;">SELESAI</button>
+                        <button onclick="toggleLaci('<%= sj.id %>')" class="btn btn-primary btn-sm px-3" style="font-size: 10px;">DETAIL</button>
+                        <% if(sj.status === 'PROSES') { %>
+                            <button onclick="tandaiSelesai('<%= sj.id %>')" class="btn btn-success btn-sm px-3" style="font-size: 10px;">SELESAI</button>
+                        <% } %>
                     </div>
                 </div>
             </div>
             <% }) %>
+            
             <% if(historySJ.length === 0) { %>
                 <div class="text-center p-4 bg-white rounded border">
                     <i class="bi bi-truck text-muted fs-2"></i><br>
@@ -115,6 +134,7 @@
     </div>
 </div>
 
+<script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
 <script>
     document.getElementById('tglSJ').valueAsDate = new Date();
 
@@ -135,22 +155,26 @@
         }
     }
 
-    function lihatDetailSJ(id) {
-        // Ini nanti bisa disambung ke fungsi untuk cetak nota vendor
-        window.open(`/cetak-nota-vendor?sj_id=${id}`, '_blank');
+    // Fungsi Laci Detail
+    function toggleLaci(id) {
+        const target = document.getElementById('laci-' + id);
+        if (target.classList.contains('d-none')) {
+            target.classList.remove('d-none');
+        } else {
+            target.classList.add('d-none');
+        }
     }
 
     function tandaiSelesai(id) {
         Swal.fire({
             title: 'Konfirmasi Selesai?',
-            text: "Barang dari vendor sudah kembali dan lulus QC?",
+            text: "Barang sudah kembali dan akan dimasukkan ke stok produksi?",
             icon: 'question',
             showCancelButton: true,
             confirmButtonColor: '#27ae60',
             confirmButtonText: 'Ya, Selesai!'
         }).then((result) => {
             if (result.isConfirmed) {
-                // Nanti buatkan route /admin/selesai-sj-cmt/:id
                 window.location.href = `/admin/selesai-sj-cmt/${id}`;
             }
         })

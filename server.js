@@ -2328,7 +2328,6 @@ app.get('/admin/data-cmt', isAdmin, async (req, res) => {
         const orders = await db.query(sqlOrders, [tId]);
 
         // 2. Query Detail Desain dengan hitungan SISA SALDO
-        // Sisa = Qty PO - Total Qty yang sudah masuk ke Surat Jalan
         const sqlDetails = `
             SELECT d.*, 
             (d.jumlah - COALESCE((SELECT SUM(qty_dikirim) FROM cmt_surat_jalan_detail WHERE po_detail_id = d.id), 0)) as sisa_siap_kirim
@@ -2338,7 +2337,7 @@ app.get('/admin/data-cmt', isAdmin, async (req, res) => {
         `;
         const details = await db.query(sqlDetails, [tId]);
 
-        // 3. Ambil riwayat Surat Jalan yang pernah dibuat (untuk monitoring vendor)
+        // 3. Ambil riwayat Surat Jalan (Proses di atas)
         const historySJ = await db.query(`
             SELECT * FROM cmt_surat_jalan 
             WHERE tenant_id = $1 
@@ -2346,10 +2345,20 @@ app.get('/admin/data-cmt', isAdmin, async (req, res) => {
             LIMIT 20
         `, [tId]);
 
+        // 4. Ambil SEMUA rincian isi Surat Jalan untuk fungsi DETAIL laci
+        const allSjDetails = await db.query(`
+            SELECT d.*, p.nama_po, det.nama_desain, det.jenis_bordir
+            FROM cmt_surat_jalan_detail d
+            JOIN po_detail det ON d.po_detail_id = det.id
+            JOIN po_utama p ON det.po_id = p.id
+            WHERE p.tenant_id = $1
+        `, [tId]);
+
         res.render('admin/data-cmt', { 
             orders: orders.rows, 
             details: details.rows,
-            historySJ: historySJ.rows
+            historySJ: historySJ.rows,
+            allSjDetails: allSjDetails.rows // Variabel baru dikirim ke EJS
         });
 
     } catch (err) {
