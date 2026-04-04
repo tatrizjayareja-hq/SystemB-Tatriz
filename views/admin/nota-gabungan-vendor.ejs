@@ -1,0 +1,63 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <title>Nota Gabungan - <%= vendorName %></title>
+    <style>
+        body { font-family: 'Courier New', monospace; width: 148mm; margin: auto; padding: 10px; }
+        .header { text-align: center; border-bottom: 2px solid #333; margin-bottom: 10px; }
+        table { width: 100%; border-collapse: collapse; margin-bottom: 10px; }
+        th { border-bottom: 1px solid #333; text-align: left; font-size: 12px; }
+        td { padding: 4px; font-size: 11px; }
+        .group-header { background: #eee; font-weight: bold; font-size: 11px; }
+        .total-box { text-align: right; font-weight: bold; font-size: 14px; border-top: 2px solid #333; }
+        @media print { .no-print { display: none; } }
+    </style>
+</head>
+<body>
+    <div class="no-print"><button onclick="window.print()">PRINT</button></div>
+    
+    <div class="header">
+        <h2 style="margin:0;">REKAP TAGIHAN CMT</h2>
+        <small><%= config.nama_perusahaan %></small>
+    </div>
+
+    <p style="font-size: 12px;">Vendor: <strong><%= vendorName %></strong><br>Tgl Rekap: <%= new Date().toLocaleDateString('id-ID') %></p>
+
+    <table>
+        <thead>
+            <tr>
+                <th>Item / PO</th>
+                <th style="text-align:center;">Qty</th>
+                <th style="text-align:right;">Subtotal</th>
+            </tr>
+        </thead>
+        <tbody>
+            <% 
+               let grandTotal = 0; 
+               sjs.forEach(sj => { 
+            %>
+                <tr class="group-header">
+                    <td colspan="3">SJ #<%= sj.id %> (<%= new Date(sj.tanggal_kirim).toLocaleDateString('id-ID') %>)</td>
+                </tr>
+                <% 
+                   let rowItems = items.filter(i => i.sj_id == sj.id);
+                   rowItems.forEach(item => { 
+                     let sub = Number(item.qty_dikirim) * Number(item.harga_cmt_saat_ini);
+                     grandTotal += sub;
+                %>
+                <tr>
+                    <td><%= item.nama_po %> - <%= item.nama_desain %></td>
+                    <td style="text-align:center;"><%= item.qty_dikirim %></td>
+                    <td style="text-align:right;"><%= sub.toLocaleString('id-ID') %></td>
+                </tr>
+                <% }) %>
+            <% }) %>
+        </tbody>
+    </table>
+
+    <div class="total-box">
+        TOTAL SALDO VENDOR: Rp <%= grandTotal.toLocaleString('id-ID') %>
+    </div>
+</body>
+</html>

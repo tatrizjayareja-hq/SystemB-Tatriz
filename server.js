@@ -2254,6 +2254,48 @@ app.get('/cetak-nota-vendor', isAdmin, async (req, res) => {
     }
 });
 
+app.get('/cetak-nota-gabungan-vendor', isAdmin, async (req, res) => {
+    const tId = req.session.tenantId;
+    const vendorName = req.query.vendor; // Ambil nama vendor dari URL
+
+    try {
+        const configRes = await db.query("SELECT * FROM settings WHERE tenant_id = $1", [tId]);
+        const config = configRes.rows[0] || { nama_perusahaan: 'TATRIZ' };
+
+        // 1. Ambil semua SJ milik vendor ini yang masih PROSES
+        const sjRes = await db.query(`
+            SELECT * FROM cmt_surat_jalan 
+            WHERE tenant_id = $1 AND nama_vendor = $2 AND status = 'PROSES'
+            ORDER BY tanggal_kirim ASC
+        `, [tId, vendorName]);
+
+        const sjs = sjRes.rows;
+        if (sjs.length === 0) return res.send("Tidak ada tagihan berjalan untuk vendor ini.");
+
+        // 2. Ambil semua detail barang dari semua SJ tersebut
+        const sjIds = sjs.map(s => s.id);
+        const detailRes = await db.query(`
+            SELECT d.*, det.nama_desain, p.nama_po, sj.tanggal_kirim, sj.id as sj_id
+            FROM cmt_surat_jalan_detail d
+            JOIN cmt_surat_jalan sj ON d.sj_id = sj.id
+            JOIN po_detail det ON d.po_detail_id = det.id
+            JOIN po_utama p ON det.po_id = p.id
+            WHERE d.sj_id = ANY($1)
+        `, [sjIds]);
+
+        res.render('admin/nota-gabungan-vendor', {
+            config,
+            vendorName,
+            sjs,
+            items: detailRes.rows
+        });
+    } catch (err) {
+        console.error(err);
+        res.status(500).send("Gagal menggabungkan nota.");
+    }
+});
+
+
 app.get('/performa-operator', isAdmin, async (req, res) => {
     const tId = req.session.tenantId;
     const isInternal = (tId === 1 || tId === 100); // Logika Internal
