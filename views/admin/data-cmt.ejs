@@ -58,7 +58,7 @@
                                         </td>
                                         <td>
                                             <strong><%= po.nama_po %></strong><br>
-                                            <span class="text-muted text-uppercase" style="font-size: 10px;"><%= dsn.nama_desain %> (<%= dsn.jenis_bordir %>)</span>
+                                            <span class="text-muted" style="font-size: 10px;"><%= dsn.nama_desain %> (<%= dsn.jenis_bordir %>)</span>
                                         </td>
                                         <td class="text-center">
                                             <span class="badge bg-info badge-sisa"><%= dsn.sisa_siap_kirim %> / <%= dsn.jumlah %> Pcs</span>
@@ -111,7 +111,7 @@
                         </div>
 
                         <div id="laci-<%= sj.id %>" class="area-detail-laci d-none mt-2" style="background: #f8f9fa; border: 1px dashed #ddd; padding: 8px; border-radius: 5px;">
-                            <div style="font-size: 9px; font-weight: bold; color: #666; margin-bottom: 5px; text-transform: uppercase; border-bottom: 1px solid #eee;">Rincian Barang:</div>
+                            <div style="font-size: 9px; font-weight: bold; color: #666; margin-bottom: 5px; border-bottom: 1px solid #eee;">Rincian Barang:</div>
                             <table class="table table-sm table-borderless mb-0" style="font-size: 10px;">
                                 <% 
                                 // Gunakan pembanding yang sangat ketat untuk menghindari 'detil kosong'
