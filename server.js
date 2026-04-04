@@ -1242,6 +1242,61 @@ app.post('/tambah-karyawan', isAdmin, async (req, res) => {
     }
 });
 
+app.get('/piutang-bulanan', isAdmin, async (req, res) => {
+    const tId = req.session.tenantId;
+    const bulanIni = req.query.bulan || new Date().toISOString().slice(0, 7);
+
+    try {
+        const sql = `
+            SELECT 
+                p.customer,
+                p.nama_po,
+                p.tanggal as tgl_po,
+                /* 1. Hitung Nilai Produksi PO ini KHUSUS di bulan terpilih */
+                (SELECT SUM(h.jumlah_setor * d.harga_customer) 
+                 FROM hasil_kerja h 
+                 JOIN po_detail d ON h.detail_id = d.id 
+                 WHERE h.po_id = p.id AND TO_CHAR(h.tanggal::DATE, 'YYYY-MM') = $1) as nilai_produksi_bulan_ini,
+                
+                /* 2. Hitung Total Nilai PO (Seluruhnya) */
+                p.total_harga_customer as total_nilai_po,
+
+                /* 3. Hitung yang sudah dibayar untuk PO ini (Akumulatif) */
+                COALESCE((SELECT SUM(jumlah) FROM arus_kas 
+                          WHERE po_id = p.id 
+                          AND kategori IN ('PEMBAYARAN BORDIR', 'PELUNASAN', 'DP/CICILAN')), 0) as total_dibayar
+            FROM po_utama p
+            WHERE p.tenant_id = $2
+            AND EXISTS (
+                /* Hanya ambil PO yang ADA aktivitas produksi di bulan ini */
+                SELECT 1 FROM hasil_kerja h 
+                WHERE h.po_id = p.id 
+                AND TO_CHAR(h.tanggal::DATE, 'YYYY-MM') = $1
+            )
+            ORDER BY p.customer ASC
+        `;
+
+        const result = await db.query(sql, [bulanIni, tId]);
+        
+        // Hitung ringkasan untuk header
+        let totalPiutangBulanIni = 0;
+        const dataPiutang = result.rows.map(row => {
+            const sisaPiutangPO = Math.max(0, parseFloat(row.total_nilai_po) - parseFloat(row.total_dibayar));
+            totalPiutangBulanIni += sisaPiutangPO;
+            return { ...row, sisaPiutangPO };
+        });
+
+        res.render('admin/piutang-bulanan', {
+            dataPiutang,
+            totalPiutangBulanIni,
+            bulanIni
+        });
+    } catch (err) {
+        console.error("🔥 Piutang Bulanan Error:", err.message);
+        res.status(500).send("Gagal memuat data piutang.");
+    }
+});
+
 app.get('/hapus-karyawan/:id', isAdmin, async (req, res) => {
     const tId = req.session.tenantId;
     const userId = req.params.id;

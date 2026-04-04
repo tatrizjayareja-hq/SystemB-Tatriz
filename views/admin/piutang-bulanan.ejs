@@ -1,0 +1,64 @@
+<%- include('../partials/header') %>
+<div class="container mt-3" style="max-width: 900px;">
+    <div class="d-flex justify-content-between align-items-center mb-3">
+        <h5 class="fw-bold mb-0">🔍 Piutang dari Produksi</h5>
+        <a href="/laporan-kas" class="btn btn-outline-secondary btn-sm">Kembali</a>
+    </div>
+
+    <form action="/piutang-bulanan" method="GET" class="mb-3">
+        <div class="input-group input-group-sm">
+            <span class="input-group-text bg-dark text-white">Periode Produksi</span>
+            <input type="month" name="bulan" value="<%= bulanIni %>" class="form-control" onchange="this.form.submit()">
+        </div>
+    </form>
+
+    <div class="card bg-danger text-white border-0 shadow-sm mb-3">
+        <div class="card-body p-3">
+            <small class="opacity-75 fw-bold text-uppercase" style="font-size: 10px;">Total Piutang Berjalan (Dari PO Bulan Ini)</small>
+            <h3 class="fw-bold mb-0">Rp <%= totalPiutangBulanIni.toLocaleString('id-ID') %></h3>
+            <p class="mb-0 small opacity-75">*Menampilkan sisa tagihan dari PO yang dikerjakan pada <%= bulanIni %></p>
+        </div>
+    </div>
+
+    <div class="card shadow-sm border-0">
+        <div class="table-responsive">
+            <table class="table table-hover align-middle mb-0" style="font-size: 12px;">
+                <thead class="table-dark">
+                    <tr>
+                        <th>CUSTOMER / PO</th>
+                        <th class="text-end">HASIL KERJA BULAN INI</th>
+                        <th class="text-end">TOTAL TAGIHAN</th>
+                        <th class="text-end text-warning">SISA PIUTANG</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <% if(dataPiutang.length > 0) { %>
+                        <% dataPiutang.forEach(d => { %>
+                        <tr>
+                            <td>
+                                <strong class="text-primary text-uppercase"><%= d.customer %></strong><br>
+                                <small class="text-muted"><%= d.nama_po %></small>
+                            </td>
+                            <td class="text-end">Rp <%= parseFloat(d.nilai_produksi_bulan_ini || 0).toLocaleString('id-ID') %></td>
+                            <td class="text-end text-muted">Rp <%= parseFloat(d.total_nilai_po || 0).toLocaleString('id-ID') %></td>
+                            <td class="text-end fw-bold text-danger">
+                                Rp <%= d.sisaPiutangPO.toLocaleString('id-ID') %>
+                            </td>
+                        </tr>
+                        <% }) %>
+                    <% } else { %>
+                        <tr>
+                            <td colspan="4" class="text-center py-4 text-muted">Tidak ada aktivitas produksi yang tercatat pada bulan ini.</td>
+                        </tr>
+                    <% } %>
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <div class="alert alert-info mt-3 p-2" style="font-size: 10px;">
+        <i class="bi bi-info-circle-fill"></i> 
+        <strong>Penjelasan:</strong> Tabel ini mendeteksi PO apa saja yang "berjalan" di mesin pada bulan <strong><%= bulanIni %></strong>. Jika PO tersebut sudah dikerjakan tapi pembayarannya di Kas belum lunas, maka akan muncul sebagai piutang di sini.
+    </div>
+</div>
+<%- include('../partials/footer') %>
