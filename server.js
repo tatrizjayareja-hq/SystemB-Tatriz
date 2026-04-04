@@ -1110,6 +1110,79 @@ async function updateStatusPO(poId) {
     }
 }
 
+app.get('/analisis-profit', isAdmin, async (req, res) => {
+    const tId = req.session.tenantId;
+    const isPro = (tId === 1 || tId === 100 || req.session.tenantLevel >= 2);
+
+    if (!isPro) return res.send("<script>alert('Fitur ini khusus Akun PRO'); window.history.back();</script>");
+
+    try {
+        // 1. Ambil Config untuk mendapatkan Beban Tetap (Kontrakan)
+        const configRes = await db.query("SELECT * FROM settings WHERE tenant_id = $1", [tId]);
+        const conf = configRes.rows[0] || { beban_tetap: 0 };
+        const bebanTetap = parseFloat(conf.beban_tetap || 0);
+
+        // 2. Query Profit Kumulatif Per Bulan (Logika identik dengan laporan-kas)
+        const sqlProfitBulanan = `
+            SELECT 
+                TO_CHAR(h.tanggal::DATE, 'YYYY-MM') as bulan,
+                SUM(h.jumlah_setor * d.harga_customer) as prod_bln,
+                (
+                    SELECT COALESCE(SUM(jumlah), 0) 
+                    FROM arus_kas 
+                    WHERE tenant_id = $1 
+                    AND jenis = 'PENGELUARAN' 
+                    AND kategori NOT IN ('BIAYA KONTRAKAN', 'BAYAR HUTANG', 'JATAH PROFIT OWNER')
+                    AND TO_CHAR(tanggal::DATE, 'YYYY-MM') = TO_CHAR(h.tanggal::DATE, 'YYYY-MM')
+                ) as op_bln
+            FROM hasil_kerja h
+            JOIN po_detail d ON h.detail_id = d.id
+            WHERE h.tenant_id = $1
+            GROUP BY bulan
+            ORDER BY bulan DESC
+        `;
+        const profitRes = await db.query(sqlProfitBulanan, [tId]);
+        
+        // Olah data agar menyertakan perhitungan Nett
+        const listProfit = profitRes.rows.map(row => {
+            const prod = parseFloat(row.prod_bln || 0);
+            const op = parseFloat(row.op_bln || 0);
+            return {
+                bulan: row.bulan,
+                produksi: prod,
+                operasional: op,
+                bebanTetap: bebanTetap,
+                profitNett: prod - op - bebanTetap
+            };
+        });
+
+        // 3. Ambil Rincian Penarikan (Arus Kas Kategori JATAH PROFIT OWNER)
+        const penarikanRes = await db.query(`
+            SELECT tanggal, jumlah, keterangan 
+            FROM arus_kas 
+            WHERE tenant_id = $1 AND kategori = 'JATAH PROFIT OWNER'
+            ORDER BY tanggal DESC
+        `, [tId]);
+
+        // 4. Hitung Total Akumulasi
+        const totalProfitKumulatif = listProfit.reduce((sum, item) => sum + item.profitNett, 0);
+        const totalSudahDiambil = penarikanRes.rows.reduce((sum, item) => sum + parseFloat(item.jumlah || 0), 0);
+
+        res.render('admin/analisis-profit', {
+            listProfit,
+            listPenarikan: penarikanRes.rows,
+            totalProfitKumulatif,
+            totalSudahDiambil,
+            sisaJatah: totalProfitKumulatif - totalSudahDiambil,
+            config: conf
+        });
+
+    } catch (err) {
+        console.error("🔥 Analisis Profit Error:", err.message);
+        res.status(500).send("Terjadi kesalahan sistem.");
+    }
+});
+
 app.get('/karyawan', isAdmin, async (req, res) => {
     const tId = req.session.tenantId;
 
