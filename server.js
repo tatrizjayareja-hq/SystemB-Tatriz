@@ -141,7 +141,7 @@ app.post('/login', async (req, res) => {
 
             // Cek Status Tenant
             const statusRes = await db.query(
-                "SELECT is_active FROM settings WHERE tenant_id = $1",
+                "SELECT is_active, level FROM settings WHERE tenant_id = $1", 
                 [loggedInUser.tenant_id]
             );
 
