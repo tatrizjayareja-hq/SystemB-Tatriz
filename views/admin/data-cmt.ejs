@@ -102,7 +102,7 @@
                                 <small class="text-muted" style="font-size: 10px;">
                                     <%= new Date(sj.tanggal_kirim).toLocaleDateString('id-ID') %> | ID: #<%= sj.id %>
                                 </small>
-                                <h6 class="mb-0 fw-bold text-uppercase"><%= sj.nama_vendor %></h6>
+                                <h6 class="mb-0 fw-bold"><%= sj.nama_vendor %></h6>
                                 <small class="fw-bold text-danger">Estimasi: Rp <%= Number(sj.total_biaya_vendor).toLocaleString('id-ID') %></small>
                             </div>
                             <span class="badge <%= sj.status === 'PROSES' ? 'bg-warning text-dark' : 'bg-success' %>" style="font-size: 9px;">
