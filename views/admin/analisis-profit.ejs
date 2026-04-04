@@ -45,9 +45,17 @@
                 <tbody>
                     <% listProfit.forEach(p => { %>
                     <tr>
+                        <td class="fw-bold text-uppercase"><%= p.bulan %></td>
+                        
                         <td class="text-end">Rp <%= (p.produksi || 0).toLocaleString('id-ID') %></td>
-                        <td class="text-end text-muted">Rp <%= ((Number(p.operasional) || 0) + (Number(p.bebanTetap) || 0)).toLocaleString('id-ID') %></td>
-                        <td class="text-end fw-bold text-success">Rp <%= (p.profitNett || 0).toLocaleString('id-ID') %></td>
+                        
+                        <td class="text-end text-muted">
+                            Rp <%= ((Number(p.operasional) || 0) + (Number(p.bebanTetap) || 0)).toLocaleString('id-ID') %>
+                        </td>
+                        
+                        <td class="text-end fw-bold text-success">
+                            Rp <%= (p.profitNett || 0).toLocaleString('id-ID') %>
+                        </td>
                     </tr>
                     <% }) %>
                 </tbody>
@@ -55,7 +63,7 @@
         </div>
     </div>
 
-    <div class="card shadow-sm border-danger">
+    <div class="card shadow-sm border-danger mb-3">
         <div class="card-header bg-danger text-white py-3 fw-bold">
             <i class="bi bi-cash-stack me-2"></i> Riwayat Penarikan Jatah Owner
         </div>
@@ -63,7 +71,7 @@
             <table class="table table-sm table-hover mb-0" style="font-size: 11px;">
                 <thead class="table-light sticky-top">
                     <tr>
-                        <th>TANGGAL</th>
+                        <th style="width: 100px;">TANGGAL</th>
                         <th>KETERANGAN</th>
                         <th class="text-end">JUMLAH</th>
                     </tr>
@@ -72,9 +80,9 @@
                     <% if(listPenarikan.length > 0) { %>
                         <% listPenarikan.forEach(lp => { %>
                         <tr>
-                            <td><%= new Date(lp.tanggal).toLocaleDateString('id-ID') %></td>
+                            <td class="text-nowrap"><%= new Date(lp.tanggal).toLocaleDateString('id-ID', {day:'2-digit', month:'2-digit', year:'numeric'}) %></td>
                             <td><%= lp.keterangan %></td>
-                            <td class="text-end fw-bold text-danger">- Rp <%= Number(lp.jumlah).toLocaleString('id-ID') %></td>
+                            <td class="text-end fw-bold text-danger">- Rp <%= Number(lp.jumlah || 0).toLocaleString('id-ID') %></td>
                         </tr>
                         <% }) %>
                     <% } else { %>
@@ -87,9 +95,10 @@
         </div>
     </div>
 
-    <div class="alert alert-secondary mt-3 p-2" style="font-size: 10px;">
-        <strong>Catatan:</strong> 
-        Profit Nett dihitung dari (Hasil Kerja) - (Biaya Operasional) - (Beban Tetap: Rp <%= config.beban_tetap.toLocaleString('id-ID') %>).
+    <div class="alert alert-secondary p-2" style="font-size: 10px;">
+        <strong>Catatan Perhitungan:</strong><br>
+        1. <strong>Profit Nett</strong> = (Hasil Kerja Mesin) - (Biaya Operasional) - (Beban Tetap: Rp <%= (Number(config.beban_tetap) || 0).toLocaleString('id-ID') %>).<br>
+        2. Biaya Operasional tidak termasuk Biaya Kontrakan, Bayar Hutang, dan Jatah Owner yang sudah diambil.
     </div>
 </div>
-<%- include('../partials/header') %>
+<%- include('../partials/footer') %>
