@@ -2327,7 +2327,7 @@ app.get('/admin/data-cmt', isAdmin, async (req, res) => {
         `;
         const orders = await db.query(sqlOrders, [tId]);
 
-        // 2. Query Detail Desain dengan hitungan SISA SALDO
+        // 2. Query Detail Desain dengan hitungan SISA SALDO yang Akurat
         const sqlDetails = `
             SELECT d.*, 
             (d.jumlah - COALESCE((SELECT SUM(qty_dikirim) FROM cmt_surat_jalan_detail WHERE po_detail_id = d.id), 0)) as sisa_siap_kirim
@@ -2337,32 +2337,33 @@ app.get('/admin/data-cmt', isAdmin, async (req, res) => {
         `;
         const details = await db.query(sqlDetails, [tId]);
 
-        // 3. Ambil riwayat Surat Jalan (Proses di atas)
+        // 3. Riwayat Surat Jalan (Limit ditambah agar tidak hilang yang baru dibuat)
         const historySJ = await db.query(`
             SELECT * FROM cmt_surat_jalan 
             WHERE tenant_id = $1 
-            ORDER BY CASE WHEN status = 'PROSES' THEN 1 ELSE 2 END, tanggal_kirim DESC 
-            LIMIT 20
+            ORDER BY CASE WHEN status = 'PROSES' THEN 1 ELSE 2 END, tanggal_kirim DESC, id DESC
+            LIMIT 50
         `, [tId]);
 
-        // 4. Ambil SEMUA rincian isi Surat Jalan untuk fungsi DETAIL laci
+        // 4. Ambil SEMUA rincian isi Surat Jalan (PASTIKAN JOIN KE SURAT JALAN)
         const allSjDetails = await db.query(`
             SELECT d.*, p.nama_po, det.nama_desain, det.jenis_bordir
             FROM cmt_surat_jalan_detail d
+            JOIN cmt_surat_jalan sj ON d.sj_id = sj.id
             JOIN po_detail det ON d.po_detail_id = det.id
             JOIN po_utama p ON det.po_id = p.id
-            WHERE p.tenant_id = $1
+            WHERE sj.tenant_id = $1
         `, [tId]);
 
         res.render('admin/data-cmt', { 
             orders: orders.rows, 
             details: details.rows,
             historySJ: historySJ.rows,
-            allSjDetails: allSjDetails.rows // Variabel baru dikirim ke EJS
+            allSjDetails: allSjDetails.rows
         });
 
     } catch (err) {
-        console.error("Database Error CMT:", err.message);
+        console.error("🔥 Error Data CMT:", err.message);
         res.status(500).send("Gagal memuat data CMT");
     }
 });

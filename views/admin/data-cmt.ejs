@@ -88,51 +88,69 @@
 
         <div class="col-md-4">
             <h6 class="fw-bold mb-3"><i class="bi bi-clock-history"></i> Surat Jalan Terbaru</h6>
-            <% historySJ.forEach(sj => { %>
-            <div class="card card-sj shadow-sm mb-2 border-0">
-                <div class="card-body p-2">
-                    <div class="d-flex justify-content-between align-items-start">
-                        <div>
-                            <small class="text-muted" style="font-size: 10px;"><%= new Date(sj.tanggal_kirim).toLocaleDateString('id-ID') %></small>
-                            <h6 class="mb-0 fw-bold text-uppercase"><%= sj.nama_vendor %></h6>
-                            <small class="fw-bold text-danger">Estimasi: Rp <%= Number(sj.total_biaya_vendor).toLocaleString('id-ID') %></small>
+            
+            <% if(historySJ.length > 0) { %>
+                <% historySJ.forEach(sj => { %>
+                <div class="card card-sj shadow-sm mb-2 border-0">
+                    <div class="card-body p-2">
+                        <div class="d-flex justify-content-between align-items-start">
+                            <div>
+                                <small class="text-muted" style="font-size: 10px;">
+                                    <%= new Date(sj.tanggal_kirim).toLocaleDateString('id-ID') %> | ID: #<%= sj.id %>
+                                </small>
+                                <h6 class="mb-0 fw-bold text-uppercase"><%= sj.nama_vendor %></h6>
+                                <small class="fw-bold text-danger">Estimasi: Rp <%= Number(sj.total_biaya_vendor).toLocaleString('id-ID') %></small>
+                            </div>
+                            <span class="badge <%= sj.status === 'PROSES' ? 'bg-warning text-dark' : 'bg-success' %>" style="font-size: 9px;">
+                                <%= sj.status %>
+                            </span>
                         </div>
-                        <span class="badge <%= sj.status === 'PROSES' ? 'bg-warning text-dark' : 'bg-success' %>" style="font-size: 9px;"><%= sj.status %></span>
-                    </div>
 
-                    <div id="laci-<%= sj.id %>" class="area-detail-laci d-none">
-                        <table class="table table-sm table-borderless mb-0">
-                            <% 
-                               let items = allSjDetails.filter(i => i.sj_id == sj.id);
-                               items.forEach(item => { 
-                            %>
-                            <tr class="border-bottom border-white">
-                                <td><%= item.nama_po %><br><small class="text-muted"><%= item.nama_desain %></small></td>
-                                <td class="text-end fw-bold align-middle"><%= item.qty_dikirim %> Pcs</td>
-                            </tr>
-                            <% }) %>
-                        </table>
-                    </div>
+                        <div id="laci-<%= sj.id %>" class="area-detail-laci d-none mt-2" style="background: #f8f9fa; border: 1px dashed #ddd; padding: 8px; border-radius: 5px;">
+                            <div style="font-size: 9px; font-weight: bold; color: #666; margin-bottom: 5px; text-transform: uppercase; border-bottom: 1px solid #eee;">Rincian Barang:</div>
+                            <table class="table table-sm table-borderless mb-0" style="font-size: 10px;">
+                                <% 
+                                // Gunakan Number() untuk memastikan ID dibandingkan secara akurat antar row database
+                                let items = allSjDetails.filter(i => Number(i.sj_id) === Number(sj.id));
+                                if(items.length > 0) {
+                                    items.forEach(item => { 
+                                %>
+                                <tr class="border-bottom border-white">
+                                    <td>
+                                        <strong><%= item.nama_po %></strong><br>
+                                        <small class="text-muted"><%= item.nama_desain %></small>
+                                    </td>
+                                    <td class="text-end fw-bold align-middle"><%= item.qty_dikirim %> Pcs</td>
+                                </tr>
+                                <%     }); 
+                                } else { %>
+                                <tr>
+                                    <td colspan="2" class="text-center text-muted small">Rincian data tidak tersedia</td>
+                                </tr>
+                                <% } %>
+                            </table>
+                        </div>
 
-                    <div class="mt-2 pt-2 border-top d-flex gap-1">
-                        <button onclick="toggleLaci('<%= sj.id %>')" class="btn btn-primary btn-sm px-3" style="font-size: 10px;">DETAIL</button>
-                        <% if(sj.status === 'PROSES') { %>
-                            <button onclick="tandaiSelesai('<%= sj.id %>')" class="btn btn-success btn-sm px-3" style="font-size: 10px;">SELESAI</button>
-                        <% } %>
+                        <div class="mt-2 pt-2 border-top d-flex gap-1">
+                            <button onclick="toggleLaci('<%= sj.id %>')" class="btn btn-primary btn-sm px-3" style="font-size: 10px;">
+                                <i class="bi bi-list-ul"></i> DETAIL
+                            </button>
+                            <% if(sj.status === 'PROSES') { %>
+                                <button onclick="tandaiSelesai('<%= sj.id %>')" class="btn btn-success btn-sm px-3" style="font-size: 10px;">
+                                    <i class="bi bi-check-circle"></i> SELESAI
+                                </button>
+                            <% } %>
+                        </div>
                     </div>
                 </div>
-            </div>
-            <% }) %>
-            
-            <% if(historySJ.length === 0) { %>
-                <div class="text-center p-4 bg-white rounded border">
+                <% }) %>
+            <% } else { %>
+                <div class="text-center p-4 bg-white rounded border shadow-sm">
                     <i class="bi bi-truck text-muted fs-2"></i><br>
-                    <small class="text-muted">Belum ada pengiriman ke vendor.</small>
+                    <small class="text-muted d-block mt-2">Belum ada pengiriman ke vendor.</small>
                 </div>
             <% } %>
         </div>
-    </div>
-</div>
 
 <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
 <script>
