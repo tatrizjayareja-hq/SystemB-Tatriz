@@ -2432,7 +2432,7 @@ app.post('/admin/simpan-sj-cmt', isAdmin, async (req, res) => {
 
     try {
         // PERBAIKAN 1: Kapitalisasi Nama Vendor agar konsisten untuk pencarian nota gabungan
-        const namaVendorBersih = nama_vendor ? nama_vendor.trim().toUpperCase() : "";
+        const namaVendorBersih = nama_vendor ? nama_vendor.trim() : "";
 
         // PERBAIKAN 2: Pastikan detail_ids selalu berupa array agar bisa diloop (handle jika hanya 1 yang dicentang)
         const idList = Array.isArray(detail_ids) ? detail_ids : (detail_ids ? [detail_ids] : []);
