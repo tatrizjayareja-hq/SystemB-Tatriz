@@ -1158,11 +1158,13 @@ app.get('/analisis-profit', isAdmin, async (req, res) => {
         const listProfit = profitRes.rows.map(row => {
             const prod = parseFloat(row.prod_bln || 0);
             const op = parseFloat(row.op_bln || 0);
+            const bTetap = parseFloat(conf.beban_tetap || 0);
             return {
                 bulan: row.bulan,
                 produksi: prod,
                 operasional: op,
-                profitNett: prod - op - bebanTetap
+                bebanTetap: bTetap,
+                profitNett: prod - op - bTetap
             };
         });
 

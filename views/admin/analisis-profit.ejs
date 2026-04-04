@@ -45,10 +45,9 @@
                 <tbody>
                     <% listProfit.forEach(p => { %>
                     <tr>
-                        <td class="fw-bold"><%= p.bulan %></td>
-                        <td class="text-end">Rp <%= p.produksi.toLocaleString('id-ID') %></td>
-                        <td class="text-end text-muted">Rp <%= (p.operasional + p.bebanTetap).toLocaleString('id-ID') %></td>
-                        <td class="text-end fw-bold text-success">Rp <%= p.profitNett.toLocaleString('id-ID') %></td>
+                        <td class="text-end">Rp <%= (p.produksi || 0).toLocaleString('id-ID') %></td>
+                        <td class="text-end text-muted">Rp <%= ((Number(p.operasional) || 0) + (Number(p.bebanTetap) || 0)).toLocaleString('id-ID') %></td>
+                        <td class="text-end fw-bold text-success">Rp <%= (p.profitNett || 0).toLocaleString('id-ID') %></td>
                     </tr>
                     <% }) %>
                 </tbody>
