@@ -168,21 +168,25 @@
     document.getElementById('tglSJ').valueAsDate = new Date();
 
     function toggleInput(checkbox) {
-        const row = checkbox.closest('tr');
-        const qtyInput = row.querySelector('.input-qty-sj');
-        const hargaInput = row.querySelector('.input-harga');
+    const row = checkbox.closest('tr');
+    const qtyInput = row.querySelector('.input-qty-sj');
+    const hargaInput = row.querySelector('.input-harga');
+    
+    if (checkbox.checked) {
+        qtyInput.classList.remove('d-none');
+        qtyInput.disabled = false; // PASTIKAN INI FALSE agar datanya dikirim
+        qtyInput.required = true;
         
-        if (checkbox.checked) {
-            qtyInput.classList.remove('d-none');
-            qtyInput.required = true;
-            hargaInput.disabled = false;
-        } else {
-            qtyInput.classList.add('d-none');
-            qtyInput.required = false;
-            qtyInput.value = '';
-            hargaInput.disabled = true;
-        }
+        hargaInput.disabled = false; // PASTIKAN INI FALSE agar datanya dikirim
+    } else {
+        qtyInput.classList.add('d-none');
+        qtyInput.disabled = true;  // PASTIKAN INI TRUE agar datanya TIDAK dikirim
+        qtyInput.required = false;
+        qtyInput.value = '';
+        
+        hargaInput.disabled = true;  // PASTIKAN INI TRUE agar datanya TIDAK dikirim
     }
+}
 
     // Fungsi Laci Detail
     function toggleLaci(id) {
