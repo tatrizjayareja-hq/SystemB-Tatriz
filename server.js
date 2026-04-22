@@ -831,6 +831,158 @@ app.get('/edit-po/:id', async (req, res) => {
     }
 });
 
+//=============== JALUR BARU DATA PO =======================
+
+// 1. RENDER HALAMAN INPUT PO V2
+app.get('/po-baru-v2', isAdmin, (req, res) => {
+    if (!req.session.userId) return res.redirect('/');
+    // Pastikan file EJS Anda dinamakan po-baru-v2.ejs
+    res.render('po-baru-v2');
+});
+
+// 2. PROSES SIMPAN DATA PO V2
+app.post('/save-po-v2', isAdmin, async (req, res) => {
+    if (!req.session.userId) return res.redirect('/');
+    
+    const tId = req.session.tenantId;
+    // Pengecekan Internal (Owner ID 1 & Cabang ID 100)
+    const isInternal = (tId === 1 || tId === 100);
+
+    // Menangkap data dari form po-baru-v2
+    const { 
+        tanggal, 
+        nama_po, 
+        customer, 
+        status, 
+        jenis_bordir, 
+        nama_desain, 
+        jumlah, 
+        harga_cmt,       // Input baru dari V2
+        harga_customer, 
+        harga_operator   // Ini ditangkap dari input hidden di V2
+    } = req.body;
+
+    // Pastikan semua data rincian diproses sebagai array (menghindari error jika hanya 1 baris)
+    const jbList = Array.isArray(jenis_bordir) ? jenis_bordir : [jenis_bordir];
+    const dsList = Array.isArray(nama_desain) ? nama_desain : [nama_desain];
+    const jmlList = Array.isArray(jumlah) ? jumlah : [jumlah];
+    const hCmtList = Array.isArray(harga_cmt) ? harga_cmt : [harga_cmt];
+    const hCuList = Array.isArray(harga_customer) ? harga_customer : [harga_customer];
+    const hOpList = Array.isArray(harga_operator) ? harga_operator : [harga_operator];
+
+    try {
+        await db.query("BEGIN"); 
+
+        // --- STEP 1: SIMPAN HEADER PO ---
+        const sqlHeader = `
+            INSERT INTO po_utama (tenant_id, tanggal, nama_po, customer, status) 
+            VALUES ($1, $2, $3, $4, $5) RETURNING id
+        `;
+        const headerRes = await db.query(sqlHeader, [tId, tanggal, nama_po, customer, status]);
+        const poId = headerRes.rows[0].id;
+
+        let totalTagihan = 0;
+
+        // --- STEP 2: SIMPAN RINCIAN KE PO_DETAIL ---
+        for (let i = 0; i < jbList.length; i++) {
+            if (!jbList[i]) continue; // Skip jika baris kosong
+
+            const qty = parseInt(jmlList[i]) || 0;
+            const hCu = parseFloat(hCuList[i]) || 0;
+            
+            let finalCmt, finalOp;
+
+            if (isInternal) {
+                // LOGIKA INTERNAL: 
+                // Harga CMT diambil dari input. 
+                // Harga Operator "Tersembunyi" MENGIKUTI CMT.
+                finalCmt = parseFloat(hCmtList[i]) || 0;
+                finalOp = finalCmt; 
+            } else {
+                // LOGIKA TENANT UMUM: 
+                // Semua harga (CMT & Op) disamakan dengan Harga Customer
+                finalCmt = hCu;
+                finalOp = hCu;
+            }
+
+            totalTagihan += (qty * hCu);
+
+            const sqlDetail = `
+                INSERT INTO po_detail (po_id, jenis_bordir, nama_desain, jumlah, harga_operator, harga_customer, harga_cmt) 
+                VALUES ($1, $2, $3, $4, $5, $6, $7)
+            `;
+            // Pastikan tabel database Anda sudah memiliki kolom harga_cmt
+            await db.query(sqlDetail, [
+                poId, 
+                jbList[i], 
+                dsList[i], 
+                qty, 
+                finalOp, 
+                hCu, 
+                finalCmt
+            ]);
+        }
+
+        // --- STEP 3: UPDATE TOTAL HARGA DI HEADER ---
+        await db.query("UPDATE po_utama SET total_harga_customer = $1 WHERE id = $2", [totalTagihan, poId]);
+
+        await db.query("COMMIT");
+        
+        // Redirect ke halaman data PO setelah berhasil
+        res.send("<script>alert('Pesanan Berhasil Disimpan (Mode V2)'); window.location='/po-data';</script>");
+
+    } catch (err) {
+        await db.query("ROLLBACK");
+        console.error("🔥 Save PO V2 Error:", err.message);
+        res.status(500).send("Gagal menyimpan PO V2: " + err.message);
+    }
+});
+
+// RUTE HALAMAN DATA PO V2
+app.get('/po-data-v2', isAdmin, async (req, res) => {
+    if (!req.session.userId) return res.redirect('/');
+    const tId = req.session.tenantId;
+
+    try {
+        // Query yang sama dengan po-data lama untuk konsistensi data
+        const sqlOrders = `
+            SELECT 
+                u.*, 
+                (SELECT SUM(jumlah) FROM po_detail WHERE po_id = u.id) as qty_tampil,
+                (SELECT COUNT(*) FROM po_detail WHERE po_id = u.id) as variasi_jumlah
+            FROM po_utama u 
+            WHERE u.tenant_id = $1 
+            ORDER BY u.tanggal DESC, u.id DESC
+        `;
+        const orders = await db.query(sqlOrders, [tId]);
+
+        const sqlDetails = `
+            SELECT 
+                d.*, 
+                (SELECT COALESCE(SUM(h.jumlah_setor), 0) FROM hasil_kerja h WHERE h.detail_id = d.id) as total_produksi,
+                (SELECT COALESCE(SUM(q.jumlah_qc), 0) FROM hasil_qc q WHERE q.detail_id = d.id) as total_qc
+            FROM po_detail d
+            JOIN po_utama u ON d.po_id = u.id
+            WHERE u.tenant_id = $1
+        `;
+        const details = await db.query(sqlDetails, [tId]);
+
+        res.render('po-data-v2', { 
+            orders: orders.rows, 
+            details: details.rows,
+            user: req.session 
+        });
+
+    } catch (err) {
+        console.error("🔥 Error po-data-v2:", err.message);
+        res.status(500).send("Gagal memuat data V2.");
+    }
+});
+
+
+
+
+
 app.get('/cetak-nota-gabungan', isAdmin, async (req, res) => {
     const tId = req.session.tenantId;
     let ids = req.query.ids; 
