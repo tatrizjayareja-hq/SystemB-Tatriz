@@ -612,7 +612,7 @@ app.post('/save-po', isAdmin, async (req, res) => {
         await db.query("UPDATE po_utama SET total_harga_customer = $1 WHERE id = $2", [totalTagihan, poId]);
 
         await db.query("COMMIT");
-        res.send("<script>window.location='po-data';</script>");
+        res.send("<script>window.location='po-data-v2';</script>");
 
     } catch (err) {
         await db.query("ROLLBACK");
@@ -664,7 +664,7 @@ app.get('/po-data', async (req, res) => {
         `;
         const details = await db.all(sqlDetails, [tId]);
 
-        res.render('po-data', { 
+        res.render('po-datav2', { 
             orders: orders, 
             details: details,
             user: req.session,
@@ -672,7 +672,7 @@ app.get('/po-data', async (req, res) => {
         });
 
     } catch (err) {
-        console.error("🔥 Error po-data:", err.message);
+        console.error("🔥 Error po-data-v2:", err.message);
         res.status(500).send("Gagal memuat data pesanan.");
     }
 });
@@ -705,7 +705,7 @@ app.get('/delete-po/:id', isAdmin, async (req, res) => {
         // Selesaikan transaksi
         await db.query('COMMIT');
         
-        res.redirect('/po-data');
+        res.redirect('/po-data-v2');
     } catch (err) {
         await db.query('ROLLBACK'); // Batalkan semua jika ada error
         console.error("Detail Error Hapus PO:", err.message);
@@ -792,7 +792,7 @@ app.post('/update-po/:id', isAdmin, async (req, res) => {
         await db.query(`UPDATE po_utama SET total_harga_customer = $1 WHERE id = $2`, [totalTagihanBaru, poId]);
         
         await db.query("COMMIT"); // Simpan semua perubahan
-        res.send("<script>window.location='/po-data';</script>");
+        res.send("<script>window.location='/po-data-v2';</script>");
 
     } catch (err) {
         await db.query("ROLLBACK").catch(() => {}); // Batalkan jika ada yang gagal
@@ -929,7 +929,7 @@ app.post('/save-po-v2', isAdmin, async (req, res) => {
         await db.query("COMMIT");
         
         // Redirect ke halaman data PO setelah berhasil
-        res.send("<script>alert('Pesanan Berhasil Disimpan (Mode V2)'); window.location='/po-data';</script>");
+        res.send("<script>alert('Pesanan Berhasil Disimpan (Mode V2)'); window.location='/po-data-v2';</script>");
 
     } catch (err) {
         await db.query("ROLLBACK");
@@ -1670,7 +1670,7 @@ app.post('/update-qc-cepat', isAdmin, async (req, res) => {
         }
 
         await db.query("COMMIT");
-        res.redirect('/po-data'); // Balik lagi ke halaman manajemen
+        res.redirect('/po-data-v2'); // Balik lagi ke halaman manajemen
 
     } catch (err) {
         await db.query("ROLLBACK").catch(() => {});
@@ -1965,7 +1965,7 @@ app.post('/update-status/:id', isAdmin, async (req, res) => {
         await db.query(sql, [status_baru, poId, tId]);
 
         // Opsional: Anda bisa menambahkan log atau pesan sukses
-        res.redirect('/po-data');
+        res.redirect('/po-data-v2');
     } catch (err) {
         console.error("🔥 Error Update Status Cepat:", err.message);
         res.status(500).send("Gagal memperbarui status: " + err.message);
