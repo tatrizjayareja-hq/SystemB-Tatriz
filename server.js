@@ -943,19 +943,32 @@ app.get('/po-data-v2', isAdmin, async (req, res) => {
     if (!req.session.userId) return res.redirect('/');
     const tId = req.session.tenantId;
 
+    // Tambahkan variabel ini agar sinkron dengan EJS
+    const isPro = (tId === 1 || req.session.tenantLevel >= 2);
+    const isInternal = (tId === 1 || tId === 100);
+
     try {
-        // Query yang sama dengan po-data lama untuk konsistensi data
+        // Query Header PO
         const sqlOrders = `
             SELECT 
                 u.*, 
                 (SELECT SUM(jumlah) FROM po_detail WHERE po_id = u.id) as qty_tampil,
-                (SELECT COUNT(*) FROM po_detail WHERE po_id = u.id) as variasi_jumlah
+                (SELECT COUNT(*) FROM po_detail WHERE po_id = u.id) as variasi_jumlah,
+                -- Tambahkan ini untuk Audit Prod (Blink merah jika tidak sinkron)
+                EXISTS (
+                    SELECT 1 FROM po_detail d2
+                    LEFT JOIN hasil_kerja h2 ON d2.id = h2.detail_id
+                    WHERE d2.po_id = u.id
+                    GROUP BY d2.id, d2.jumlah
+                    HAVING SUM(COALESCE(h2.jumlah_setor, 0)) > d2.jumlah
+                ) as is_over
             FROM po_utama u 
             WHERE u.tenant_id = $1 
             ORDER BY u.tanggal DESC, u.id DESC
         `;
         const orders = await db.query(sqlOrders, [tId]);
 
+        // Query Detail PO
         const sqlDetails = `
             SELECT 
                 d.*, 
@@ -964,13 +977,16 @@ app.get('/po-data-v2', isAdmin, async (req, res) => {
             FROM po_detail d
             JOIN po_utama u ON d.po_id = u.id
             WHERE u.tenant_id = $1
+            ORDER BY d.id ASC
         `;
         const details = await db.query(sqlDetails, [tId]);
 
         res.render('po-data-v2', { 
             orders: orders.rows, 
             details: details.rows,
-            user: req.session 
+            user: req.session,
+            isPro: isPro,      // WAJIB: Agar tombol Nota Gabungan tidak error
+            isInternal: isInternal // Agar filter tampilan CMT di EJS jalan
         });
 
     } catch (err) {
