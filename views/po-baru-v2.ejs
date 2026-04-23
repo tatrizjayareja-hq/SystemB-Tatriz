@@ -123,10 +123,16 @@
      * Harga Operator otomatis menyalin nilai dari Harga CMT
      */
     function copyKeOperator(el) {
-        const row = el.closest('.grid-sub');
-        const hiddenOp = row.querySelector('.hidden-op');
+    const row = el.closest('.grid-sub');
+    const hiddenOp = row.querySelector('.hidden-op');
+    const hiddenCmt = row.querySelector('.hidden-cmt'); // Tambahkan ini jika ada
+    
         if (hiddenOp) {
             hiddenOp.value = el.value; 
+        }
+        // Jika ada elemen hidden-cmt di baris yang sama, isi juga
+        if (hiddenCmt) {
+            hiddenCmt.value = el.value;
         }
     }
 

@@ -839,30 +839,20 @@ app.get('/po-baru-v2', isAdmin, (req, res) => {
     // Pastikan file EJS Anda dinamakan po-baru-v2.ejs
     res.render('po-baru-v2');
 });
-
 // 2. PROSES SIMPAN DATA PO V2
 app.post('/save-po-v2', isAdmin, async (req, res) => {
     if (!req.session.userId) return res.redirect('/');
     
     const tId = req.session.tenantId;
-    // Pengecekan Internal (Owner ID 1 & Cabang ID 100)
     const isInternal = (tId === 1 || tId === 100);
 
-    // Menangkap data dari form po-baru-v2
     const { 
-        tanggal, 
-        nama_po, 
-        customer, 
-        status, 
-        jenis_bordir, 
-        nama_desain, 
-        jumlah, 
-        harga_cmt,       // Input baru dari V2
-        harga_customer, 
-        harga_operator   // Ini ditangkap dari input hidden di V2
+        tanggal, nama_po, customer, status, 
+        jenis_bordir, nama_desain, jumlah, 
+        harga_cmt, harga_customer, harga_operator 
     } = req.body;
 
-    // Pastikan semua data rincian diproses sebagai array (menghindari error jika hanya 1 baris)
+    // Pastikan data rincian diproses sebagai array
     const jbList = Array.isArray(jenis_bordir) ? jenis_bordir : [jenis_bordir];
     const dsList = Array.isArray(nama_desain) ? nama_desain : [nama_desain];
     const jmlList = Array.isArray(jumlah) ? jumlah : [jumlah];
@@ -873,7 +863,7 @@ app.post('/save-po-v2', isAdmin, async (req, res) => {
     try {
         await db.query("BEGIN"); 
 
-        // --- STEP 1: SIMPAN HEADER PO ---
+        // 1. SIMPAN HEADER PO
         const sqlHeader = `
             INSERT INTO po_utama (tenant_id, tanggal, nama_po, customer, status) 
             VALUES ($1, $2, $3, $4, $5) RETURNING id
@@ -883,9 +873,9 @@ app.post('/save-po-v2', isAdmin, async (req, res) => {
 
         let totalTagihan = 0;
 
-        // --- STEP 2: SIMPAN RINCIAN KE PO_DETAIL ---
+        // 2. SIMPAN RINCIAN KE PO_DETAIL
         for (let i = 0; i < jbList.length; i++) {
-            if (!jbList[i]) continue; // Skip jika baris kosong
+            if (!jbList[i]) continue; 
 
             const qty = parseInt(jmlList[i]) || 0;
             const hCu = parseFloat(hCuList[i]) || 0;
@@ -893,14 +883,14 @@ app.post('/save-po-v2', isAdmin, async (req, res) => {
             let finalCmt, finalOp;
 
             if (isInternal) {
-                // LOGIKA INTERNAL: 
-                // Harga CMT diambil dari input. 
-                // Harga Operator "Tersembunyi" MENGIKUTI CMT.
-                finalCmt = parseFloat(hCmtList[i]) || 0;
+                // Logika Internal: Ambil CMT, Operator ikut CMT
+                let cmtInput = parseFloat(hCmtList[i]) || 0;
+                let opInput = parseFloat(hOpList[i]) || 0;
+                
+                finalCmt = cmtInput > 0 ? cmtInput : opInput;
                 finalOp = finalCmt; 
             } else {
-                // LOGIKA TENANT UMUM: 
-                // Semua harga (CMT & Op) disamakan dengan Harga Customer
+                // Logika Umum: Semua ikut Harga Customer
                 finalCmt = hCu;
                 finalOp = hCu;
             }
@@ -911,25 +901,17 @@ app.post('/save-po-v2', isAdmin, async (req, res) => {
                 INSERT INTO po_detail (po_id, jenis_bordir, nama_desain, jumlah, harga_operator, harga_customer, harga_cmt) 
                 VALUES ($1, $2, $3, $4, $5, $6, $7)
             `;
-            // Pastikan tabel database Anda sudah memiliki kolom harga_cmt
+            
             await db.query(sqlDetail, [
-                poId, 
-                jbList[i], 
-                dsList[i], 
-                qty, 
-                finalOp, 
-                hCu, 
-                finalCmt
+                poId, jbList[i], dsList[i], qty, finalOp, hCu, finalCmt
             ]);
         }
 
-        // --- STEP 3: UPDATE TOTAL HARGA DI HEADER ---
+        // 3. UPDATE TOTAL HARGA DI HEADER
         await db.query("UPDATE po_utama SET total_harga_customer = $1 WHERE id = $2", [totalTagihan, poId]);
 
         await db.query("COMMIT");
-        
-        // Redirect ke halaman data PO setelah berhasil
-        res.send("<script>alert('Pesanan Berhasil Disimpan (Mode V2)'); window.location='/po-data-v2';</script>");
+        res.send("<script>alert('Pesanan Berhasil Disimpan'); window.location='/po-data';</script>");
 
     } catch (err) {
         await db.query("ROLLBACK");
