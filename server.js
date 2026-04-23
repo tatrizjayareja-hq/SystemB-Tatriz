@@ -911,14 +911,23 @@ app.post('/save-po-v2', isAdmin, async (req, res) => {
         await db.query("UPDATE po_utama SET total_harga_customer = $1 WHERE id = $2", [totalTagihan, poId]);
 
         await db.query("COMMIT");
-        res.send("<script>alert('Pesanan Berhasil Disimpan'); window.location='/po-data';</script>");
+        res.send("<script>alert('Pesanan Berhasil Disimpan'); window.location='/po-data-v2';</script>");
 
     } catch (err) {
-        await db.query("ROLLBACK");
+        // Tetap lakukan rollback di background agar koneksi database tidak error/macet
+        await db.query("ROLLBACK").catch(() => {}); 
+        
         console.error("🔥 Save PO V2 Error:", err.message);
-        res.status(500).send("Gagal menyimpan PO V2: " + err.message);
+        
+        // Kirim alert dan kembalikan user ke halaman input
+        res.send(`
+            <script>
+                alert("Gagal menyimpan: ${err.message.replace(/"/g, "'")}");
+                window.location.href = '/po-baru-v2';
+            </script>
+        `);
     }
-});
+})
 
 // RUTE HALAMAN DATA PO V2
 app.get('/po-data-v2', isAdmin, async (req, res) => {
