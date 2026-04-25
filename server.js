@@ -2585,12 +2585,14 @@ app.post('/admin/kirim-ke-vendor', isAdmin, async (req, res) => {
 });
 
 // 3. TERIMA BARANG (MASUK HASIL KERJA)
+// REVISI ROUTE TERIMA BARANG
 app.get('/admin/terima-barang/:sj_detail_id', isAdmin, async (req, res) => {
     const sjDetailId = req.params.sj_detail_id;
     const tId = req.session.tenantId;
     const userId = req.session.userId;
     try {
         await db.query("BEGIN");
+        
         const det = await db.query(`
             SELECT d.*, sj.id as sj_parent_id, p.po_id 
             FROM cmt_surat_jalan_detail d 
@@ -2598,22 +2600,26 @@ app.get('/admin/terima-barang/:sj_detail_id', isAdmin, async (req, res) => {
             JOIN po_detail p ON d.po_detail_id = p.id
             WHERE d.id = $1`, [sjDetailId]);
 
+        if (det.rows.length === 0) throw new Error("Data tidak ditemukan");
         const item = det.rows[0];
-        // Masuk ke hasil_kerja
+
+        // Gunakan NULL jika mesin_id opsional, atau pastikan ID 0 ada di tabel mesin
         await db.query(`
             INSERT INTO hasil_kerja (tenant_id, operator_id, po_id, detail_id, tanggal, shift, jumlah_setor, mesin_id) 
-            VALUES ($1, $2, $3, $4, CURRENT_DATE, 'Pagi', $5, 0)`, 
+            VALUES ($1, $2, $3, $4, CURRENT_DATE, 'Pagi', $5, NULL)`, 
             [tId, userId, item.po_id, item.po_detail_id, item.qty_dikirim]);
 
+        // Update status SJ menjadi SELESAI
         await db.query("UPDATE cmt_surat_jalan SET status = 'SELESAI' WHERE id = $1", [item.sj_parent_id]);
+
         await db.query("COMMIT");
         res.redirect('/admin/data-cmt');
     } catch (err) {
-        await db.query("ROLLBACK");
-        res.status(500).send(err.message);
+        if (db) await db.query("ROLLBACK");
+        console.error(err);
+        res.status(500).send("Gagal terima barang: " + err.message);
     }
 });
-
 // 4. LUNASI PEMBAYARAN
 app.get('/admin/bayar-vendor/:sj_id', isAdmin, async (req, res) => {
     try {
