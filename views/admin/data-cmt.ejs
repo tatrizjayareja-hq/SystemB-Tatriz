@@ -1,237 +1,143 @@
 <%- include('../partials/header') %>
-<style>
-    .badge-sisa { font-size: 10px; padding: 3px 8px; border-radius: 20px; }
-    .card-sj { border-left: 5px solid #e67e22; transition: 0.3s; }
-    .card-sj:hover { transform: translateY(-3px); box-shadow: 0 4px 15px rgba(0,0,0,0.1); }
-    .input-qty-sj { width: 80px !important; text-align: center; border-color: #e67e22; }
-    .bg-vendor { background-color: #fff9f4; }
-    .area-detail-laci { background: #f8f9fa; border: 1px dashed #ddd; border-radius: 8px; margin-top: 10px; padding: 10px; font-size: 11px; }
-</style>
 
-<div class="container-fluid mt-3" style="max-width: 1100px;">
+<div class="container-fluid mt-3" style="max-width: 1000px;">
     <div class="d-flex justify-content-between align-items-center mb-3">
-        <h4 class="fw-bold mb-0">🚜 Kelola CMT & Vendor</h4>
+        <h4 class="fw-bold mb-0">🚜 Monitor Produksi CMT</h4>
         <a href="/dashboard" class="btn btn-outline-secondary btn-sm">Kembali</a>
     </div>
 
-    <div class="row">
-        <div class="col-md-8">
-            <div class="card shadow-sm mb-4">
-                <div class="card-header bg-dark text-white py-3">
-                    <h6 class="mb-0 fw-bold"><i class="bi bi-box-seam me-2"></i> Stok Antrean Bordir CMT</h6>
-                </div>
-                <div class="card-body p-0">
-                    <form action="/admin/simpan-sj-cmt" method="POST" id="formSJ">
-                        <div class="p-3 bg-vendor border-bottom">
-                            <div class="row g-2">
-                                <div class="col-md-6">
-                                    <label class="small fw-bold">NAMA VENDOR / PENGERJA:</label>
-                                    <input type="text" name="nama_vendor" class="form-control form-control-sm" placeholder="Contoh: Pak Haji / Workshop B" required>
-                                </div>
-                                <div class="col-md-6">
-                                    <label class="small fw-bold">TANGGAL KIRIM:</label>
-                                    <input type="date" name="tanggal_kirim" class="form-control form-control-sm" id="tglSJ" required>
-                                </div>
-                            </div>
-                        </div>
-
-                        <div class="table-responsive">
-                            <table class="table table-hover align-middle mb-0" style="font-size: 12px;">
-                                <thead class="table-light">
-                                    <tr>
-                                        <th width="40">Pilih</th>
-                                        <th>PO / Desain</th>
-                                        <th class="text-center">Sisa Saldo</th>
-                                        <th width="120" class="text-center">Kirim Qty</th>
-                                    </tr>
-                                </thead>
-                                <tbody>
-                                    <% orders.forEach(po => { 
-                                        let sub = details.filter(d => d.po_id == po.id);
-                                        sub.forEach(dsn => {
-                                            if(dsn.sisa_siap_kirim > 0) {
-                                    %>
-                                    <tr>
-                                        <td class="text-center">
-                                            <input type="checkbox" name="detail_ids" value="<%= dsn.id %>" class="form-check-input check-dsn" onchange="toggleInput(this)">
-                                            <input type="hidden" name="harga_cmt" value="<%= dsn.harga_cmt %>" disabled class="input-harga">
-                                        </td>
-                                        <td>
-                                            <strong><%= po.nama_po %></strong><br>
-                                            <span class="text-muted" style="font-size: 10px;"><%= dsn.nama_desain %> (<%= dsn.jenis_bordir %>)</span>
-                                        </td>
-                                        <td class="text-center">
-                                            <span class="badge bg-info badge-sisa"><%= dsn.sisa_siap_kirim %> / <%= dsn.jumlah %> Pcs</span>
-                                        </td>
-                                        <td class="text-center">
-                                            <input type="number" name="qty_kirim" class="form-control form-control-sm input-qty-sj d-none" 
-                                                   max="<%= dsn.sisa_siap_kirim %>" min="1" placeholder="Qty">
-                                        </td>
-                                    </tr>
-                                    <% } }) }) %>
-                                    <% if (details.filter(d => d.sisa_siap_kirim > 0).length === 0) { %>
-                                        <tr><td colspan="4" class="text-center py-4 text-muted">Semua stok CMT sudah terbagi ke vendor.</td></tr>
-                                    <% } %>
-                                </tbody>
-                            </table>
-                        </div>
-                        
-                        <div class="p-3 text-end bg-light">
-                            <button type="submit" class="btn btn-warning btn-sm fw-bold">
-                                <i class="bi bi-send-plus"></i> BUAT SURAT JALAN KE VENDOR
-                            </button>
-                        </div>
-                    </form>
-                </div>
-            </div>
-        </div>
-
-        <div class="col-md-4">
-            <h6 class="fw-bold mb-3"><i class="bi bi-clock-history"></i> Surat Jalan Terbaru</h6>
-            <div class="mb-3">
-                <button onclick="cetakGabunganPrompt()" class="btn btn-dark btn-sm w-100 fw-bold">
-                    <i class="bi bi-collection"></i> CETAK NOTA GABUNGAN VENDOR
-                </button>
-            </div>
-            <% if(historySJ.length > 0) { %>
-                <% historySJ.forEach(sj => { %>
-                <div class="card card-sj shadow-sm mb-2 border-0">
-                    <div class="card-body p-2">
-                        <div class="d-flex justify-content-between align-items-start">
-                            <div>
-                                <small class="text-muted" style="font-size: 10px;">
-                                    <%= new Date(sj.tanggal_kirim).toLocaleDateString('id-ID') %> | ID: #<%= sj.id %>
-                                </small>
-                                <h6 class="mb-0 fw-bold"><%= sj.nama_vendor %></h6>
-                                <small class="fw-bold text-danger">Estimasi: Rp <%= Number(sj.total_biaya_vendor).toLocaleString('id-ID') %></small>
-                            </div>
-                            <span class="badge <%= sj.status === 'PROSES' ? 'bg-warning text-dark' : 'bg-success' %>" style="font-size: 9px;">
-                                <%= sj.status %>
-                            </span>
-                        </div>
-
-                        <div id="laci-<%= sj.id %>" class="area-detail-laci d-none mt-2" style="background: #f8f9fa; border: 1px dashed #ddd; padding: 8px; border-radius: 5px;">
-                            <div style="font-size: 9px; font-weight: bold; color: #666; margin-bottom: 5px; border-bottom: 1px solid #eee;">Rincian Barang:</div>
-                            <table class="table table-sm table-borderless mb-0" style="font-size: 10px;">
-                                <% 
-                                // Gunakan pembanding yang sangat ketat untuk menghindari 'detil kosong'
-                                let items = allSjDetails.filter(i => i.sj_id.toString() === sj.id.toString());
-                                if(items.length > 0) {
-                                    items.forEach(item => { 
-                                %>
-                                <tr class="border-bottom border-white">
-                                    <td>
-                                        <strong><%= item.nama_po %></strong><br>
-                                        <small class="text-muted"><%= item.nama_desain %></small>
-                                    </td>
-                                    <td class="text-end fw-bold align-middle text-nowrap"><%= item.qty_dikirim %> Pcs</td>
-                                </tr>
-                                <%     }); 
-                                } else { %>
-                                <tr>
-                                    <td colspan="2" class="text-center text-muted small py-2">Rincian tidak terbaca</td>
-                                </tr>
-                                <% } %>
-                            </table>
-                        </div>
-
-                        <div class="mt-2 pt-2 border-top d-flex justify-content-between align-items-center">
-                            <div class="d-flex gap-1">
-                                <button onclick="toggleLaci('<%= sj.id %>')" class="btn btn-primary btn-sm px-2" style="font-size: 10px;">
-                                    <i class="bi bi-list-ul"></i> ISI
-                                </button>
-                                <a href="/cetak-nota-vendor?sj_id=<%= sj.id %>" target="_blank" class="btn btn-dark btn-sm px-2" style="font-size: 10px;">
-                                    <i class="bi bi-printer"></i> NOTA
-                                </a>
-                                <% if(sj.status === 'PROSES') { %>
-                                    <button onclick="tandaiSelesai('<%= sj.id %>')" class="btn btn-success btn-sm px-2" style="font-size: 10px;">
-                                        <i class="bi bi-check-circle"></i> TERIMA
+    <div class="card shadow-sm border-0">
+        <div class="table-responsive">
+            <table class="table table-hover align-middle mb-0" style="font-size: 13px;">
+                <thead class="table-dark">
+                    <tr>
+                        <th>PO / Desain</th>
+                        <th class="text-center">Gudang</th>
+                        <th>Monitor Vendor & Status</th>
+                        <th class="text-end">Aksi</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <% if (dataCMT.length === 0) { %>
+                        <tr><td colspan="4" class="text-center py-5 text-muted">Semua pekerjaan CMT selesai & lunas.</td></tr>
+                    <% } %>
+                    <% dataCMT.forEach(item => { %>
+                        <tr>
+                            <td>
+                                <strong><%= item.nama_po %></strong><br>
+                                <small class="text-muted"><%= item.nama_desain %> (<%= item.jenis_bordir %>)</small>
+                            </td>
+                            <td class="text-center">
+                                <span class="badge rounded-pill bg-light text-dark border"><%= item.sisa_gudang %> Pcs</span>
+                            </td>
+                            <td>
+                                <% item.list_vendor.forEach(v => { %>
+                                    <div class="d-flex justify-content-between align-items-center mb-1 p-2 bg-light rounded border-start border-4 <%= v.status_sj === 'PROSES' ? 'border-warning' : 'border-success' %>">
+                                        <div>
+                                            <span class="fw-bold"><%= v.nama_vendor %></span> 
+                                            <small class="ms-2 badge bg-white text-dark border"><%= v.qty %> Pcs</small>
+                                            
+                                            <% if(v.status_sj === 'PROSES') { %>
+                                                <span class="badge bg-warning text-dark ms-1" style="font-size: 9px;">DI VENDOR</span>
+                                            <% } else { %>
+                                                <span class="badge <%= v.status_bayar === 'LUNAS' ? 'bg-success' : 'bg-danger' %> ms-1" style="font-size: 9px;">
+                                                    <%= v.status_bayar %>
+                                                </span>
+                                            <% } %>
+                                        </div>
+                                        
+                                        <div>
+                                            <% if(v.status_sj === 'PROSES') { %>
+                                                <button onclick="konfirmasiTerima('<%= v.sj_detail_id %>')" class="btn btn-xs btn-success py-0 px-2" style="font-size: 10px;">TERIMA</button>
+                                            <% } else if(v.status_bayar === 'BELUM LUNAS') { %>
+                                                <button onclick="konfirmasiBayar('<%= v.sj_id %>')" class="btn btn-xs btn-primary py-0 px-2" style="font-size: 10px;">LUNASI</button>
+                                            <% } %>
+                                        </div>
+                                    </div>
+                                <% }) %>
+                            </td>
+                            <td class="text-end">
+                                <% if(item.sisa_gudang > 0) { %>
+                                    <button onclick="bukaModalKirim('<%= item.detail_id %>', '<%= item.sisa_gudang %>', '<%= item.harga_cmt %>')" class="btn btn-sm btn-outline-primary fw-bold">
+                                        + KIRIM VENDOR
                                     </button>
                                 <% } %>
-                            </div>
-
-                            <% if(sj.status === 'PROSES') { %>
-                                <a href="/admin/hapus-sj-cmt/<%= sj.id %>" 
-                                class="btn btn-outline-danger btn-sm px-2" 
-                                style="font-size: 10px; border:none;" 
-                                onclick="return confirm('Batalkan pengiriman ini? Saldo PO akan dikembalikan ke antrean.')">
-                                    <i class="bi bi-trash"></i>
-                                </a>
-                            <% } %>
-                        </div>
-                    </div>
-                </div>
-                <% }) %>
-            <% } else { %>
-                <div class="text-center p-4 bg-white rounded border shadow-sm">
-                    <i class="bi bi-truck text-muted fs-2"></i><br>
-                    <small class="text-muted d-block mt-2">Belum ada pengiriman ke vendor.</small>
-                </div>
-            <% } %>
+                            </td>
+                        </tr>
+                    <% }) %>
+                </tbody>
+            </table>
         </div>
+    </div>
+</div>
+
+<div class="modal fade" id="modalKirim" tabindex="-1">
+    <div class="modal-dialog modal-sm">
+        <form action="/admin/kirim-ke-vendor" method="POST" class="modal-content">
+            <div class="modal-header">
+                <h6 class="modal-title fw-bold">Kirim ke Luar</h6>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <input type="hidden" name="detail_id" id="modal_detail_id">
+                <input type="hidden" name="harga_cmt" id="modal_harga_cmt">
+                
+                <div class="mb-2">
+                    <label class="small fw-bold">Nama Vendor:</label>
+                    <input type="text" name="nama_vendor" class="form-control form-control-sm" placeholder="Input bebas..." required list="vendorList">
+                    <datalist id="vendorList">
+                        </datalist>
+                </div>
+                <div class="mb-2">
+                    <label class="small fw-bold">Qty Kirim:</label>
+                    <input type="number" name="qty_kirim" id="modal_qty_input" class="form-control form-control-sm" min="1" required>
+                    <small class="text-muted" id="label_maks">Maks: 0</small>
+                </div>
+            </div>
+            <div class="modal-footer p-2">
+                <button type="submit" class="btn btn-primary btn-sm w-100">SIMPAN & KIRIM</button>
+            </div>
+        </form>
+    </div>
+</div>
 
 <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
 <script>
-    document.getElementById('tglSJ').valueAsDate = new Date();
+    const modalKirim = new bootstrap.Modal(document.getElementById('modalKirim'));
 
-    function toggleInput(checkbox) {
-    const row = checkbox.closest('tr');
-    const qtyInput = row.querySelector('.input-qty-sj');
-    const hargaInput = row.querySelector('.input-harga');
-    
-    if (checkbox.checked) {
-        qtyInput.classList.remove('d-none');
-        qtyInput.disabled = false; // PASTIKAN INI FALSE agar datanya dikirim
-        qtyInput.required = true;
-        
-        hargaInput.disabled = false; // PASTIKAN INI FALSE agar datanya dikirim
-    } else {
-        qtyInput.classList.add('d-none');
-        qtyInput.disabled = true;  // PASTIKAN INI TRUE agar datanya TIDAK dikirim
-        qtyInput.required = false;
-        qtyInput.value = '';
-        
-        hargaInput.disabled = true;  // PASTIKAN INI TRUE agar datanya TIDAK dikirim
-    }
-}
-
-    // Fungsi Laci Detail
-    function toggleLaci(id) {
-        const target = document.getElementById('laci-' + id);
-        if (target.classList.contains('d-none')) {
-            target.classList.remove('d-none');
-        } else {
-            target.classList.add('d-none');
-        }
+    function bukaModalKirim(id, sisa, harga) {
+        document.getElementById('modal_detail_id').value = id;
+        document.getElementById('modal_harga_cmt').value = harga;
+        document.getElementById('modal_qty_input').max = sisa;
+        document.getElementById('modal_qty_input').value = sisa;
+        document.getElementById('label_maks').innerText = "Maksimal: " + sisa + " Pcs";
+        modalKirim.show();
     }
 
-    function tandaiSelesai(id) {
+    function konfirmasiTerima(id) {
         Swal.fire({
-            title: 'Konfirmasi Selesai?',
-            text: "Barang sudah kembali dan akan dimasukkan ke stok produksi?",
+            title: 'Terima Barang?',
+            text: "Barang akan masuk ke riwayat produksi pusat.",
             icon: 'question',
             showCancelButton: true,
-            confirmButtonColor: '#27ae60',
-            confirmButtonText: 'Ya, Selesai!'
+            confirmButtonText: 'Ya, Terima!'
         }).then((result) => {
-            if (result.isConfirmed) {
-                window.location.href = `/admin/selesai-sj-cmt/${id}`;
-            }
-        })
+            if (result.isConfirmed) window.location.href = '/admin/terima-barang/' + id;
+        });
     }
 
-    function cetakGabunganPrompt() {
-    Swal.fire({
-        title: 'Cetak Rekap Vendor',
-        input: 'text',
-        inputLabel: 'Masukkan Nama Vendor',
-        placeholder: 'Contoh: Pak Haji',
-        showCancelButton: true
-    }).then((result) => {
-        if (result.value) {
-            window.open(`/cetak-nota-gabungan-vendor?vendor=${encodeURIComponent(result.value)}`, '_blank');
-        }
-    });
-}
+    function konfirmasiBayar(id) {
+        Swal.fire({
+            title: 'Tandai Lunas?',
+            text: "Pastikan pembayaran ke vendor sudah selesai.",
+            icon: 'warning',
+            showCancelButton: true,
+            confirmButtonColor: '#0d6efd',
+            confirmButtonText: 'Ya, Sudah Lunas'
+        }).then((result) => {
+            if (result.isConfirmed) window.location.href = '/admin/bayar-vendor/' + id;
+        });
+    }
 </script>
+
 <%- include('../partials/footer') %>
