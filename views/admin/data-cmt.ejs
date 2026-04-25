@@ -115,16 +115,25 @@
 
 <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
 <script>
-    // Pastikan variabel modal sudah terinisialisasi
-    const modalKirim = new bootstrap.Modal(document.getElementById('modalKirim'));
+    // Gunakan pengecekan DOMContentLoaded agar script berjalan setelah HTML siap
+    document.addEventListener('DOMContentLoaded', function() {
+        // Inisialisasi modal menggunakan variabel global agar bisa diakses fungsi lain
+        window.myModalKirim = new bootstrap.Modal(document.getElementById('modalKirim'));
+    });
 
     function bukaModalKirim(id, sisa, harga) {
+        // Isi data ke dalam input modal
         document.getElementById('modal_detail_id').value = id;
         document.getElementById('modal_harga_cmt').value = harga;
-        document.getElementById('modal_qty_input').max = sisa;
-        document.getElementById('modal_qty_input').value = sisa;
+        
+        const qtyInput = document.getElementById('modal_qty_input');
+        qtyInput.max = sisa;
+        qtyInput.value = sisa;
+        
         document.getElementById('label_maks').innerText = "Maksimal: " + sisa + " Pcs";
-        modalKirim.show();
+        
+        // Tampilkan modal
+        window.myModalKirim.show();
     }
 
     function konfirmasiTerima(id) {
