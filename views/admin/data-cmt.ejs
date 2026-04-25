@@ -30,8 +30,13 @@
                     <% dataCMT.forEach(item => { %>
                         <tr>
                             <td>
-                                <strong><%= item.nama_po %></strong><br>
-                                <small class="text-muted"><%= item.nama_desain %> (<%= item.jenis_bordir %>)</small>
+                                <div class="fw-bold text-dark"><%= item.nama_po %></div>
+                                <div class="text-primary mt-1" style="font-size: 11px; font-weight: 600;">
+                                    <i class="bi bi-person-fill"></i> <%= item.customer %>
+                                </div>
+                                <div class="text-muted mt-1" style="font-size: 11px;">
+                                    <%= item.nama_desain %> (<%= item.jenis_bordir %>)
+                                </div>
                             </td>
                             <td class="text-center">
                                 <span class="badge rounded-pill bg-light text-dark border"><%= item.sisa_gudang %> Pcs</span>
