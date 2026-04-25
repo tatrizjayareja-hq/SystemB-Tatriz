@@ -2527,7 +2527,7 @@ app.get('/performa-operator', isAdmin, async (req, res) => {
     }
 });
 
-// 1. TAMPILAN UTAMA
+// 1. TAMPILAN UTAMA & MONITOR
 app.get('/admin/data-cmt', isAdmin, async (req, res) => {
     const tId = req.session.tenantId;
     try {
@@ -2549,50 +2549,53 @@ app.get('/admin/data-cmt', isAdmin, async (req, res) => {
             ORDER BY p.tanggal DESC
         `;
         const result = await db.query(sql, [tId]);
-        
-        // Filter: Muncul jika masih ada stok gudang ATAU ada vendor belum lunas
-        const filteredData = result.rows.filter(row => {
-            return row.sisa_gudang > 0 || row.list_vendor.some(v => v.status_bayar !== 'LUNAS');
-        });
-
+        const filteredData = result.rows.filter(row => row.sisa_gudang > 0 || row.list_vendor.some(v => v.status_bayar !== 'LUNAS'));
         res.render('admin/data-cmt', { dataCMT: filteredData });
     } catch (err) {
         res.status(500).send("Error: " + err.message);
     }
 });
 
-// 2. KIRIM KE VENDOR (PROSES)
+// 2. PROSES KIRIM BARANG (Tombol +Kirim)
 app.post('/admin/kirim-ke-vendor', isAdmin, async (req, res) => {
     const { detail_id, nama_vendor, qty_kirim, harga_cmt } = req.body;
     const tId = req.session.tenantId;
+
     try {
         await db.query("BEGIN");
-        const totalBiaya = parseFloat(qty_kirim) * parseFloat(harga_cmt);
-        const sj = await db.query(
-            "INSERT INTO cmt_surat_jalan (tenant_id, nama_vendor, total_biaya_vendor, status) VALUES ($1, $2, $3, 'PROSES') RETURNING id",
+
+        // Hitung total biaya (qty * harga cmt)
+        const totalBiaya = parseInt(qty_kirim) * parseFloat(harga_cmt);
+
+        // 1. Masukkan ke header Surat Jalan
+        const sjRes = await db.query(
+            "INSERT INTO cmt_surat_jalan (tenant_id, nama_vendor, total_biaya_vendor, status, status_pembayaran) VALUES ($1, $2, $3, 'PROSES', 'BELUM LUNAS') RETURNING id",
             [tId, nama_vendor, totalBiaya]
         );
+        const sjId = sjRes.rows[0].id;
+
+        // 2. Masukkan ke detail
         await db.query(
             "INSERT INTO cmt_surat_jalan_detail (sj_id, po_detail_id, qty_dikirim, harga_cmt_saat_ini) VALUES ($1, $2, $3, $4)",
-            [sj.rows[0].id, detail_id, qty_kirim, harga_cmt]
+            [sjId, detail_id, qty_kirim, harga_cmt]
         );
+
         await db.query("COMMIT");
         res.redirect('/admin/data-cmt');
     } catch (err) {
-        await db.query("ROLLBACK");
-        res.status(500).send(err.message);
+        if (db) await db.query("ROLLBACK");
+        console.error("🔥 Error Kirim CMT:", err.message);
+        res.status(500).send("Gagal kirim barang: " + err.message);
     }
 });
 
-// 3. TERIMA BARANG (MASUK HASIL KERJA)
-// REVISI ROUTE TERIMA BARANG
+// 3. TERIMA BARANG (Tombol TERIMA)
 app.get('/admin/terima-barang/:sj_detail_id', isAdmin, async (req, res) => {
     const sjDetailId = req.params.sj_detail_id;
     const tId = req.session.tenantId;
     const userId = req.session.userId;
     try {
         await db.query("BEGIN");
-        
         const det = await db.query(`
             SELECT d.*, sj.id as sj_parent_id, p.po_id 
             FROM cmt_surat_jalan_detail d 
@@ -2603,24 +2606,21 @@ app.get('/admin/terima-barang/:sj_detail_id', isAdmin, async (req, res) => {
         if (det.rows.length === 0) throw new Error("Data tidak ditemukan");
         const item = det.rows[0];
 
-        // Gunakan NULL jika mesin_id opsional, atau pastikan ID 0 ada di tabel mesin
         await db.query(`
             INSERT INTO hasil_kerja (tenant_id, operator_id, po_id, detail_id, tanggal, shift, jumlah_setor, mesin_id) 
             VALUES ($1, $2, $3, $4, CURRENT_DATE, 'Pagi', $5, NULL)`, 
             [tId, userId, item.po_id, item.po_detail_id, item.qty_dikirim]);
 
-        // Update status SJ menjadi SELESAI
         await db.query("UPDATE cmt_surat_jalan SET status = 'SELESAI' WHERE id = $1", [item.sj_parent_id]);
-
         await db.query("COMMIT");
         res.redirect('/admin/data-cmt');
     } catch (err) {
         if (db) await db.query("ROLLBACK");
-        console.error(err);
-        res.status(500).send("Gagal terima barang: " + err.message);
+        res.status(500).send(err.message);
     }
 });
-// 4. LUNASI PEMBAYARAN
+
+// 4. LUNASI (Tombol LUNASI)
 app.get('/admin/bayar-vendor/:sj_id', isAdmin, async (req, res) => {
     try {
         await db.query("UPDATE cmt_surat_jalan SET status_pembayaran = 'LUNAS' WHERE id = $1", [req.params.sj_id]);
