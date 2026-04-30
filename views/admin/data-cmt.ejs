@@ -64,6 +64,12 @@
                                                 <% } else if(v.status_bayar !== 'LUNAS') { %>
                                                     <button onclick="konfirmasiBayar('<%= v.sj_id %>')" class="btn btn-xs btn-primary py-0 px-2" style="font-size: 10px;">LUNASI</button>
                                                 <% } %>
+                                                <a href="/cetak-nota-vendor?sj_id=<%= v.sj_id %>" target="_blank" class="btn btn-xs btn-outline-dark py-0 px-2" style="font-size: 10px;">
+                                                    <i class="bi bi-printer"></i> NOTA
+                                                </a>
+                                                <a href="/cetak-nota-gabungan-vendor?vendor=<%= encodeURIComponent(v.nama_vendor) %>" target="_blank" class="btn btn-xs btn-dark py-0 px-1" title="Rekap Semua Hutang Vendor Ini">
+                                                    <i class="bi bi-collection"></i>
+                                                </a>
                                             </div>
                                         </div>
                                     <% }) %>
@@ -167,6 +173,20 @@
         }).then((result) => {
             if (result.isConfirmed) {
                 window.location.href = '/admin/bayar-vendor/' + id;
+            }
+        });
+    }
+
+    function cetakGabunganPrompt() {
+        Swal.fire({
+            title: 'Cetak Rekap Hutang Vendor',
+            input: 'text',
+            inputLabel: 'Masukkan Nama Vendor',
+            placeholder: 'Contoh: Pak Haji',
+            showCancelButton: true
+        }).then((result) => {
+            if (result.value) {
+                window.open(`/cetak-nota-gabungan-vendor?vendor=${encodeURIComponent(result.value)}`, '_blank');
             }
         });
     }

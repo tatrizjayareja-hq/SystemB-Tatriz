@@ -2374,16 +2374,15 @@ app.get('/nota-manual', isAdmin, async (req, res) => {
     }
 });
 
+// --- RUTE CETAK NOTA PER SURAT JALAN ---
 app.get('/cetak-nota-vendor', isAdmin, async (req, res) => {
     const tId = req.session.tenantId;
-    const sjId = req.query.sj_id; // Ambil ID Surat Jalan dari URL
+    const sjId = req.query.sj_id; 
 
     try {
-        // 1. Ambil Setting Perusahaan
         const configRes = await db.query("SELECT * FROM settings WHERE tenant_id = $1", [tId]);
         const config = configRes.rows[0] || { nama_perusahaan: 'TATRIZ SYSTEM' };
 
-        // 2. Ambil Header Surat Jalan
         const sjRes = await db.query(
             "SELECT * FROM cmt_surat_jalan WHERE id = $1 AND tenant_id = $2",
             [sjId, tId]
@@ -2392,7 +2391,6 @@ app.get('/cetak-nota-vendor', isAdmin, async (req, res) => {
 
         if (!sj) return res.send("Data Surat Jalan tidak ditemukan.");
 
-        // 3. Ambil Detail Barang dalam SJ tersebut
         const detailRes = await db.query(`
             SELECT d.*, det.nama_desain, det.jenis_bordir, p.nama_po
             FROM cmt_surat_jalan_detail d
@@ -2401,6 +2399,7 @@ app.get('/cetak-nota-vendor', isAdmin, async (req, res) => {
             WHERE d.sj_id = $1
         `, [sjId]);
 
+        // Menggunakan file nota-vendor-sj.ejs sesuai kode awal Anda
         res.render('admin/nota-vendor-sj', {
             config,
             sj,
@@ -2413,25 +2412,28 @@ app.get('/cetak-nota-vendor', isAdmin, async (req, res) => {
     }
 });
 
+// --- RUTE CETAK REKAP GABUNGAN (TAGIHAN YANG BELUM DIBAYAR) ---
 app.get('/cetak-nota-gabungan-vendor', isAdmin, async (req, res) => {
     const tId = req.session.tenantId;
-    const vendorName = req.query.vendor; // Ambil nama vendor dari URL
+    const vendorName = req.query.vendor; 
 
     try {
         const configRes = await db.query("SELECT * FROM settings WHERE tenant_id = $1", [tId]);
         const config = configRes.rows[0] || { nama_perusahaan: 'TATRIZ' };
 
-        // 1. Ambil semua SJ milik vendor ini yang masih PROSES
+        // PERBAIKAN LOGIKA: Ambil yang status_pembayaran-nya 'BELUM LUNAS'
+        // Baik yang statusnya masih 'PROSES' maupun 'SELESAI'
         const sjRes = await db.query(`
             SELECT * FROM cmt_surat_jalan 
-            WHERE tenant_id = $1 AND nama_vendor = $2 AND status = 'PROSES'
+            WHERE tenant_id = $1 
+            AND nama_vendor = $2 
+            AND status_pembayaran = 'BELUM LUNAS'
             ORDER BY tanggal_kirim ASC
         `, [tId, vendorName]);
 
         const sjs = sjRes.rows;
-        if (sjs.length === 0) return res.send("Tidak ada tagihan berjalan untuk vendor ini.");
+        if (sjs.length === 0) return res.send("<script>alert('Tidak ada tagihan (Hutang) yang belum lunas untuk vendor ini.'); window.close();</script>");
 
-        // 2. Ambil semua detail barang dari semua SJ tersebut
         const sjIds = sjs.map(s => s.id);
         const detailRes = await db.query(`
             SELECT d.*, det.nama_desain, p.nama_po, sj.tanggal_kirim, sj.id as sj_id
