@@ -2643,6 +2643,38 @@ app.get('/admin/bayar-vendor/:sj_id', isAdmin, async (req, res) => {
     }
 });
 
+// --- RUTE BATALKAN / HAPUS PENGERJAAN VENDOR ---
+app.get('/admin/hapus-sj-cmt/:id', isAdmin, async (req, res) => {
+    const tId = req.session.tenantId;
+    const sjId = req.params.id;
+
+    try {
+        await db.query("BEGIN");
+
+        // 1. Cek dulu statusnya. Jika sudah SELESAI, tidak boleh dihapus (harus lewat retur/manual)
+        const check = await db.query(
+            "SELECT status FROM cmt_surat_jalan WHERE id = $1 AND tenant_id = $2", 
+            [sjId, tId]
+        );
+
+        if (check.rows.length === 0) return res.send("Data tidak ditemukan");
+        
+        if (check.rows[0].status === 'SELESAI') {
+            return res.send("<script>alert('Barang sudah diterima, tidak bisa dihapus. Silakan hubungi admin untuk koreksi stok.'); window.history.back();</script>");
+        }
+
+        // 2. Hapus data (Detail akan terhapus otomatis karena ON DELETE CASCADE)
+        await db.query("DELETE FROM cmt_surat_jalan WHERE id = $1 AND tenant_id = $2", [sjId, tId]);
+
+        await db.query("COMMIT");
+        res.redirect('/admin/data-cmt');
+    } catch (err) {
+        if (db) await db.query("ROLLBACK");
+        console.error(err);
+        res.status(500).send("Gagal membatalkan pengerjaan.");
+    }
+});
+
 app.get('/cek-balance', isAdmin, async (req, res) => {
     const tId = req.session.tenantId;
     const bulanIni = req.query.bulan || new Date().toISOString().slice(0, 7);

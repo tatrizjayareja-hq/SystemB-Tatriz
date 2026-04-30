@@ -61,7 +61,10 @@
                                             <div class="btn-group">
                                                 <% if(v.status_sj === 'PROSES') { %>
                                                     <button onclick="konfirmasiTerima('<%= v.sj_detail_id %>')" class="btn btn-xs btn-success py-0 px-2" style="font-size: 10px;">TERIMA</button>
-                                                <% } else if(v.status_bayar !== 'LUNAS') { %>
+                                                <button onclick="konfirmasiHapusSJ('<%= v.sj_id %>')" class="btn btn-xs btn-outline-danger py-0 px-1" title="Batalkan / Salah Input">
+                                                        <i class="bi bi-trash"></i>
+                                                    </button>
+                                                    <% } else if(v.status_bayar !== 'LUNAS') { %>
                                                     <button onclick="konfirmasiBayar('<%= v.sj_id %>')" class="btn btn-xs btn-primary py-0 px-2" style="font-size: 10px;">LUNASI</button>
                                                 <% } %>
                                                 <a href="/cetak-nota-vendor?sj_id=<%= v.sj_id %>" target="_blank" class="btn btn-xs btn-outline-dark py-0 px-2" style="font-size: 10px;">
@@ -187,6 +190,23 @@
         }).then((result) => {
             if (result.value) {
                 window.open(`/cetak-nota-gabungan-vendor?vendor=${encodeURIComponent(result.value)}`, '_blank');
+            }
+        });
+    }
+
+    function konfirmasiHapusSJ(id) {
+        Swal.fire({
+            title: 'Batalkan Pengiriman?',
+            text: "Data akan dihapus dan Qty kembali ke saldo gudang.",
+            icon: 'warning',
+            showCancelButton: true,
+            confirmButtonColor: '#d33',
+            cancelButtonColor: '#3085d6',
+            confirmButtonText: 'Ya, Batalkan!',
+            cancelButtonText: 'Tidak'
+        }).then((result) => {
+            if (result.isConfirmed) {
+                window.location.href = '/admin/hapus-sj-cmt/' + id;
             }
         });
     }
