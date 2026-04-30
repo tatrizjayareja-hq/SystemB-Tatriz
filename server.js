@@ -911,7 +911,7 @@ app.post('/save-po-v2', isAdmin, async (req, res) => {
         await db.query("UPDATE po_utama SET total_harga_customer = $1 WHERE id = $2", [totalTagihan, poId]);
 
         await db.query("COMMIT");
-        res.send("<script>alert('Pesanan Berhasil Disimpan'); window.location='/po-data-v2';</script>");
+        res.redirect('/po-data-v2');
 
     } catch (err) {
         // Tetap lakukan rollback di background agar koneksi database tidak error/macet

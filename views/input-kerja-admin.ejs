@@ -142,9 +142,12 @@
             document.getElementById('input_harga_op').value = harga;
             
             const inputSetor = document.getElementById('input_setor');
-            inputSetor.placeholder = "Maksimal " + sisa;
-            inputSetor.max = sisa; 
-            inputSetor.value = sisa; // Admin biasanya input langsung lunas
+            // 1. Memberikan placeholder sebagai info sisa (opsional)
+            inputSetor.placeholder = "Sisa PO: " + sisa;
+            // 2. MENGHAPUS BATASAN (Cara yang benar)
+            inputSetor.removeAttribute('max'); 
+            // 3. Mengisi nilai otomatis (Default)
+            inputSetor.value = sisa;
             
             infoDiv.style.display = 'block';
         } else {
