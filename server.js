@@ -290,11 +290,21 @@ app.get('/dashboard', async (req, res) => {
 
         // 2. Hitung Total Piutang
         const piutangRes = await db.get(`
-            SELECT (
-                COALESCE((SELECT SUM(total_harga_customer) FROM po_utama WHERE tenant_id = $1), 0) - 
-                COALESCE((SELECT SUM(jumlah) FROM arus_kas WHERE kategori IN ('PEMBAYARAN BORDIR', 'PELUNASAN', 'DP/CICILAN') AND tenant_id = $1), 0)
-            ) as total_piutang`, [tId]);
-
+            SELECT SUM(sisa_per_po) as total_piutang
+            FROM (
+                SELECT 
+                    (p.total_harga_customer - COALESCE(bayar.total, 0)) as sisa_per_po
+                FROM po_utama p
+                LEFT JOIN (
+                    SELECT po_id, SUM(jumlah) as total 
+                    FROM arus_kas 
+                    WHERE kategori IN ('PEMBAYARAN BORDIR', 'PELUNASAN', 'DP/CICILAN') 
+                    GROUP BY po_id
+                ) bayar ON p.id = bayar.po_id
+                WHERE p.status NOT IN ('Lunas', 'Design') 
+                AND p.tenant_id = $1
+            ) subquery 
+            WHERE sisa_per_po > 0`, [tId]);
         // 3. Cek Masalah Produksi
         const masalahRes = await db.get(`
             SELECT COUNT(*) as total FROM (
