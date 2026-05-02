@@ -36,27 +36,34 @@
                     <% dataCMT.forEach(item => { %>
                         <tr>
                             <td>
-                                <div class="fw-bold text-dark"><%= item.nama_po %></div>
-                                <div class="text-primary mt-1" style="font-size: 11px; font-weight: 600;">
-                                    <i class="bi bi-person-fill"></i> <%= item.customer %>
-                                </div>
-                                <div class="text-muted mt-1" style="font-size: 11px;">
-                                    <%= item.nama_desain %> (<%= item.jenis_bordir %>)
+                                <!-- Baris Nama PO & Harga (Sejajar) -->
+                                <div class="d-flex justify-content-between align-items-start gap-2">
+                                    <div class="fw-bold text-dark text-truncate" style="max-width: 180px;">
+                                        <%= item.nama_po %>
+                                    </div>
+                                    
+                                    <div class="text-end">
+                                        <% if (item.harga_cmt > 0) { %>
+                                            <span class="badge bg-secondary-subtle text-secondary border px-2" style="font-size: 10px;">
+                                                Rp <%= Number(item.total_biaya_po).toLocaleString('id-ID') %>
+                                            </span>
+                                        <% } else { %>
+                                            <a href="/edit-po/<%= item.po_id %>" class="badge bg-danger text-white text-decoration-none" style="font-size: 9px;" title="Klik untuk isi harga CMT">
+                                                <i class="bi bi-exclamation-circle"></i> ISI HARGA
+                                            </a>
+                                        <% } %>
+                                    </div>
                                 </div>
 
-                                <!-- TAMPILAN TOTAL BIAYA CMT -->
-                                <div class="mt-2">
-                                    <% if (item.harga_cmt > 0) { %>
-                                        <div class="badge bg-secondary-subtle text-secondary border px-2 py-1" style="font-size: 10px;">
-                                            ESTIMASI BIAYA: Rp <%= Number(item.total_biaya_po).toLocaleString('id-ID') %>
-                                            <small class="d-block text-muted" style="font-size: 9px;">@Rp <%= Number(item.harga_cmt).toLocaleString('id-ID') %></small>
-                                        </div>
-                                    <% } else { %>
-                                        <!-- JIKA HARGA CMT KOSONG -->
-                                        <a href="/edit-po/<%= item.po_id %>" class="btn btn-sm btn-danger py-0 px-2 fw-bold" style="font-size: 10px;">
-                                            <i class="bi bi-exclamation-triangle"></i> HARGA CMT KOSONG (KLIK UNTUK ISI)
-                                        </a>
-                                    <% } %>
+                                <!-- Baris Customer & Detail Desain -->
+                                <div class="d-flex align-items-center gap-2 mt-1">
+                                    <span class="text-primary fw-bold" style="font-size: 11px;">
+                                        <i class="bi bi-person-fill"></i> <%= item.customer %>
+                                    </span>
+                                    <span class="text-muted" style="font-size: 11px;">•</span>
+                                    <span class="text-muted" style="font-size: 11px;">
+                                        <%= item.nama_desain %> (<%= item.jenis_bordir %>)
+                                    </span>
                                 </div>
                             </td>
                             <td class="text-center">
