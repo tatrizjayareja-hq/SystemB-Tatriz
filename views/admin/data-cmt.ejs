@@ -1,15 +1,21 @@
 <%- include('../partials/header') %>
 
 <div class="container-fluid mt-3" style="max-width: 1100px;">
+    <!-- HEADER DENGAN TOMBOL CETAK PILIHAN -->
     <div class="d-flex justify-content-between align-items-center mb-3">
         <h4 class="fw-bold mb-0">🚜 Monitor Produksi & Hutang CMT</h4>
-        <a href="/dashboard" class="btn btn-outline-secondary btn-sm">Kembali</a>
+        <div class="d-flex gap-2">
+            <button onclick="cetakNotaPilihan()" class="btn btn-dark btn-sm fw-bold shadow-sm">
+                <i class="bi bi-printer"></i> CETAK NOTA PILIHAN (<span id="countPilihan">0</span>)
+            </button>
+            <a href="/dashboard" class="btn btn-outline-secondary btn-sm shadow-sm">Kembali</a>
+        </div>
     </div>
 
     <div class="card shadow-sm border-0">
         <div class="table-responsive">
             <table class="table table-hover align-middle mb-0" style="font-size: 13px;">
-                <thead class="table-dark">
+                <thead class="table-dark text-uppercase">
                     <tr>
                         <th width="30%">PO / Desain</th>
                         <th width="10%" class="text-center">Gudang</th>
@@ -39,39 +45,44 @@
                                 </div>
                             </td>
                             <td class="text-center">
-                                <span class="badge rounded-pill bg-light text-dark border"><%= item.sisa_gudang %> Pcs</span>
+                                <span class="badge rounded-pill bg-light text-dark border shadow-sm"><%= item.sisa_gudang %> Pcs</span>
                             </td>
                             <td>
                                 <% if (item.list_vendor && item.list_vendor.length > 0 && item.list_vendor[0].sj_id !== null) { %>
                                     <% item.list_vendor.forEach(v => { %>
-                                        <div class="d-flex justify-content-between align-items-center mb-1 p-2 bg-light rounded border-start border-4 <%= v.status_sj === 'PROSES' ? 'border-warning' : 'border-success' %>">
-                                            <div>
-                                                <strong class="text-uppercase"><%= v.nama_vendor %></strong> 
-                                                <small class="ms-1 badge bg-white text-dark border"><%= v.qty %> Pcs</small>
-                                                
-                                                <% if(v.status_sj === 'PROSES') { %>
-                                                    <span class="badge bg-warning text-dark ms-1" style="font-size: 9px;">DI VENDOR</span>
-                                                <% } else { %>
-                                                    <span class="badge <%= v.status_bayar === 'LUNAS' ? 'bg-success' : 'bg-danger' %> ms-1" style="font-size: 9px;">
-                                                        <%= v.status_bayar %>
-                                                    </span>
+                                        <div class="d-flex justify-content-between align-items-center mb-2 p-2 bg-light rounded border-start border-4 <%= v.status_sj === 'PROSES' ? 'border-warning' : 'border-success' %> shadow-sm">
+                                            <div class="d-flex align-items-center gap-2">
+                                                <!-- CHECKBOX PILIH NOTA -->
+                                                <% if(v.status_bayar !== 'LUNAS') { %>
+                                                    <input type="checkbox" class="form-check-input check-nota border-secondary" value="<%= v.sj_id %>" onchange="updateCount()">
                                                 <% } %>
+                                                
+                                                <div>
+                                                    <strong class="text-uppercase"><%= v.nama_vendor %></strong> 
+                                                    <small class="ms-1 badge bg-white text-dark border"><%= v.qty %> Pcs</small>
+                                                    
+                                                    <% if(v.status_sj === 'PROSES') { %>
+                                                        <span class="badge bg-warning text-dark ms-1" style="font-size: 9px;">DI VENDOR</span>
+                                                    <% } else { %>
+                                                        <span class="badge <%= v.status_bayar === 'LUNAS' ? 'bg-success' : 'bg-danger' %> ms-1" style="font-size: 9px;">
+                                                            <%= v.status_bayar %>
+                                                        </span>
+                                                    <% } %>
+                                                </div>
                                             </div>
                                             
                                             <div class="btn-group">
                                                 <% if(v.status_sj === 'PROSES') { %>
                                                     <button onclick="konfirmasiTerima('<%= v.sj_detail_id %>')" class="btn btn-xs btn-success py-0 px-2" style="font-size: 10px;">TERIMA</button>
-                                                <button onclick="konfirmasiHapusSJ('<%= v.sj_id %>')" class="btn btn-xs btn-outline-danger py-0 px-1" title="Batalkan / Salah Input">
+                                                    <button onclick="konfirmasiHapusSJ('<%= v.sj_id %>')" class="btn btn-xs btn-outline-danger py-0 px-1" title="Batalkan">
                                                         <i class="bi bi-trash"></i>
                                                     </button>
-                                                    <% } else if(v.status_bayar !== 'LUNAS') { %>
+                                                <% } else if(v.status_bayar !== 'LUNAS') { %>
                                                     <button onclick="konfirmasiBayar('<%= v.sj_id %>')" class="btn btn-xs btn-primary py-0 px-2" style="font-size: 10px;">LUNASI</button>
                                                 <% } %>
+                                                
                                                 <a href="/cetak-nota-vendor?sj_id=<%= v.sj_id %>" target="_blank" class="btn btn-xs btn-outline-dark py-0 px-2" style="font-size: 10px;">
-                                                    <i class="bi bi-printer"></i> NOTA
-                                                </a>
-                                                <a href="/cetak-nota-gabungan-vendor?vendor=<%= encodeURIComponent(v.nama_vendor) %>" target="_blank" class="btn btn-xs btn-dark py-0 px-1" title="Rekap Semua Hutang Vendor Ini">
-                                                    <i class="bi bi-collection"></i>
+                                                    <i class="bi bi-printer"></i>
                                                 </a>
                                             </div>
                                         </div>
@@ -82,7 +93,7 @@
                             </td>
                             <td class="text-end">
                                 <% if(item.sisa_gudang > 0) { %>
-                                    <button onclick="bukaModalKirim('<%= item.detail_id %>', '<%= item.sisa_gudang %>', '<%= item.harga_cmt %>')" class="btn btn-sm btn-outline-primary fw-bold">
+                                    <button onclick="bukaModalKirim('<%= item.detail_id %>', '<%= item.sisa_gudang %>', '<%= item.harga_cmt %>')" class="btn btn-sm btn-outline-primary fw-bold shadow-sm">
                                         + KIRIM
                                     </button>
                                 <% } %>
@@ -95,6 +106,7 @@
     </div>
 </div>
 
+<!-- MODAL KIRIM KE VENDOR -->
 <div class="modal fade" id="modalKirim" tabindex="-1">
     <div class="modal-dialog modal-sm">
         <form action="/admin/kirim-ke-vendor" method="POST" class="modal-content shadow-lg">
@@ -102,18 +114,18 @@
                 <h6 class="modal-title fw-bold">Kirim ke Luar</h6>
                 <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
             </div>
-            <div class="modal-body">
+            <div class="modal-body text-uppercase">
                 <input type="hidden" name="detail_id" id="modal_detail_id">
                 <input type="hidden" name="harga_cmt" id="modal_harga_cmt">
                 
                 <div class="mb-2">
                     <label class="small fw-bold">Nama Vendor:</label>
-                    <input type="text" name="nama_vendor" class="form-control form-control-sm" placeholder="Contoh: Pak Haji" required list="vendorList">
+                    <input type="text" name="nama_vendor" class="form-control form-control-sm border-dark" placeholder="..." required list="vendorList">
                     <datalist id="vendorList"></datalist>
                 </div>
                 <div class="mb-2">
                     <label class="small fw-bold">Qty Kirim:</label>
-                    <input type="number" name="qty_kirim" id="modal_qty_input" class="form-control form-control-sm" min="1" required>
+                    <input type="number" name="qty_kirim" id="modal_qty_input" class="form-control form-control-sm border-dark" min="1" required>
                     <div class="d-flex justify-content-between mt-1">
                         <small class="text-danger fw-bold" id="label_maks" style="font-size: 10px;">Maks: 0</small>
                         <small class="text-muted" style="font-size: 10px;">Saldo Gudang</small>
@@ -121,7 +133,7 @@
                 </div>
             </div>
             <div class="modal-footer p-2">
-                <button type="submit" class="btn btn-primary btn-sm w-100">SIMPAN & KIRIM</button>
+                <button type="submit" class="btn btn-primary btn-sm w-100 fw-bold">SIMPAN & KIRIM</button>
             </div>
         </form>
     </div>
@@ -129,39 +141,47 @@
 
 <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
 <script>
-    // Gunakan pengecekan DOMContentLoaded agar script berjalan setelah HTML siap
+    // INITIALIZE BOOTSTRAP MODAL
     document.addEventListener('DOMContentLoaded', function() {
-        // Inisialisasi modal menggunakan variabel global agar bisa diakses fungsi lain
         window.myModalKirim = new bootstrap.Modal(document.getElementById('modalKirim'));
     });
 
+    // UPDATE COUNTER CHECKBOX
+    function updateCount() {
+        const checked = document.querySelectorAll('.check-nota:checked').length;
+        document.getElementById('countPilihan').innerText = checked;
+    }
+
+    // FUNCTION CETAK PILIHAN
+    function cetakNotaPilihan() {
+        const checkboxes = document.querySelectorAll('.check-nota:checked');
+        if (checkboxes.length === 0) {
+            return Swal.fire('Pilih Data', 'Centang minimal satu pengerjaan untuk dicetak.', 'info');
+        }
+        const ids = Array.from(checkboxes).map(cb => cb.value);
+        window.open(`/cetak-nota-pilihan-vendor?ids=${ids.join(',')}`, '_blank');
+    }
+
     function bukaModalKirim(id, sisa, harga) {
-        // Isi data ke dalam input modal
         document.getElementById('modal_detail_id').value = id;
         document.getElementById('modal_harga_cmt').value = harga;
-        
         const qtyInput = document.getElementById('modal_qty_input');
         qtyInput.max = sisa;
         qtyInput.value = sisa;
-        
         document.getElementById('label_maks').innerText = "Maksimal: " + sisa + " Pcs";
-        
-        // Tampilkan modal
         window.myModalKirim.show();
     }
 
     function konfirmasiTerima(id) {
         Swal.fire({
             title: 'Terima Barang?',
-            text: "Barang akan masuk ke riwayat produksi pusat dan status menjadi HUTANG.",
+            text: "Barang akan masuk ke riwayat pusat & status menjadi HUTANG.",
             icon: 'question',
             showCancelButton: true,
             confirmButtonColor: '#198754',
             confirmButtonText: 'Ya, Terima!'
         }).then((result) => {
-            if (result.isConfirmed) {
-                window.location.href = '/admin/terima-barang/' + id;
-            }
+            if (result.isConfirmed) window.location.href = '/admin/terima-barang/' + id;
         });
     }
 
@@ -174,23 +194,7 @@
             confirmButtonColor: '#0d6efd',
             confirmButtonText: 'Ya, Sudah Lunas'
         }).then((result) => {
-            if (result.isConfirmed) {
-                window.location.href = '/admin/bayar-vendor/' + id;
-            }
-        });
-    }
-
-    function cetakGabunganPrompt() {
-        Swal.fire({
-            title: 'Cetak Rekap Hutang Vendor',
-            input: 'text',
-            inputLabel: 'Masukkan Nama Vendor',
-            placeholder: 'Contoh: Pak Haji',
-            showCancelButton: true
-        }).then((result) => {
-            if (result.value) {
-                window.open(`/cetak-nota-gabungan-vendor?vendor=${encodeURIComponent(result.value)}`, '_blank');
-            }
+            if (result.isConfirmed) window.location.href = '/admin/bayar-vendor/' + id;
         });
     }
 
@@ -201,13 +205,9 @@
             icon: 'warning',
             showCancelButton: true,
             confirmButtonColor: '#d33',
-            cancelButtonColor: '#3085d6',
-            confirmButtonText: 'Ya, Batalkan!',
-            cancelButtonText: 'Tidak'
+            confirmButtonText: 'Ya, Batalkan!'
         }).then((result) => {
-            if (result.isConfirmed) {
-                window.location.href = '/admin/hapus-sj-cmt/' + id;
-            }
+            if (result.isConfirmed) window.location.href = '/admin/hapus-sj-cmt/' + id;
         });
     }
 </script>

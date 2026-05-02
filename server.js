@@ -2422,29 +2422,32 @@ app.get('/cetak-nota-vendor', isAdmin, async (req, res) => {
     }
 });
 
-// --- RUTE CETAK REKAP GABUNGAN (TAGIHAN YANG BELUM DIBAYAR) ---
-app.get('/cetak-nota-gabungan-vendor', isAdmin, async (req, res) => {
+
+// PASTIKAN NAMA ROUTE SESUAI DENGAN YANG DIPANGGIL FUNGSI JS (cetak-nota-pilihan-vendor)
+app.get('/cetak-nota-pilihan-vendor', isAdmin, async (req, res) => {
     const tId = req.session.tenantId;
-    const vendorName = req.query.vendor; 
+    const idsString = req.query.ids; // Menangkap string "1,2,3" dari window.open
+
+    if (!idsString) return res.send("Tidak ada data yang dipilih.");
 
     try {
         const configRes = await db.query("SELECT * FROM settings WHERE tenant_id = $1", [tId]);
         const config = configRes.rows[0] || { nama_perusahaan: 'TATRIZ' };
 
-        // PERBAIKAN LOGIKA: Ambil yang status_pembayaran-nya 'BELUM LUNAS'
-        // Baik yang statusnya masih 'PROSES' maupun 'SELESAI'
+        // Mengubah string "1,2,3" menjadi array angka [1, 2, 3]
+        const sjIds = idsString.split(',').map(id => parseInt(id));
+
         const sjRes = await db.query(`
             SELECT * FROM cmt_surat_jalan 
-            WHERE tenant_id = $1 
-            AND nama_vendor = $2 
-            AND status_pembayaran = 'BELUM LUNAS'
-            ORDER BY tanggal_kirim ASC
-        `, [tId, vendorName]);
+            WHERE id = ANY($1) AND tenant_id = $2
+            ORDER BY nama_vendor ASC, tanggal_kirim ASC
+        `, [sjIds, tId]);
 
         const sjs = sjRes.rows;
-        if (sjs.length === 0) return res.send("<script>alert('Tidak ada tagihan (Hutang) yang belum lunas untuk vendor ini.'); window.close();</script>");
+        if (sjs.length === 0) return res.send("Data tidak ditemukan.");
 
-        const sjIds = sjs.map(s => s.id);
+        const vendorName = sjs[0].nama_vendor;
+
         const detailRes = await db.query(`
             SELECT d.*, det.nama_desain, p.nama_po, sj.tanggal_kirim, sj.id as sj_id
             FROM cmt_surat_jalan_detail d
@@ -2456,16 +2459,15 @@ app.get('/cetak-nota-gabungan-vendor', isAdmin, async (req, res) => {
 
         res.render('admin/nota-gabungan-vendor', {
             config,
-            vendorName,
+            vendorName: sjs.length > 1 ? vendorName + " (Multiple)" : vendorName,
             sjs,
             items: detailRes.rows
         });
     } catch (err) {
         console.error(err);
-        res.status(500).send("Gagal menggabungkan nota.");
+        res.status(500).send("Gagal mencetak nota pilihan.");
     }
 });
-
 
 app.get('/performa-operator', isAdmin, async (req, res) => {
     const tId = req.session.tenantId;
