@@ -2547,7 +2547,16 @@ app.get('/admin/data-cmt', isAdmin, async (req, res) => {
     try {
         const sql = `
             SELECT 
-                d.id as detail_id, p.nama_po, p.customer, d.nama_desain, d.jenis_bordir, d.jumlah as total_order, d.harga_cmt,
+                d.id as detail_id, 
+                p.id as po_id, -- Tambahkan po_id untuk link edit
+                p.nama_po, 
+                p.customer, 
+                d.nama_desain, 
+                d.jenis_bordir, 
+                d.jumlah as total_order, 
+                d.harga_cmt, -- Pastikan harga_cmt ditarik
+                -- Hitung perkiraan total biaya PO ini
+                (d.jumlah * d.harga_cmt) as total_biaya_po,
                 (d.jumlah - COALESCE((SELECT SUM(qty_dikirim) FROM cmt_surat_jalan_detail WHERE po_detail_id = d.id), 0)) as sisa_gudang,
                 COALESCE(
                     (SELECT json_agg(json_build_object(
