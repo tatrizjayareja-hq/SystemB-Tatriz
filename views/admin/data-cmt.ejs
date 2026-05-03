@@ -5,6 +5,14 @@
     <div class="d-flex justify-content-between align-items-center mb-3">
         <h4 class="fw-bold mb-0">🚜 Monitor Produksi & Hutang CMT</h4>
         <div class="d-flex gap-2">
+            <!-- INPUT FILTER VENDOR -->
+            <input type="text" id="filterVendor" class="form-control form-control-sm" placeholder="Cari Nama Vendor..." onkeyup="jalankanFilter()">
+            
+            <!-- TOMBOL PILIH SEMUA YANG TAMPIL -->
+            <button onclick="pilihSemuaTampil()" class="btn btn-outline-primary btn-sm fw-bold">
+                <i class="bi bi-check-all"></i> PILIH SEMUA
+            </button>
+
             <button onclick="cetakNotaPilihan()" class="btn btn-dark btn-sm fw-bold shadow-sm">
                 <i class="bi bi-printer"></i> CETAK NOTA PILIHAN (<span id="countPilihan">0</span>)
             </button>
@@ -73,6 +81,8 @@
                                 <% if (item.list_vendor && item.list_vendor.length > 0 && item.list_vendor[0].sj_id !== null) { %>
                                     <% item.list_vendor.forEach(v => { %>
                                         <div class="d-flex justify-content-between align-items-center mb-2 p-2 bg-light rounded border-start border-4 <%= v.status_sj === 'PROSES' ? 'border-warning' : 'border-success' %> shadow-sm">
+                                            <div class="vendor-row d-flex justify-content-between align-items-center mb-2 p-2 bg-light rounded border-start border-4 <%= v.status_sj === 'PROSES' ? 'border-warning' : 'border-success' %> shadow-sm" 
+                                                    data-vendor="<%= v.nama_vendor.toLowerCase() %>">
                                             <div class="d-flex align-items-center gap-2">
                                                 <!-- CHECKBOX PILIH NOTA -->
                                                 <% if(v.status_bayar !== 'LUNAS') { %>
@@ -231,6 +241,50 @@
         }).then((result) => {
             if (result.isConfirmed) window.location.href = '/admin/hapus-sj-cmt/' + id;
         });
+    }
+
+    // FUNGSI FILTER TANPA REFRESH
+    function jalankanFilter() {
+        const input = document.getElementById('filterVendor').value.toLowerCase();
+        const rows = document.querySelectorAll('.vendor-row');
+
+        rows.forEach(row => {
+            const namaVendor = row.getAttribute('data-vendor');
+            // Jika nama cocok, tampilkan. Jika tidak, sembunyikan.
+            if (namaVendor.includes(input)) {
+                row.style.display = 'flex'; 
+                // Kita gunakan 'flex' karena aslinya d-flex, kalau 'block' tata letak bisa rusak
+            } else {
+                row.style.display = 'none';
+                // Uncheck otomatis jika baris disembunyikan agar tidak ikut tercetak (opsional)
+                const cb = row.querySelector('.check-nota');
+                if(cb) cb.checked = false;
+            }
+        });
+        updateCount();
+    }
+
+    // FUNGSI PILIH SEMUA YANG SEDANG TAMPIL
+    function pilihSemuaTampil() {
+        const rows = document.querySelectorAll('.vendor-row');
+        let adaYangDiceklis = false;
+
+        rows.forEach(row => {
+            // Hanya ceklis baris yang sedang tampil (tidak di-filter)
+            if (row.style.display !== 'none') {
+                const cb = row.querySelector('.check-nota');
+                if (cb) {
+                    cb.checked = true;
+                    adaYangDiceklis = true;
+                }
+            }
+        });
+
+        if(!adaYangDiceklis) {
+            Swal.fire('Info', 'Tidak ada item yang bisa dipilih pada filter ini.', 'info');
+        }
+        
+        updateCount();
     }
 </script>
 
