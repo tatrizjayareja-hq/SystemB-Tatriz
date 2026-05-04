@@ -95,6 +95,11 @@
                                             
                                             <div class="btn-group">
                                                 <% if(v.status_sj === 'PROSES') { %>
+                                                    <!-- TOMBOL EDIT JUMLAH -->
+                                                    <button onclick="bukaModalEdit('<%= v.sj_id %>', '<%= v.sj_detail_id %>', '<%= v.qty %>', '<%= item.sisa_gudang + v.qty %>')" 
+                                                            class="btn btn-xs btn-outline-warning py-0 px-2" style="font-size: 10px;" title="Edit Qty">
+                                                        <i class="bi bi-pencil-square"></i>
+                                                    </button>
                                                     <button onclick="konfirmasiTerima('<%= v.sj_detail_id %>')" class="btn btn-xs btn-success py-0 px-2" style="font-size: 10px;">TERIMA</button>
                                                     <button onclick="konfirmasiHapusSJ('<%= v.sj_id %>')" class="btn btn-xs btn-outline-danger py-0 px-1" title="Batalkan">
                                                         <i class="bi bi-trash"></i>
@@ -232,6 +237,33 @@
             if (result.isConfirmed) window.location.href = '/admin/hapus-sj-cmt/' + id;
         });
     }
+
+    function bukaModalEdit(sjId, sjDetailId, qtyLama, totalMaksimal) {
+    // Kita bisa gunakan modal yang sama dengan mengganti tujuannya (Action URL)
+    const form = document.querySelector('#modalKirim form');
+    form.action = '/admin/edit-qty-vendor'; // Route baru
+    
+    document.getElementById('modal_detail_id').value = sjDetailId; // Kita kirim ID detail
+    document.getElementById('modal_qty_input').value = qtyLama;
+    document.getElementById('modal_qty_input').max = totalMaksimal;
+    document.getElementById('label_maks').innerText = "Maksimal (Total): " + totalMaksimal + " Pcs";
+    
+    // Sembunyikan input Nama Vendor karena saat edit biasanya vendor tidak berubah
+    // Atau bisa dibuat readonly
+    const vendorInput = document.querySelector('input[name="nama_vendor"]');
+    vendorInput.parentElement.style.display = 'none'; 
+    vendorInput.required = false;
+
+    window.myModalKirim.show();
+}
+
+// Reset modal saat ditutup agar fungsi "Tambah Kirim" tidak rusak
+document.getElementById('modalKirim').addEventListener('hidden.bs.modal', function () {
+    const form = document.querySelector('#modalKirim form');
+    form.action = '/admin/kirim-ke-vendor';
+    document.querySelector('input[name="nama_vendor"]').parentElement.style.display = 'block';
+    document.querySelector('input[name="nama_vendor"]').required = true;
+});
 </script>
 
 <%- include('../partials/footer') %>

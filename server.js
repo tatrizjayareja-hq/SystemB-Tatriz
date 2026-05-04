@@ -2696,6 +2696,47 @@ app.get('/admin/hapus-sj-cmt/:id', isAdmin, async (req, res) => {
     }
 });
 
+app.post('/admin/edit-qty-vendor', isAdmin, async (req, res) => {
+    const { detail_id, qty_kirim } = req.body; // detail_id di sini adalah sj_detail_id
+    const tId = req.session.tenantId;
+
+    try {
+        await db.query("BEGIN");
+
+        // 1. Ambil data lama untuk sinkronisasi harga & sj_id
+        const oldData = await db.query(`
+            SELECT sj_id, harga_cmt_saat_ini 
+            FROM cmt_surat_jalan_detail 
+            WHERE id = $1`, [detail_id]);
+        
+        if (oldData.rows.length === 0) throw new Error("Data tidak ditemukan");
+        
+        const { sj_id, harga_cmt_saat_ini } = oldData.rows[0];
+        const newTotalBiaya = parseInt(qty_kirim) * parseFloat(harga_cmt_saat_ini);
+
+        // 2. Update Qty di Detail
+        await db.query(
+            "UPDATE cmt_surat_jalan_detail SET qty_dikirim = $1 WHERE id = $2",
+            [qty_kirim, detail_id]
+        );
+
+        // 3. Update Total Biaya di Header (Surat Jalan)
+        // Catatan: Jika 1 SJ bisa berisi banyak PO, gunakan SUM. 
+        // Jika 1 SJ pasti 1 PO, update langsung seperti ini:
+        await db.query(
+            "UPDATE cmt_surat_jalan SET total_biaya_vendor = $1 WHERE id = $2 AND tenant_id = $3",
+            [newTotalBiaya, sj_id, tId]
+        );
+
+        await db.query("COMMIT");
+        res.redirect('/admin/data-cmt');
+    } catch (err) {
+        if (db) await db.query("ROLLBACK");
+        console.error("🔥 Error Edit Qty CMT:", err.message);
+        res.status(500).send("Gagal update jumlah: " + err.message);
+    }
+});
+
 app.get('/cek-balance', isAdmin, async (req, res) => {
     const tId = req.session.tenantId;
     const bulanIni = req.query.bulan || new Date().toISOString().slice(0, 7);
