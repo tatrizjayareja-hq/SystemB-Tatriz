@@ -1012,9 +1012,9 @@ app.get('/admin/repeat-po/:id', isAdmin, async (req, res) => {
 
         // 2. Insert ke po_utama sebagai PO baru (Nama PO ditambahkan kata 'Repeat')
         const newPoRes = await db.query(
-            `INSERT INTO po_utama (tenant_id, tanggal, nama_po, customer, status, catatan) 
-             VALUES ($1, $2, $3, $4, 'Design', $5) RETURNING id`,
-            [tId, hariIni, po.nama_po + " (Repeat)", po.customer, "Copy dari PO #" + oldPoId]
+            `INSERT INTO po_utama (tenant_id, tanggal, nama_po, customer, status) 
+            VALUES ($1, $2, $3, $4, 'Design') RETURNING id`,
+            [tId, hariIni, po.nama_po + " (Repeat)", po.customer]
         );
         const newPoId = newPoRes.rows[0].id;
 
