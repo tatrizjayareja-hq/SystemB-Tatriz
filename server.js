@@ -996,7 +996,60 @@ app.get('/po-data-v2', isAdmin, async (req, res) => {
     }
 });
 
+app.get('/admin/repeat-po/:id', isAdmin, async (req, res) => {
+    const oldPoId = req.params.id;
+    const tId = req.session.tenantId;
+    const hariIni = new Date().toISOString().split('T')[0]; // Format YYYY-MM-DD
 
+    try {
+        await db.query("BEGIN");
+
+        // 1. Ambil data Header PO lama
+        const oldPo = await db.query("SELECT * FROM po_utama WHERE id = $1 AND tenant_id = $2", [oldPoId, tId]);
+        if (oldPo.rows.length === 0) throw new Error("PO asal tidak ditemukan.");
+
+        const po = oldPo.rows[0];
+
+        // 2. Insert ke po_utama sebagai PO baru (Nama PO ditambahkan kata 'Repeat')
+        const newPoRes = await db.query(
+            `INSERT INTO po_utama (tenant_id, tanggal, nama_po, customer, status, catatan) 
+             VALUES ($1, $2, $3, $4, 'Design', $5) RETURNING id`,
+            [tId, hariIni, po.nama_po + " (Repeat)", po.customer, "Copy dari PO #" + oldPoId]
+        );
+        const newPoId = newPoRes.rows[0].id;
+
+        // 3. Ambil Detail PO lama
+        const oldDetails = await db.query("SELECT * FROM po_detail WHERE po_id = $1", [oldPoId]);
+
+        // 4. Salin semua detail ke PO baru
+        for (let detail of oldDetails.rows) {
+            await db.query(
+                `INSERT INTO po_detail 
+                (po_id, nama_desain, jenis_bordir, jumlah, harga_operator, harga_cmt, harga_customer) 
+                VALUES ($1, $2, $3, $4, $5, $6, $7)`,
+                [
+                    newPoId, 
+                    detail.nama_desain, 
+                    detail.jenis_bordir, 
+                    detail.jumlah, 
+                    detail.harga_operator, 
+                    detail.harga_cmt, 
+                    detail.harga_customer
+                ]
+            );
+        }
+
+        await db.query("COMMIT");
+        
+        // Redirect ke halaman edit jika user ingin mengubah jumlah atau nama
+        res.redirect(`/edit-po/${newPoId}`);
+
+    } catch (err) {
+        if (db) await db.query("ROLLBACK");
+        console.error("🔥 Error Repeat PO:", err.message);
+        res.status(500).send("Gagal menyalin PO: " + err.message);
+    }
+});
 
 
 

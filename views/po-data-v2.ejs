@@ -186,6 +186,10 @@
                                     </button>
                                     <div id="menu-<%= po.id %>" class="dropdown-content shadow rounded">
                                         <button onclick="toggleDetail('<%= po.id %>')"><i class="bi bi-eye text-info"></i> Detail Progres</button>
+                                        <button onclick="konfirmasiRepeat('<%= po.id %>', '<%= po.nama_po %>')" class="fw-bold text-success">
+                                            <i class="bi bi-arrow-repeat"></i> Repeat Order
+                                        </button>                                       
+                                        <hr class="my-1">
                                         <a href="/edit-po/<%= po.id %>"><i class="bi bi-pencil-square text-warning"></i> Edit Data PO</a>
                                         <a href="/cetak-nota/<%= po.id %>" target="_blank"><i class="bi bi-printer"></i> Nota A6</a>
                                         <a href="/cetak-nota-rinci/<%= po.id %>" target="_blank"><i class="bi bi-list-check"></i> Nota Rinci</a>
@@ -397,6 +401,22 @@
         }).then((result) => {
             if (result.isConfirmed) {
                 window.open('https://wa.me/+6281315290003?text=Halo%20Admin%20Tatriz,%20saya%20tertarik%20upgrade%20PRO%20untuk%20' + fitur, '_blank');
+            }
+        });
+    }
+
+    function konfirmasiRepeat(id, nama) {
+        Swal.fire({
+            title: 'Repeat Order?',
+            text: `Buat PO baru berdasarkan data "${nama}"? Semua detail desain dan harga akan disalin.`,
+            icon: 'question',
+            showCancelButton: true,
+            confirmButtonColor: '#198754',
+            confirmButtonText: 'Ya, Duplikat!',
+            cancelButtonText: 'Batal'
+        }).then((result) => {
+            if (result.isConfirmed) {
+                window.location.href = `/admin/repeat-po/${id}`;
             }
         });
     }
