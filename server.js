@@ -730,15 +730,13 @@ app.post('/update-po/:id', isAdmin, async (req, res) => {
 
     if (!tId) return res.redirect('/');
 
-    // Ambil data dari form EJS Anda
     let { 
         tanggal, nama_po, customer, status, 
         detail_ids, jenis_bordir, nama_desain, 
-        jumlah, harga_cmt, harga_operator, harga_customer 
+        jumlah, harga_cmt, harga_operator, harga_customer,
+        deleted_ids // <--- Tangkap ID yang dihapus dari frontend
     } = req.body;
 
-    // --- PENGAMAN ARRAY ---
-    // Kode ini memastikan semua input terbaca sebagai daftar, bukan teks tunggal
     const idList = Array.isArray(detail_ids) ? detail_ids : (detail_ids ? [detail_ids] : []);
     const jbList = Array.isArray(jenis_bordir) ? jenis_bordir : (jenis_bordir ? [jenis_bordir] : []);
     const dsList = Array.isArray(nama_desain) ? nama_desain : [nama_desain];
@@ -748,9 +746,22 @@ app.post('/update-po/:id', isAdmin, async (req, res) => {
     const hrgCuList = Array.isArray(harga_customer) ? harga_customer : [harga_customer];
 
     try {
-        await db.query("BEGIN"); // Mulai transaksi aman
+        await db.query("BEGIN");
 
-        // 1. Update Header PO
+        // --- 1. PROSES PENGHAPUSAN (KUNCI PERBAIKAN) ---
+        if (deleted_ids && deleted_ids.trim() !== "") {
+            // Ubah string "101,102" menjadi array [101, 102]
+            const idsToDelete = deleted_ids.split(',').filter(id => id.trim() !== "");
+            if (idsToDelete.length > 0) {
+                // Hapus baris yang diminta user, pastikan milik PO ini agar aman
+                await db.query(
+                    `DELETE FROM po_detail WHERE id = ANY($1::int[]) AND po_id = $2`,
+                    [idsToDelete, poId]
+                );
+            }
+        }
+
+        // 2. Update Header PO
         await db.query(
             `UPDATE po_utama SET tanggal=$1, nama_po=$2, customer=$3, status=$4 
              WHERE id=$5 AND tenant_id=$6`, 
@@ -759,17 +770,16 @@ app.post('/update-po/:id', isAdmin, async (req, res) => {
 
         let totalTagihanBaru = 0;
 
-        // 2. Olah Rincian Item (Looping sesuai jumlah Jenis Bordir yang diisi)
+        // 3. Olah Rincian Item (Update atau Insert)
         for (let i = 0; i < jbList.length; i++) {
             if (!jbList[i] || jbList[i].trim() === "") continue;
 
             const qty = Number(jmlList[i]) || 0;
             const hCu = Number(hrgCuList[i]) || 0;
             
-            // Logika Otomatisasi Harga sesuai Level Tenant Anda
             let finalHOp, finalHCmt;
             if (tId !== 1 && tLevel < 2) {
-                finalHOp = hCu;   // Disamakan dengan harga customer
+                finalHOp = hCu;
                 finalHCmt = 0;
             } else {
                 finalHOp = Number(hrgOpList[i]) || 0;
@@ -778,8 +788,8 @@ app.post('/update-po/:id', isAdmin, async (req, res) => {
 
             totalTagihanBaru += (qty * hCu);
 
-            // JIKA ADA ID: Update baris yang sudah ada (Tidak akan memicu Foreign Key Error)
             if (idList[i] && idList[i] !== "") {
+                // UPDATE
                 await db.query(
                     `UPDATE po_detail SET 
                         jenis_bordir=$1, nama_desain=$2, jumlah=$3, 
@@ -787,9 +797,8 @@ app.post('/update-po/:id', isAdmin, async (req, res) => {
                     WHERE id=$7 AND po_id=$8`,
                     [jbList[i], dsList[i], qty, finalHCmt, finalHOp, hCu, idList[i], poId]
                 );
-            } 
-            // JIKA TIDAK ADA ID: Berarti baris baru hasil tombol "+ Tambah Komponen"
-            else {
+            } else {
+                // INSERT BARU
                 await db.query(
                     `INSERT INTO po_detail (po_id, jenis_bordir, nama_desain, jumlah, harga_cmt, harga_operator, harga_customer) 
                     VALUES ($1, $2, $3, $4, $5, $6, $7)`,
@@ -798,14 +807,16 @@ app.post('/update-po/:id', isAdmin, async (req, res) => {
             }
         }
         
-        // 3. Update total tagihan di header agar sinkron dengan rincian baru
+        // 4. Update total tagihan agar sinkron
         await db.query(`UPDATE po_utama SET total_harga_customer = $1 WHERE id = $2`, [totalTagihanBaru, poId]);
         
-        await db.query("COMMIT"); // Simpan semua perubahan
-        res.send("<script>window.location='/po-data-v2';</script>");
+        await db.query("COMMIT");
+        
+        // Gunakan redirect murni agar browser memuat ulang data segar
+        res.redirect('/po-data-v2');
 
     } catch (err) {
-        await db.query("ROLLBACK").catch(() => {}); // Batalkan jika ada yang gagal
+        await db.query("ROLLBACK").catch(() => {});
         console.error("🔥 Update PO Critical Error:", err.message);
         res.status(500).send("Gagal update PO: " + err.message);
     }
