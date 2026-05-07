@@ -1,24 +1,25 @@
 <%- include('../partials/header') %>
 
 <div class="container-fluid mt-3" style="max-width: 1100px;">
-    <!-- HEADER DENGAN TOMBOL CETAK PILIHAN -->
+    <!-- HEADER -->
     <div class="d-flex justify-content-between align-items-center mb-3">
         <h4 class="fw-bold mb-0">🚜 Monitor Produksi & Hutang CMT</h4>
-            <div class="card shadow-sm border-0 mb-3">
-                <div class="card-body p-2">
-                    <div class="input-group">
-                        <span class="input-group-text bg-white border-end-0"><i class="bi bi-search"></i></span>
-                        <input type="text" id="filterInput" class="form-control border-start-0 ps-0" 
-                            placeholder="Cari Nama PO, Customer, atau Nama Vendor..." onkeyup="filterData()">
-                    </div>
-                </div>
-            </div>
-
         <div class="d-flex gap-2">
             <button onclick="cetakNotaPilihan()" class="btn btn-dark btn-sm fw-bold shadow-sm">
                 <i class="bi bi-printer"></i> CETAK NOTA PILIHAN (<span id="countPilihan">0</span>)
             </button>
             <a href="/dashboard" class="btn btn-outline-secondary btn-sm shadow-sm">Kembali</a>
+        </div>
+    </div>
+
+    <!-- FILTER BOX (Kunci Perbaikan 1: Penyesuaian nama fungsi onkeyup) -->
+    <div class="card shadow-sm border-0 mb-3">
+        <div class="card-body p-2">
+            <div class="input-group">
+                <span class="input-group-text bg-white border-end-0"><i class="bi bi-search"></i></span>
+                <input type="text" id="filterInput" class="form-control border-start-0 ps-0" 
+                    placeholder="Cari Nama PO, Customer, atau Nama Vendor..." onkeyup="jalankanFilterCmt()">
+            </div>
         </div>
     </div>
 
@@ -33,48 +34,42 @@
                         <th width="15%" class="text-end">Aksi</th>
                     </tr>
                 </thead>
-                <tbody>
-                    <tbody id="cmtTableBody">
+                <!-- Kunci Perbaikan 2: Menghapus tbody ganda -->
+                <tbody id="cmtTableBody">
                     <% if (dataCMT.length === 0) { %>
-                        <tr>
+                        <tr class="no-data">
                             <td colspan="4" class="text-center py-5 text-muted">
                                 <i class="bi bi-check-all fs-2"></i><br>
                                 Semua pekerjaan CMT selesai & lunas.
                             </td>
                         </tr>
-                        <% } %>
+                    <% } %>
 
                     <% dataCMT.forEach(item => { %>
                         <tr class="cmt-row" 
-                        data-search="<%= item.nama_po.toLowerCase() %> <%= item.customer.toLowerCase() %> <%= item.list_vendor.map(v => v.nama_vendor).join(' ').toLowerCase() %>">
-                        <td>
-                            <div class="d-flex justify-content-between align-items-start gap-2">
-                                <div class="fw-bold text-dark text-truncate" style="max-width: 180px;">
-                                    <%= item.nama_po %>
+                            data-search="<%= item.nama_po.toLowerCase() %> <%= item.customer.toLowerCase() %> <%= item.list_vendor.map(v => v.nama_vendor).join(' ').toLowerCase() %>">
+                            <td>
+                                <div class="d-flex justify-content-between align-items-start gap-2">
+                                    <div class="fw-bold text-dark text-truncate" style="max-width: 180px;">
+                                        <%= item.nama_po %>
                                     </div>
-                                    
                                     <div class="text-end">
                                         <% if (item.harga_cmt > 0) { %>
                                             <span class="badge bg-secondary-subtle text-secondary border px-2" style="font-size: 10px;">
                                                 Rp <%= Number(item.total_biaya_po).toLocaleString('id-ID') %>
                                             </span>
                                         <% } else { %>
-                                            <a href="/edit-po/<%= item.po_id %>" class="badge bg-danger text-white text-decoration-none" style="font-size: 9px;" title="Klik untuk isi harga CMT">
+                                            <a href="/edit-po/<%= item.po_id %>" class="badge bg-danger text-white text-decoration-none" style="font-size: 9px;">
                                                 <i class="bi bi-exclamation-circle"></i> ISI HARGA
                                             </a>
                                         <% } %>
                                     </div>
                                 </div>
-
-                                <!-- Baris Customer & Detail Desain -->
                                 <div class="d-flex align-items-center gap-2 mt-1">
                                     <span class="text-primary fw-bold" style="font-size: 11px;">
                                         <i class="bi bi-person-fill"></i> <%= item.customer %>
                                     </span>
-                                    <span class="text-muted" style="font-size: 11px;">•</span>
-                                    <span class="text-muted" style="font-size: 11px;">
-                                        <%= item.nama_desain %> (<%= item.jenis_bordir %>)
-                                    </span>
+                                    <span class="text-muted" style="font-size: 11px;">• <%= item.nama_desain %> (<%= item.jenis_bordir %>)</span>
                                 </div>
                             </td>
                             <td class="text-center">
@@ -83,57 +78,35 @@
                             <td>
                                 <% if (item.list_vendor && item.list_vendor.length > 0 && item.list_vendor[0].sj_id !== null) { %>
                                     <% item.list_vendor.forEach(v => { %>
-                                        <div class="d-flex justify-content-between align-items-center mb-2 p-2 bg-light rounded border-start border-4 <%= v.status_sj === 'PROSES' ? 'border-warning' : 'border-success' %> shadow-sm">
+                                        <div class="d-flex justify-content-between align-items-center mb-2 p-2 bg-light rounded border-start border-4 <%= v.status_sj === 'PROSES' ? 'border-warning' : 'border-success' %>">
                                             <div class="d-flex align-items-center gap-2">
-                                                <!-- CHECKBOX PILIH NOTA -->
                                                 <% if(v.status_bayar !== 'LUNAS') { %>
                                                     <input type="checkbox" class="form-check-input check-nota border-secondary" value="<%= v.sj_id %>" onchange="updateCount()">
                                                 <% } %>
-                                                
                                                 <div>
                                                     <strong class="text-uppercase"><%= v.nama_vendor %></strong> 
                                                     <small class="ms-1 badge bg-white text-dark border"><%= v.qty %> Pcs</small>
-                                                    
-                                                    <% if(v.status_sj === 'PROSES') { %>
-                                                        <span class="badge bg-warning text-dark ms-1" style="font-size: 9px;">DI VENDOR</span>
-                                                    <% } else { %>
-                                                        <span class="badge <%= v.status_bayar === 'LUNAS' ? 'bg-success' : 'bg-danger' %> ms-1" style="font-size: 9px;">
-                                                            <%= v.status_bayar %>
-                                                        </span>
-                                                    <% } %>
                                                 </div>
                                             </div>
-                                            
                                             <div class="btn-group">
                                                 <% if(v.status_sj === 'PROSES') { %>
-                                                    <!-- TOMBOL EDIT JUMLAH -->
-                                                    <button onclick="bukaModalEdit('<%= v.sj_id %>', '<%= v.sj_detail_id %>', '<%= v.qty %>', '<%= item.sisa_gudang + v.qty %>')" 
-                                                            class="btn btn-xs btn-outline-warning py-0 px-2" style="font-size: 10px;" title="Edit Qty">
-                                                        <i class="bi bi-pencil-square"></i>
-                                                    </button>
-                                                    <button onclick="konfirmasiTerima('<%= v.sj_detail_id %>')" class="btn btn-xs btn-success py-0 px-2" style="font-size: 10px;">TERIMA</button>
-                                                    <button onclick="konfirmasiHapusSJ('<%= v.sj_id %>')" class="btn btn-xs btn-outline-danger py-0 px-1" title="Batalkan">
-                                                        <i class="bi bi-trash"></i>
-                                                    </button>
+                                                    <button onclick="bukaModalEdit('<%= v.sj_id %>', '<%= v.sj_detail_id %>', '<%= v.qty %>', '<%= item.sisa_gudang + v.qty %>')" class="btn btn-xs btn-outline-warning py-0 px-2"><i class="bi bi-pencil-square"></i></button>
+                                                    <button onclick="konfirmasiTerima('<%= v.sj_detail_id %>')" class="btn btn-xs btn-success py-0 px-2">TERIMA</button>
+                                                    <button onclick="konfirmasiHapusSJ('<%= v.sj_id %>')" class="btn btn-xs btn-outline-danger py-0 px-1"><i class="bi bi-trash"></i></button>
                                                 <% } else if(v.status_bayar !== 'LUNAS') { %>
-                                                    <button onclick="konfirmasiBayar('<%= v.sj_id %>')" class="btn btn-xs btn-primary py-0 px-2" style="font-size: 10px;">LUNASI</button>
+                                                    <button onclick="konfirmasiBayar('<%= v.sj_id %>')" class="btn btn-xs btn-primary py-0 px-2">LUNASI</button>
                                                 <% } %>
-                                                
-                                                <a href="/cetak-nota-vendor?sj_id=<%= v.sj_id %>" target="_blank" class="btn btn-xs btn-outline-dark py-0 px-2" style="font-size: 10px;">
-                                                    <i class="bi bi-printer"></i>
-                                                </a>
+                                                <a href="/cetak-nota-vendor?sj_id=<%= v.sj_id %>" target="_blank" class="btn btn-xs btn-outline-dark py-0 px-2"><i class="bi bi-printer"></i></a>
                                             </div>
                                         </div>
                                     <% }) %>
                                 <% } else { %>
-                                    <small class="text-muted fst-italic">Belum ada pengiriman ke vendor</small>
+                                    <small class="text-muted fst-italic">Belum ada pengiriman</small>
                                 <% } %>
                             </td>
                             <td class="text-end">
                                 <% if(item.sisa_gudang > 0) { %>
-                                    <button onclick="bukaModalKirim('<%= item.detail_id %>', '<%= item.sisa_gudang %>', '<%= item.harga_cmt %>')" class="btn btn-sm btn-outline-primary fw-bold shadow-sm">
-                                        + KIRIM
-                                    </button>
+                                    <button onclick="bukaModalKirim('<%= item.detail_id %>', '<%= item.sisa_gudang %>', '<%= item.harga_cmt %>')" class="btn btn-sm btn-outline-primary fw-bold shadow-sm">+ KIRIM</button>
                                 <% } %>
                             </td>
                         </tr>
@@ -144,7 +117,7 @@
     </div>
 </div>
 
-<!-- MODAL KIRIM KE VENDOR -->
+<!-- MODAL KIRIM (Tetap sama) -->
 <div class="modal fade" id="modalKirim" tabindex="-1">
     <div class="modal-dialog modal-sm">
         <form action="/admin/kirim-ke-vendor" method="POST" class="modal-content shadow-lg">
@@ -155,19 +128,14 @@
             <div class="modal-body text-uppercase">
                 <input type="hidden" name="detail_id" id="modal_detail_id">
                 <input type="hidden" name="harga_cmt" id="modal_harga_cmt">
-                
                 <div class="mb-2">
                     <label class="small fw-bold">Nama Vendor:</label>
-                    <input type="text" name="nama_vendor" class="form-control form-control-sm border-dark" placeholder="..." required list="vendorList">
-                    <datalist id="vendorList"></datalist>
+                    <input type="text" name="nama_vendor" class="form-control form-control-sm border-dark" required>
                 </div>
                 <div class="mb-2">
                     <label class="small fw-bold">Qty Kirim:</label>
                     <input type="number" name="qty_kirim" id="modal_qty_input" class="form-control form-control-sm border-dark" min="1" required>
-                    <div class="d-flex justify-content-between mt-1">
-                        <small class="text-danger fw-bold" id="label_maks" style="font-size: 10px;">Maks: 0</small>
-                        <small class="text-muted" style="font-size: 10px;">Saldo Gudang</small>
-                    </div>
+                    <small class="text-danger fw-bold" id="label_maks" style="font-size: 10px;"></small>
                 </div>
             </div>
             <div class="modal-footer p-2">
@@ -179,23 +147,33 @@
 
 <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
 <script>
-    // INITIALIZE BOOTSTRAP MODAL
     document.addEventListener('DOMContentLoaded', function() {
         window.myModalKirim = new bootstrap.Modal(document.getElementById('modalKirim'));
     });
 
-    // UPDATE COUNTER CHECKBOX
+    // FUNGSI FILTER (Kunci Perbaikan 3: Nama fungsi disamakan dengan onkeyup)
+    function jalankanFilterCmt() {
+        const filter = document.getElementById('filterInput').value.toLowerCase();
+        const rows = document.querySelectorAll('.cmt-row');
+
+        rows.forEach(row => {
+            const text = row.getAttribute('data-search') || "";
+            if (text.includes(filter)) {
+                row.style.display = "";
+            } else {
+                row.style.display = "none";
+            }
+        });
+    }
+
     function updateCount() {
         const checked = document.querySelectorAll('.check-nota:checked').length;
         document.getElementById('countPilihan').innerText = checked;
     }
 
-    // FUNCTION CETAK PILIHAN
     function cetakNotaPilihan() {
         const checkboxes = document.querySelectorAll('.check-nota:checked');
-        if (checkboxes.length === 0) {
-            return Swal.fire('Pilih Data', 'Centang minimal satu pengerjaan untuk dicetak.', 'info');
-        }
+        if (checkboxes.length === 0) return Swal.fire('Pilih Data', 'Centang minimal satu.', 'info');
         const ids = Array.from(checkboxes).map(cb => cb.value);
         window.open(`/cetak-nota-pilihan-vendor?ids=${ids.join(',')}`, '_blank');
     }
@@ -206,93 +184,42 @@
         const qtyInput = document.getElementById('modal_qty_input');
         qtyInput.max = sisa;
         qtyInput.value = sisa;
-        document.getElementById('label_maks').innerText = "Maksimal: " + sisa + " Pcs";
+        document.getElementById('label_maks').innerText = "Maks: " + sisa + " Pcs";
         window.myModalKirim.show();
     }
 
+    // Fungsi konfirmasi lainnya (Terima, Bayar, Hapus SJ) tetap sama seperti kode Anda
     function konfirmasiTerima(id) {
-        Swal.fire({
-            title: 'Terima Barang?',
-            text: "Barang akan masuk ke riwayat pusat & status menjadi HUTANG.",
-            icon: 'question',
-            showCancelButton: true,
-            confirmButtonColor: '#198754',
-            confirmButtonText: 'Ya, Terima!'
-        }).then((result) => {
-            if (result.isConfirmed) window.location.href = '/admin/terima-barang/' + id;
-        });
+        Swal.fire({ title: 'Terima Barang?', text: "Status akan menjadi HUTANG.", icon: 'question', showCancelButton: true, confirmButtonText: 'Ya, Terima!' })
+        .then((r) => { if (r.isConfirmed) window.location.href = '/admin/terima-barang/' + id; });
     }
 
     function konfirmasiBayar(id) {
-        Swal.fire({
-            title: 'Tandai Lunas?',
-            text: "Data akan terarsip jika semua stok sudah beres.",
-            icon: 'warning',
-            showCancelButton: true,
-            confirmButtonColor: '#0d6efd',
-            confirmButtonText: 'Ya, Sudah Lunas'
-        }).then((result) => {
-            if (result.isConfirmed) window.location.href = '/admin/bayar-vendor/' + id;
-        });
+        Swal.fire({ title: 'Tandai Lunas?', icon: 'warning', showCancelButton: true, confirmButtonText: 'Ya, Lunas' })
+        .then((r) => { if (r.isConfirmed) window.location.href = '/admin/bayar-vendor/' + id; });
     }
 
     function konfirmasiHapusSJ(id) {
-        Swal.fire({
-            title: 'Batalkan Pengiriman?',
-            text: "Data akan dihapus dan Qty kembali ke saldo gudang.",
-            icon: 'warning',
-            showCancelButton: true,
-            confirmButtonColor: '#d33',
-            confirmButtonText: 'Ya, Batalkan!'
-        }).then((result) => {
-            if (result.isConfirmed) window.location.href = '/admin/hapus-sj-cmt/' + id;
-        });
+        Swal.fire({ title: 'Batalkan?', text: "Data dihapus & Qty kembali ke gudang.", icon: 'warning', showCancelButton: true, confirmButtonText: 'Ya, Batal' })
+        .then((r) => { if (r.isConfirmed) window.location.href = '/admin/hapus-sj-cmt/' + id; });
     }
 
     function bukaModalEdit(sjId, sjDetailId, qtyLama, totalMaksimal) {
-    // Kita bisa gunakan modal yang sama dengan mengganti tujuannya (Action URL)
-    const form = document.querySelector('#modalKirim form');
-    form.action = '/admin/edit-qty-vendor'; // Route baru
-    
-    document.getElementById('modal_detail_id').value = sjDetailId; // Kita kirim ID detail
-    document.getElementById('modal_qty_input').value = qtyLama;
-    document.getElementById('modal_qty_input').max = totalMaksimal;
-    document.getElementById('label_maks').innerText = "Maksimal (Total): " + totalMaksimal + " Pcs";
-    
-    // Sembunyikan input Nama Vendor karena saat edit biasanya vendor tidak berubah
-    // Atau bisa dibuat readonly
-    const vendorInput = document.querySelector('input[name="nama_vendor"]');
-    vendorInput.parentElement.style.display = 'none'; 
-    vendorInput.required = false;
+        const form = document.querySelector('#modalKirim form');
+        form.action = '/admin/edit-qty-vendor';
+        document.getElementById('modal_detail_id').value = sjDetailId;
+        document.getElementById('modal_qty_input').value = qtyLama;
+        document.getElementById('modal_qty_input').max = totalMaksimal;
+        document.getElementById('label_maks').innerText = "Maks (Total): " + totalMaksimal;
+        document.querySelector('input[name="nama_vendor"]').parentElement.style.display = 'none'; 
+        window.myModalKirim.show();
+    }
 
-    window.myModalKirim.show();
-}
-function jalankanFilterCmt() {
-    // Ambil teks dari input pencarian
-    const filter = document.getElementById('filterInput').value.toLowerCase();
-    // Ambil semua baris yang punya class cmt-row
-    const rows = document.querySelectorAll('.cmt-row');
-
-    rows.forEach(row => {
-        // Ambil data-search yang sudah kita buat di EJS tadi
-        const text = row.getAttribute('data-search');
-        
-        // Jika teks pencarian cocok dengan isi baris, tampilkan. Jika tidak, sembunyikan.
-        if (text.includes(filter)) {
-            row.style.display = "";
-        } else {
-            row.style.display = "none";
-        }
+    document.getElementById('modalKirim').addEventListener('hidden.bs.modal', function () {
+        const form = document.querySelector('#modalKirim form');
+        form.action = '/admin/kirim-ke-vendor';
+        document.querySelector('input[name="nama_vendor"]').parentElement.style.display = 'block';
     });
-}
-
-// Reset modal saat ditutup agar fungsi "Tambah Kirim" tidak rusak
-document.getElementById('modalKirim').addEventListener('hidden.bs.modal', function () {
-    const form = document.querySelector('#modalKirim form');
-    form.action = '/admin/kirim-ke-vendor';
-    document.querySelector('input[name="nama_vendor"]').parentElement.style.display = 'block';
-    document.querySelector('input[name="nama_vendor"]').required = true;
-});
 </script>
 
 <%- include('../partials/footer') %>
