@@ -61,6 +61,9 @@
     </div>
 
     <form action="/update-po/<%= po.id %>" method="POST">
+        <!-- Input Hidden untuk menampung ID yang dihapus -->
+        <input type="hidden" name="deleted_ids" id="deleted_ids" value="">
+
         <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px;">
             <div class="form-group"><label>Tanggal Nota</label><input type="date" name="tanggal" value="<%= po.tanggal %>" required></div>
             <div class="form-group">
@@ -114,7 +117,7 @@
 
                             <td><input type="number" name="harga_customer" value="<%= item.harga_customer %>"></td>
                             
-                            <td class="remove-row" onclick="this.parentElement.remove()">✕</td>
+                            <td class="remove-row" onclick="hapusBaris(this, '<%= item.id %>')">✕</td>
                         </tr>
                     <% }) %>
                 </tbody>
@@ -125,49 +128,61 @@
         <button type="submit" class="btn-update">SIMPAN PERUBAHAN DATA</button>
     </form>
 </div>
+
 <div id="userConfig" 
      data-is-premium="<%= (user.tenantId === 1 || user.tenantLevel >= 2) ? 'true' : 'false' %>" 
      style="display: none;">
 </div>
-<script>
-    function tambahBaris() {
-    const tbody = document.querySelector("#tableRincian tbody");
-    const row = document.createElement("tr");
-    
-    // Ambil data dari elemen HTML tadi (JavaScript murni, bukan EJS)
-    const configEl = document.getElementById('userConfig');
-    const isPremium = configEl.getAttribute('data-is-premium') === 'true';
-    
-    let htmlContent = `
-        <input type="hidden" name="detail_ids" value="">
-        <td><input type="text" name="jenis_bordir" placeholder="Jenis"></td>
-        <td><input type="text" name="nama_desain" placeholder="Desain"></td>
-        <td><input type="number" name="jumlah" value="0"></td>
-    `;
 
-    if (isPremium) {
-        // Tampilan untuk PRO/DEVELOPER
-        htmlContent += `
-            <td><input type="number" name="harga_cmt" value="0"></td>
-            <td><input type="number" name="harga_operator" value="0"></td>
-        `;
-    } else {
-        // Tampilan untuk LEVEL 1 (Tetap kirim data tapi hidden)
-        htmlContent += `
-            <input type="hidden" name="harga_cmt" value="0">
-            <input type="hidden" name="harga_operator" value="0">
-        `;
+<script>
+    function hapusBaris(btn, id) {
+        // Jika baris yang dihapus memiliki ID (data lama dari DB)
+        if (id && id !== '' && id !== 'undefined') {
+            const inputDeleted = document.getElementById('deleted_ids');
+            let currentIds = inputDeleted.value ? inputDeleted.value.split(',') : [];
+            currentIds.push(id);
+            inputDeleted.value = currentIds.join(',');
+        }
+        // Hapus elemen baris dari tabel
+        btn.parentElement.remove();
     }
 
-    htmlContent += `
-        <td><input type="number" name="harga_customer" value="0"></td>
-        <td class="remove-row" onclick="this.parentElement.remove()">✕</td>
-    `;
+    function tambahBaris() {
+        const tbody = document.querySelector("#tableRincian tbody");
+        const row = document.createElement("tr");
+        
+        const configEl = document.getElementById('userConfig');
+        const isPremium = configEl.getAttribute('data-is-premium') === 'true';
+        
+        let htmlContent = `
+            <input type="hidden" name="detail_ids" value="">
+            <td><input type="text" name="jenis_bordir" placeholder="Jenis"></td>
+            <td><input type="text" name="nama_desain" placeholder="Desain"></td>
+            <td><input type="number" name="jumlah" value="0"></td>
+        `;
 
-    row.innerHTML = htmlContent;
-    tbody.appendChild(row);
-}
-const urlParams = new URLSearchParams(window.location.search);
+        if (isPremium) {
+            htmlContent += `
+                <td><input type="number" name="harga_cmt" value="0"></td>
+                <td><input type="number" name="harga_operator" value="0"></td>
+            `;
+        } else {
+            htmlContent += `
+                <input type="hidden" name="harga_cmt" value="0">
+                <input type="hidden" name="harga_operator" value="0">
+            `;
+        }
+
+        htmlContent += `
+            <td><input type="number" name="harga_customer" value="0"></td>
+            <td class="remove-row" onclick="hapusBaris(this, '')">✕</td>
+        `;
+
+        row.innerHTML = htmlContent;
+        tbody.appendChild(row);
+    }
+
+    const urlParams = new URLSearchParams(window.location.search);
     if (urlParams.get('mode') === 'thermal') {
         const link = document.createElement('link');
         link.rel = 'stylesheet';
@@ -175,15 +190,16 @@ const urlParams = new URLSearchParams(window.location.search);
         document.head.appendChild(link);
     }
 </script>
+
 <div style="margin-top: 20px; display: grid; grid-template-columns: 1fr 1fr; gap: 10px;">
     <a href="/cetak-nota/<%= po.id %>" target="_blank" 
        style="display: block; text-align: center; background: #3498db; color: white; padding: 15px; border-radius: 8px; text-decoration: none; font-weight: bold;">
-       🖨️ NOTA RESMI (A5)
+        🖨️ NOTA RESMI (A5)
     </a>
 
     <a href="/cetak-nota/<%= po.id %>?mode=thermal" target="_blank" 
        style="display: block; text-align: center; background: #27ae60; color: white; padding: 15px; border-radius: 8px; text-decoration: none; font-weight: bold;">
-       🧾 NOTA THERMAL (80mm)
+        🧾 NOTA THERMAL (80mm)
     </a>
 </div>
 </body>
