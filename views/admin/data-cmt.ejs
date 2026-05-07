@@ -4,6 +4,16 @@
     <!-- HEADER DENGAN TOMBOL CETAK PILIHAN -->
     <div class="d-flex justify-content-between align-items-center mb-3">
         <h4 class="fw-bold mb-0">🚜 Monitor Produksi & Hutang CMT</h4>
+            <div class="card shadow-sm border-0 mb-3">
+                <div class="card-body p-2">
+                    <div class="input-group">
+                        <span class="input-group-text bg-white border-end-0"><i class="bi bi-search"></i></span>
+                        <input type="text" id="filterInput" class="form-control border-start-0 ps-0" 
+                            placeholder="Cari Nama PO, Customer, atau Nama Vendor..." onkeyup="filterData()">
+                    </div>
+                </div>
+            </div>
+
         <div class="d-flex gap-2">
             <button onclick="cetakNotaPilihan()" class="btn btn-dark btn-sm fw-bold shadow-sm">
                 <i class="bi bi-printer"></i> CETAK NOTA PILIHAN (<span id="countPilihan">0</span>)
@@ -24,6 +34,7 @@
                     </tr>
                 </thead>
                 <tbody>
+                    <tbody id="cmtTableBody">
                     <% if (dataCMT.length === 0) { %>
                         <tr>
                             <td colspan="4" class="text-center py-5 text-muted">
@@ -31,15 +42,15 @@
                                 Semua pekerjaan CMT selesai & lunas.
                             </td>
                         </tr>
-                    <% } %>
+                        <% } %>
 
                     <% dataCMT.forEach(item => { %>
-                        <tr>
-                            <td>
-                                <!-- Baris Nama PO & Harga (Sejajar) -->
-                                <div class="d-flex justify-content-between align-items-start gap-2">
-                                    <div class="fw-bold text-dark text-truncate" style="max-width: 180px;">
-                                        <%= item.nama_po %>
+                        <tr class="cmt-row" 
+                        data-search="<%= item.nama_po.toLowerCase() %> <%= item.customer.toLowerCase() %> <%= item.list_vendor.map(v => v.nama_vendor).join(' ').toLowerCase() %>">
+                        <td>
+                            <div class="d-flex justify-content-between align-items-start gap-2">
+                                <div class="fw-bold text-dark text-truncate" style="max-width: 180px;">
+                                    <%= item.nama_po %>
                                     </div>
                                     
                                     <div class="text-end">
@@ -255,6 +266,24 @@
     vendorInput.required = false;
 
     window.myModalKirim.show();
+}
+function jalankanFilterCmt() {
+    // Ambil teks dari input pencarian
+    const filter = document.getElementById('filterInput').value.toLowerCase();
+    // Ambil semua baris yang punya class cmt-row
+    const rows = document.querySelectorAll('.cmt-row');
+
+    rows.forEach(row => {
+        // Ambil data-search yang sudah kita buat di EJS tadi
+        const text = row.getAttribute('data-search');
+        
+        // Jika teks pencarian cocok dengan isi baris, tampilkan. Jika tidak, sembunyikan.
+        if (text.includes(filter)) {
+            row.style.display = "";
+        } else {
+            row.style.display = "none";
+        }
+    });
 }
 
 // Reset modal saat ditutup agar fungsi "Tambah Kirim" tidak rusak

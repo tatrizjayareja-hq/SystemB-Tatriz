@@ -2612,20 +2612,23 @@ app.get('/admin/data-cmt', isAdmin, async (req, res) => {
         const sql = `
             SELECT 
                 d.id as detail_id, 
-                p.id as po_id, -- Tambahkan po_id untuk link edit
+                p.id as po_id, 
                 p.nama_po, 
                 p.customer, 
                 d.nama_desain, 
                 d.jenis_bordir, 
                 d.jumlah as total_order, 
-                d.harga_cmt, -- Pastikan harga_cmt ditarik
-                -- Hitung perkiraan total biaya PO ini
+                d.harga_cmt,
                 (d.jumlah * d.harga_cmt) as total_biaya_po,
                 (d.jumlah - COALESCE((SELECT SUM(qty_dikirim) FROM cmt_surat_jalan_detail WHERE po_detail_id = d.id), 0)) as sisa_gudang,
                 COALESCE(
                     (SELECT json_agg(json_build_object(
-                        'sj_id', sj.id, 'sj_detail_id', sjd.id, 'nama_vendor', sj.nama_vendor,
-                        'qty', sjd.qty_dikirim, 'status_sj', sj.status, 'status_bayar', sj.status_pembayaran
+                        'sj_id', sj.id, 
+                        'sj_detail_id', sjd.id, 
+                        'nama_vendor', sj.nama_vendor,
+                        'qty', sjd.qty_dikirim, 
+                        'status_sj', sj.status, 
+                        'status_bayar', sj.status_pembayaran
                     )) FROM cmt_surat_jalan_detail sjd
                     JOIN cmt_surat_jalan sj ON sjd.sj_id = sj.id
                     WHERE sjd.po_detail_id = d.id), '[]'
@@ -2636,7 +2639,13 @@ app.get('/admin/data-cmt', isAdmin, async (req, res) => {
             ORDER BY p.tanggal DESC
         `;
         const result = await db.query(sql, [tId]);
-        const filteredData = result.rows.filter(row => row.sisa_gudang > 0 || row.list_vendor.some(v => v.status_bayar !== 'LUNAS'));
+        
+        // Filter: Hanya tampilkan yang masih ada sisa di gudang ATAU ada hutang di vendor
+        const filteredData = result.rows.filter(row => 
+            row.sisa_gudang > 0 || 
+            (Array.isArray(row.list_vendor) && row.list_vendor.some(v => v.status_bayar !== 'LUNAS'))
+        );
+
         res.render('admin/data-cmt', { dataCMT: filteredData });
     } catch (err) {
         res.status(500).send("Error: " + err.message);
