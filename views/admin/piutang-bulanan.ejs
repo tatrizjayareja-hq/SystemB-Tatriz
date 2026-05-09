@@ -41,8 +41,9 @@
                             </td>
                             <td class="text-end">Rp <%= parseFloat(d.nilai_produksi_bulan_ini || 0).toLocaleString('id-ID') %></td>
                             <td class="text-end text-muted">Rp <%= parseFloat(d.total_nilai_po || 0).toLocaleString('id-ID') %></td>
-                            <td class="text-end fw-bold text-danger">
-                                Rp <%= d.sisaPiutangPO.toLocaleString('id-ID') %>
+                            <td class="text-end fw-bold <%= d.sisaPiutangPO > 0 ? 'text-danger' : 'text-success' %>">
+                                <%= d.sisaPiutangPO < 0 ? '(Lunas/DP) ' : '' %>
+                                Rp <%= Math.abs(d.sisaPiutangPO).toLocaleString('id-ID') %>
                             </td>
                         </tr>
                         <% }) %>
