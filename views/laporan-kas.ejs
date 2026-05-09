@@ -179,10 +179,21 @@
                             </td>
                             <td>
                                 <strong><%= item.kategori %></strong>
+                                
                                 <% if (item.customer) { %>
-                                    <span class="badge bg-info p-1" style="font-size: 9px; margin-left: 5px;"><%= item.customer %></span>
+                                    <span class="badge bg-info p-1" style="font-size: 9px; margin-left: 5px;">
+                                        <%= item.customer %>
+                                    </span>
                                 <% } %>
-                                <br><small class="text-muted" style="font-size: 10px;"><%= item.keterangan %></small>
+
+                                <% if (item.nama_po) { %>
+                                    <span class="badge bg-success p-1" style="font-size: 9px; margin-left: 2px;">
+                                        <i class="bi bi-tag-fill"></i> <%= item.nama_po %>
+                                    </span>
+                                <% } %>
+                                
+                                <br>
+                                <small class="text-muted" style="font-size: 10px;"><%= item.keterangan %></small>
                             </td>
                             <td class="text-end <%= item.jenis === 'PEMASUKAN' ? 'text-pemasukan' : 'text-pengeluaran' %>">
                                 <%= item.jenis === 'PEMASUKAN' ? '+' : '-' %> <%= Number(item.jumlah || 0).toLocaleString('id-ID') %>
