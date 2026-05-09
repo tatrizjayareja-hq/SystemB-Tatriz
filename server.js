@@ -1484,24 +1484,28 @@ app.get('/piutang-bulanan', isAdmin, async (req, res) => {
             SELECT 
                 p.customer,
                 p.nama_po,
-                p.tanggal as tgl_po,
-                /* 1. Hitung Nilai Produksi PO ini KHUSUS di bulan terpilih */
-                (SELECT SUM(h.jumlah_setor * d.harga_customer) 
+                p.total_harga_customer as total_nilai_po,
+                
+                /* 1. Nilai Produksi (Setoran) khusus bulan ini saja */
+                (SELECT COALESCE(SUM(h.jumlah_setor * d.harga_customer), 0) 
                  FROM hasil_kerja h 
                  JOIN po_detail d ON h.detail_id = d.id 
                  WHERE h.po_id = p.id AND TO_CHAR(h.tanggal::DATE, 'YYYY-MM') = $1) as nilai_produksi_bulan_ini,
-                
-                /* 2. Hitung Total Nilai PO (Seluruhnya) */
-                p.total_harga_customer as total_nilai_po,
 
-                /* 3. Hitung yang sudah dibayar untuk PO ini (Akumulatif) */
+                /* 2. TOTAL Nilai yang SUDAH DISETOREKAN dari awal sampai sekarang (Real-time Produksi) */
+                (SELECT COALESCE(SUM(h.jumlah_setor * d.harga_customer), 0) 
+                 FROM hasil_kerja h 
+                 JOIN po_detail d ON h.detail_id = d.id 
+                 WHERE h.po_id = p.id) as total_produksi_selesai_akumulatif,
+                
+                /* 3. TOTAL yang sudah dibayar oleh customer ke kas */
                 COALESCE((SELECT SUM(jumlah) FROM arus_kas 
                           WHERE po_id = p.id 
                           AND kategori IN ('PEMBAYARAN BORDIR', 'PELUNASAN', 'DP/CICILAN')), 0) as total_dibayar
             FROM po_utama p
             WHERE p.tenant_id = $2
             AND EXISTS (
-                /* Hanya ambil PO yang ADA aktivitas produksi di bulan ini */
+                /* Hanya tampilkan PO yang ada aktivitas setorannya di bulan terpilih */
                 SELECT 1 FROM hasil_kerja h 
                 WHERE h.po_id = p.id 
                 AND TO_CHAR(h.tanggal::DATE, 'YYYY-MM') = $1
@@ -1511,17 +1515,27 @@ app.get('/piutang-bulanan', isAdmin, async (req, res) => {
 
         const result = await db.query(sql, [bulanIni, tId]);
         
-        // Hitung ringkasan untuk header
-        let totalPiutangBulanIni = 0;
+        let totalPiutangRealtimeBulanIni = 0;
+
         const dataPiutang = result.rows.map(row => {
-            const sisaPiutangPO = Math.max(0, parseFloat(row.total_nilai_po) - parseFloat(row.total_dibayar));
-            totalPiutangBulanIni += sisaPiutangPO;
-            return { ...row, sisaPiutangPO };
+            // LOGIKA REAL-TIME: 
+            // Piutang = Barang yang sudah dikirim/setor - Uang yang sudah masuk
+            const sisaPiutangRealtime = parseFloat(row.total_produksi_selesai_akumulatif) - parseFloat(row.total_dibayar);
+            
+            // Kita hitung total piutang yang "layak tagih" (yang positif saja)
+            if (sisaPiutangRealtime > 0) {
+                totalPiutangRealtimeBulanIni += sisaPiutangRealtime;
+            }
+
+            return { 
+                ...row, 
+                sisaPiutangPO: sisaPiutangRealtime // Ini sekarang jadi nilai real-time
+            };
         });
 
         res.render('admin/piutang-bulanan', {
             dataPiutang,
-            totalPiutangBulanIni,
+            totalPiutangBulanIni: totalPiutangRealtimeBulanIni,
             bulanIni
         });
     } catch (err) {
