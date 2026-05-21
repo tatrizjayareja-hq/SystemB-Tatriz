@@ -188,9 +188,9 @@
                             <td class="text-center" onclick="event.stopPropagation()">
                                 <div class="d-flex justify-content-center gap-1">
                                     <!-- Tombol Edit dikeluarkan dari dropdown dan jadi ikon -->
-                                    <a href="/edit-po/<%= po.id %>" class="btn btn-sm btn-outline-warning py-0 px-2 shadow-sm" title="Edit Data PO">
+                                    <button onclick="bukaModalEdit('<%= po.id %>')" class="btn btn-sm btn-outline-warning py-0 px-2 shadow-sm" title="Edit Data PO">
                                         <i class="bi bi-pencil-square"></i>
-                                    </a>
+                                    </button>
                                     
                                     <div class="action-dropdown">
                                         <button class="btn btn-sm btn-outline-dark py-0 px-2 shadow-sm" onclick="toggleMenu(event, '<%= po.id %>')">
@@ -295,8 +295,39 @@
     </div>
 </div>
 
+<!-- Modal Edit PO (Iframe) -->
+<div class="modal fade" id="modalEditPO" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-xl modal-dialog-centered">
+        <div class="modal-content shadow-lg border-0">
+            <div class="modal-header bg-warning py-2">
+                <h6 class="modal-title fw-bold text-dark"><i class="bi bi-pencil-square"></i> Edit Data PO</h6>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body p-0 position-relative" style="height: 85vh;">
+                <!-- Animasi Loading saat memuat iframe -->
+                <div id="loadingEdit" class="position-absolute w-100 h-100 d-flex justify-content-center align-items-center bg-white" style="z-index: 1;">
+                    <div class="spinner-border text-warning" role="status"></div>
+                </div>
+                <!-- Tempat memuat halaman edit -->
+                <iframe id="iframeEditPO" src="" style="width: 100%; height: 100%; border: none; position: relative; z-index: 2;" onload="document.getElementById('loadingEdit').style.display='none'"></iframe>
+            </div>
+        </div>
+    </div>
+</div>
+
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
 <script>
+
+    function bukaModalEdit(id) {
+        // Munculkan animasi loading
+        document.getElementById('loadingEdit').style.display = 'flex';
+        
+        // Set URL iframe ke halaman edit PO
+        document.getElementById('iframeEditPO').src = '/edit-po/' + id;
+        
+        // Tampilkan Modal
+        new bootstrap.Modal(document.getElementById('modalEditPO')).show();
+    }
     function toggleDetail(id) {
         const row = document.getElementById('detail-' + id);
         if(row) row.style.display = (row.style.display === 'table-row') ? 'none' : 'table-row';

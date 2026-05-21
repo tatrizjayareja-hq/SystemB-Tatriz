@@ -40,7 +40,13 @@
 <body>
 
 <div class="container">
-    <a href="javascript:history.back()" style="text-decoration: none; color: #666; font-size: 14px;">⬅ Batal & Kembali</a>
+    <a href="javascript:history.back()" id="btn-back" style="text-decoration: none; color: #666; font-size: 14px; display: inline-block;">⬅ Batal & Kembali</a>
+    <script>
+        // Menyembunyikan tombol kembali jika halaman ini dibuka di dalam iframe/modal
+        if (window !== window.top) {
+            document.getElementById('btn-back').style.display = 'none';
+        }
+    </script>
     <h2 style="margin-top: 10px;">📝 Edit Pesanan (PO)</h2>
 
     <div class="payment-info">
@@ -60,7 +66,7 @@
         <% } %>
     </div>
 
-    <form action="/update-po/<%= po.id %>" method="POST">
+    <form action="/update-po/<%= po.id %>" method="POST" target="_parent">
         <!-- Input Hidden untuk menampung ID yang dihapus -->
         <input type="hidden" name="deleted_ids" id="deleted_ids" value="">
 
