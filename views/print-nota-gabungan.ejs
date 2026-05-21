@@ -4,11 +4,27 @@
     <meta charset="UTF-8">
     <title>Nota Transaksi - <%= orders[0].customer %></title>
     <style>
-        /* Standar untuk Kertas A5 Portrait */
+       /* Standar untuk Kertas A5 Portrait */
         @media print {
-            @page { size: A5 portrait; margin: 10mm; }
-            body { -webkit-print-color-adjust: exact; print-color-adjust: exact; background: none; }
-            .nota-box { border: none !important; margin: 0 !important; width: 100% !important; padding: 0 !important; }
+            @page { 
+                size: 148mm 210mm; /* Paksa ukuran tepat A5 */
+                margin: 5mm; /* Margin tipis agar tidak terpotong */
+            }
+            body { 
+                padding: 0 !important; 
+                margin: 0 !important; 
+                background: white !important; 
+                -webkit-print-color-adjust: exact; 
+                print-color-adjust: exact; 
+            }
+            .nota-box { 
+                border: none !important; 
+                margin: 0 !important; 
+                width: 100% !important; 
+                min-height: 98vh !important; /* Gunakan tinggi kertas, bukan angka fix */
+                padding: 5mm !important; 
+                box-shadow: none !important;
+            }
             .no-print { display: none; }
         }
         
@@ -16,7 +32,7 @@
         
         .nota-box {
             width: 148mm; /* Lebar A5 */
-            min-height: 210mm; /* Tinggi A5 */
+            min-height: 210mm; /* Tinggi A5 untuk preview di layar */
             position: relative; padding: 10mm;
             box-sizing: border-box; overflow: hidden; display: flex; flex-direction: column;
             border: 1px solid #ddd; margin: auto; background: #fff; box-shadow: 0 4px 10px rgba(0,0,0,0.1);
