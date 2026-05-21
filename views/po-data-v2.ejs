@@ -159,9 +159,13 @@
                             <td class="text-center fw-bold"><%= po.qty_tampil || 0 %></td>
                             <td class="text-center">
                                 <% if (po.is_over) { %>
-                                    <span class="blink-warn"><i class="bi bi-exclamation-triangle-fill"></i> TIDAK SINKRON</span>
+                                    <span class="blink-warn"><i class="bi bi-exclamation-triangle-fill"></i> LEBIH</span>
+                                <% } else if (po.is_under) { %>
+                                    <span class="text-warning fw-bold" style="font-size: 11px;"><i class="bi bi-exclamation-circle-fill"></i> KURANG</span>
+                                <% } else if (po.is_empty) { %>
+                                    <span class="text-secondary fw-bold" style="font-size: 11px;"><i class="bi bi-clock"></i> BELUM SETOR</span>
                                 <% } else { %>
-                                    <span class="text-success"><i class="bi bi-check-circle-fill"></i> Normal</span>
+                                    <span class="text-success fw-bold"><i class="bi bi-check-circle-fill"></i> LENGKAP</span>
                                 <% } %>
                             </td>
                             <td class="text-end fw-bold text-success">

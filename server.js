@@ -903,7 +903,8 @@ app.get('/po-data-v2', isAdmin, async (req, res) => {
                 u.*, 
                 (SELECT SUM(jumlah) FROM po_detail WHERE po_id = u.id) as qty_tampil,
                 (SELECT COUNT(*) FROM po_detail WHERE po_id = u.id) as variasi_jumlah,
-                -- Tambahkan ini untuk Audit Prod (Blink merah jika tidak sinkron)
+                
+                -- 1. Cek jika ada yang LEBIH
                 EXISTS (
                     SELECT 1 FROM po_detail d2
                     LEFT JOIN hasil_kerja h2 ON d2.id = h2.detail_id
@@ -911,13 +912,26 @@ app.get('/po-data-v2', isAdmin, async (req, res) => {
                     GROUP BY d2.id, d2.jumlah
                     HAVING SUM(COALESCE(h2.jumlah_setor, 0)) > d2.jumlah
                 ) as is_over,
+                
+                -- 2. Cek jika ada yang KURANG (tapi operator sudah input > 0)
                 EXISTS (
                     SELECT 1 FROM po_detail d2
                     LEFT JOIN hasil_kerja h2 ON d2.id = h2.detail_id
                     WHERE d2.po_id = u.id
                     GROUP BY d2.id, d2.jumlah
-                    HAVING SUM(COALESCE(h2.jumlah_setor, 0)) < d2.jumlah
-                ) as is_under
+                    HAVING SUM(COALESCE(h2.jumlah_setor, 0)) > 0 
+                    AND SUM(COALESCE(h2.jumlah_setor, 0)) < d2.jumlah
+                ) as is_under,
+                
+                -- 3. Cek jika ada item yang BELUM DISETOR sama sekali (0)
+                EXISTS (
+                    SELECT 1 FROM po_detail d2
+                    LEFT JOIN hasil_kerja h2 ON d2.id = h2.detail_id
+                    WHERE d2.po_id = u.id
+                    GROUP BY d2.id, d2.jumlah
+                    HAVING SUM(COALESCE(h2.jumlah_setor, 0)) = 0
+                ) as is_empty
+
             FROM po_utama u 
             WHERE u.tenant_id = $1 
             ORDER BY u.tanggal DESC, u.id DESC
