@@ -144,7 +144,7 @@
                 </thead>
                 <tbody id="bodyPO">
                     <% orders.forEach(function(po) { %>
-                        <tr class="clickable-row <%= po.is_over ? 'table-danger' : '' %>" onclick="toggleDetail('<%= po.id %>')">
+                        <tr class="clickable-row <%= po.is_over ? 'table-danger' : (po.is_under ? 'table-warning' : '') %>" onclick="toggleDetail('<%= po.id %>')">
                             <td class="text-center" onclick="event.stopPropagation()">
                                 <input type="checkbox" class="form-check-input po-checkbox" value="<%= po.id %>" data-customer="<%= po.customer %>" onchange="updateCounter()">
                             </td>

@@ -910,7 +910,14 @@ app.get('/po-data-v2', isAdmin, async (req, res) => {
                     WHERE d2.po_id = u.id
                     GROUP BY d2.id, d2.jumlah
                     HAVING SUM(COALESCE(h2.jumlah_setor, 0)) > d2.jumlah
-                ) as is_over
+                ) as is_over,
+                EXISTS (
+                    SELECT 1 FROM po_detail d2
+                    LEFT JOIN hasil_kerja h2 ON d2.id = h2.detail_id
+                    WHERE d2.po_id = u.id
+                    GROUP BY d2.id, d2.jumlah
+                    HAVING SUM(COALESCE(h2.jumlah_setor, 0)) < d2.jumlah
+                ) as is_under
             FROM po_utama u 
             WHERE u.tenant_id = $1 
             ORDER BY u.tanggal DESC, u.id DESC
