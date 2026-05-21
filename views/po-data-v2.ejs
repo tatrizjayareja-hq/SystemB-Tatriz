@@ -186,20 +186,26 @@
                                 </form>
                             </td>
                             <td class="text-center" onclick="event.stopPropagation()">
-                                <div class="action-dropdown">
-                                    <button class="btn btn-sm btn-outline-dark py-0 px-2" onclick="toggleMenu(event, '<%= po.id %>')">
-                                        Opsi <i class="bi bi-chevron-down small"></i>
-                                    </button>
-                                    <div id="menu-<%= po.id %>" class="dropdown-content shadow rounded">
-                                        <button onclick="toggleDetail('<%= po.id %>')"><i class="bi bi-eye text-info"></i> Detail Progres</button>
-                                        <button onclick="konfirmasiRepeat('<%= po.id %>', '<%= po.nama_po %>')" class="fw-bold text-success">
-                                            <i class="bi bi-arrow-repeat"></i> Repeat Order
-                                        </button>                                       
-                                        <hr class="my-1">
-                                        <a href="/edit-po/<%= po.id %>"><i class="bi bi-pencil-square text-warning"></i> Edit Data PO</a>
-                                        <a href="/cetak-nota/<%= po.id %>" target="_blank"><i class="bi bi-printer"></i> Nota A6</a>
-                                        <a href="/cetak-nota-rinci/<%= po.id %>" target="_blank"><i class="bi bi-list-check"></i> Nota Rinci</a>
-                                        <a href="/delete-po/<%= po.id %>" class="text-danger fw-bold" onclick="return confirm('Hapus PO ini?')"><i class="bi bi-trash"></i> Hapus PO</a>
+                                <div class="d-flex justify-content-center gap-1">
+                                    <!-- Tombol Edit dikeluarkan dari dropdown dan jadi ikon -->
+                                    <a href="/edit-po/<%= po.id %>" class="btn btn-sm btn-outline-warning py-0 px-2 shadow-sm" title="Edit Data PO">
+                                        <i class="bi bi-pencil-square"></i>
+                                    </a>
+                                    
+                                    <div class="action-dropdown">
+                                        <button class="btn btn-sm btn-outline-dark py-0 px-2 shadow-sm" onclick="toggleMenu(event, '<%= po.id %>')">
+                                            Opsi <i class="bi bi-chevron-down small"></i>
+                                        </button>
+                                        <div id="menu-<%= po.id %>" class="dropdown-content shadow rounded">
+                                            <!-- Detail Progres sudah dihapus dari sini -->
+                                            <button onclick="konfirmasiRepeat('<%= po.id %>', '<%= po.nama_po %>')" class="fw-bold text-success">
+                                                <i class="bi bi-arrow-repeat"></i> Repeat Order
+                                            </button>                                       
+                                            <hr class="my-1">
+                                            <a href="/cetak-nota/<%= po.id %>" target="_blank"><i class="bi bi-printer"></i> Nota A6</a>
+                                            <a href="/cetak-nota-rinci/<%= po.id %>" target="_blank"><i class="bi bi-list-check"></i> Nota Rinci</a>
+                                            <a href="/delete-po/<%= po.id %>" class="text-danger fw-bold" onclick="return confirm('Hapus PO ini?')"><i class="bi bi-trash"></i> Hapus PO</a>
+                                        </div>
                                     </div>
                                 </div>
                             </td>
