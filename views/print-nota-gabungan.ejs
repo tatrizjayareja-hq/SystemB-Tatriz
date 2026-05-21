@@ -5,11 +5,10 @@
     <title>Nota Transaksi - <%= orders[0].customer %></title>
     <style>
        /* Standar untuk Kertas A5 Portrait */
-        /* Standar untuk Kertas A5 Portrait */
         @media print {
             @page { 
                 size: 148mm 210mm; 
-                margin: 4mm; /* Margin dipepetkan */
+                margin: 5mm; 
             }
             body { 
                 padding: 0 !important; 
@@ -22,7 +21,8 @@
                 border: none !important; 
                 margin: 0 !important; 
                 width: 100% !important; 
-                height: 98vh !important; /* Paksa maksimal 1 halaman print */
+                /* Hapus max-height agar bisa memanjang ke halaman 2 jika perlu */
+                min-height: 100vh !important; 
                 padding: 2mm !important; 
                 box-shadow: none !important;
             }
@@ -33,14 +33,13 @@
         
         .nota-box {
             width: 148mm; 
-            height: 210mm; /* Fix tinggi A5 */
-            max-height: 210mm; /* Kunci agar tidak bisa memanjang ke bawah */
+            min-height: 210mm; /* Kembali pakai min-height, bukan height mati */
             position: relative; padding: 8mm;
-            box-sizing: border-box; overflow: hidden; display: flex; flex-direction: column;
+            box-sizing: border-box; display: flex; flex-direction: column;
             border: 1px solid #ddd; margin: auto; background: #fff; box-shadow: 0 4px 10px rgba(0,0,0,0.1);
         }
 
-        /* HEADER DIPERPADAT */
+        /* HEADER */
         .header-container { display: flex; align-items: center; border-bottom: 2px solid #2c3e50; padding-bottom: 5px; margin-bottom: 8px; }
         .logo-header { width: 45px; height: 45px; object-fit: contain; margin-right: 10px; }
         .company-info { flex-grow: 1; }
@@ -51,20 +50,23 @@
         .label-nota h3 { margin: 0; color: #e67e22; font-size: 15px; letter-spacing: 1px; text-transform: uppercase; }
         .label-nota p { margin: 1px 0; font-size: 9px; }
 
-        /* AREA KONTEN FLEKSIBEL */
-        .content-area { position: relative; z-index: 1; flex-grow: 1; overflow: hidden; }
+        /* AREA KONTEN (Hapus overflow hidden agar isi tidak terpotong) */
+        .content-area { position: relative; z-index: 1; flex-grow: 1; }
         
-        /* TABEL ULTRA KOMPAK */
+        /* TABEL */
         table { width: 100%; border-collapse: collapse; margin-top: 2px; font-size: 9.5px; line-height: 1.2; }
         th { background: #2c3e50; color: white; border: 1px solid #2c3e50; padding: 4px; text-align: left; font-weight: 600; }
         td { padding: 3px 4px; vertical-align: middle; border-bottom: 1px dashed #ddd; }
+        
+        /* Cegah baris terpotong di antara halaman 1 dan 2 */
+        tr { page-break-inside: avoid; } 
         
         .master-row td { background: #f8f9fa; font-weight: bold; border-top: 1px solid #ccc; border-bottom: 1px solid #ccc; font-size: 10.5px; padding: 4px; }
         .detail-row td { color: #444; }
         .subtotal-po td { font-style: italic; background: #fff; border-bottom: 1px solid #eee; padding: 2px 4px; }
 
-        /* FOOTER & TTD DIPERPADAT */
-        .footer-nota { margin-top: auto; padding-top: 5px; page-break-inside: avoid; }
+        /* FOOTER & TTD */
+        .footer-nota { margin-top: auto; padding-top: 5px; page-break-inside: avoid; } /* Cegah total pisah dengan tabel jika mepet */
         .total-box { width: 100%; border-top: 2px solid #2c3e50; padding-top: 5px; margin-bottom: 10px; }
         .total-row { display: flex; justify-content: flex-end; margin-bottom: 2px; font-size: 11px; }
         .total-row span:first-child { width: 150px; text-align: right; margin-right: 15px; color: #555; }
@@ -75,9 +77,9 @@
 
         .ttd-section { display: flex; justify-content: space-between; margin-top: 5px; font-size: 9px; text-align: center; }
         .ttd-box { width: 40%; }
-        .ttd-space { height: 40px; } /* Tinggi space tanda tangan dikurangi */
+        .ttd-space { height: 40px; }
         
-        .watermark { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%) rotate(-30deg); opacity: 0.04; width: 280px; z-index: 0; pointer-events: none; }
+        .watermark { position: absolute; top: 30%; left: 50%; transform: translate(-50%, -50%) rotate(-30deg); opacity: 0.04; width: 280px; z-index: 0; pointer-events: none; }
         .text-end { text-align: right !important; }
         .text-center { text-align: center !important; }
     </style>
