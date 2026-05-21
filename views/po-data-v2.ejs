@@ -130,7 +130,9 @@
             <table class="table table-hover table-bordered align-middle mb-0" style="font-size: 13px;">
                 <thead class="table-primary text-white text-uppercase text-center">
                     <tr>
-                        <th style="width: 40px;">Sel</th>
+                        <th style="width: 40px;">
+                            <input type="checkbox" class="form-check-input shadow-sm" id="checkAllVisible" onchange="pilihSemuaTampil(this)" title="Pilih Semua yang Tampil">
+                        </th>
                         <th style="width: 100px;">Tanggal</th>
                         <th>Data Pesanan / Customer</th>
                         <th style="width: 60px;">Qty</th>
@@ -313,6 +315,7 @@
         localStorage.setItem('filterNama', inputNama);
         localStorage.setItem('filterStatus', inputStatus);
         localStorage.setItem('hideLunas', hideLunas);
+        document.getElementById('checkAllVisible').checked = false;
 
         let rows = document.querySelectorAll("#bodyPO tr.clickable-row");
         rows.forEach(row => {
@@ -323,11 +326,14 @@
                 row.style.display = "";
             } else {
                 row.style.display = "none";
+                let cb = row.querySelector('.po-checkbox');
+                if (cb) cb.checked = false;
                 let id = row.querySelector('.po-checkbox').value;
                 let dr = document.getElementById('detail-' + id);
                 if(dr) dr.style.display = "none";
             }
         });
+        updateCounter();
     }
 
     function updateCounter() {
@@ -420,6 +426,25 @@
             }
         });
     }
+
+    function pilihSemuaTampil(source) {
+    // Ambil semua baris utama (bukan detail)
+    const rows = document.querySelectorAll("#bodyPO tr.clickable-row");
+    
+    rows.forEach(row => {
+        // Hanya proses baris yang SEDANG TAMPIL (tidak di-hide oleh filter)
+        if (row.style.display !== "none") {
+            const checkbox = row.querySelector('.po-checkbox');
+            if (checkbox) {
+                // Samakan status centangnya dengan status checkbox master
+                checkbox.checked = source.checked;
+            }
+        }
+    });
+    
+    // Jangan lupa update counter di alert bar biru
+    updateCounter();
+}
 
     window.onload = function() {
         const sn = localStorage.getItem('filterNama');

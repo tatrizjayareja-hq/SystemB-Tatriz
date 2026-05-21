@@ -556,13 +556,6 @@ app.get('/logout', (req, res) => {
     });
 });
 
-//RUTE PO BARU
-app.get('/po-baru', isAdmin, (req, res) => {
-    if (!req.session.userId) return res.redirect('/');
-    // Data user sudah dikirim otomatis via middleware res.locals.user
-    res.render('po-baru');
-});
-
 app.post('/save-po', isAdmin, async (req, res) => {
     if (!req.session.userId) return res.redirect('/');
     
@@ -628,62 +621,6 @@ app.post('/save-po', isAdmin, async (req, res) => {
         await db.query("ROLLBACK");
         console.error("🔥 Save PO Error:", err.message);
         res.status(500).send("Gagal menyimpan PO: " + err.message);
-    }
-});
-
-app.get('/po-data', async (req, res) => {
-    if (!req.session.userId) return res.redirect('/');
-    const tId = req.session.tenantId;
-    const isPro = (tId === 1 || req.session.tenantLevel >= 2);
-
-    try {
-        // Query Header PO (Tetap sama, ditambahkan alias u agar konsisten)
-        const sqlOrders = `
-            SELECT 
-                u.*, 
-                (SELECT SUM(jumlah) FROM po_detail WHERE po_id = u.id) as qty_tampil,
-                (SELECT COUNT(*) FROM po_detail WHERE po_id = u.id) as variasi_jumlah,
-                (SELECT SUM(jumlah * harga_customer) FROM po_detail WHERE po_id = u.id) as total_harga_customer,
-                EXISTS (
-                    SELECT 1 FROM po_detail d2
-                    LEFT JOIN hasil_kerja h2 ON d2.id = h2.detail_id
-                    WHERE d2.po_id = u.id
-                    GROUP BY d2.id, d2.jumlah
-                    HAVING SUM(COALESCE(h2.jumlah_setor, 0)) > d2.jumlah
-                ) as is_over
-            FROM po_utama u 
-            WHERE u.tenant_id = $1 
-            ORDER BY u.tanggal DESC, u.id DESC
-        `;
-        const orders = await db.all(sqlOrders, [tId]);
-
-        // Query Detail PO: DITAMBAHKAN Subquery untuk total_qc
-        const sqlDetails = `
-            SELECT 
-                d.*, 
-                -- Hitung Total Setoran Operator
-                (SELECT COALESCE(SUM(h.jumlah_setor), 0) 
-                 FROM hasil_kerja h WHERE h.detail_id = d.id) as total_produksi,
-                -- Hitung Total Barang Lulus QC (Tabel Baru)
-                (SELECT COALESCE(SUM(q.jumlah_qc), 0) 
-                 FROM hasil_qc q WHERE q.detail_id = d.id) as total_qc
-            FROM po_detail d
-            JOIN po_utama u ON d.po_id = u.id
-            WHERE u.tenant_id = $1
-            ORDER BY d.id ASC
-        `;
-        const details = await db.all(sqlDetails, [tId]);
-
-        res.render('po-datav2', { 
-            orders: orders, 
-            details: details,
-            user: req.session,
-            isPro: isPro 
-        });
-
-    } catch (err) {
-        console.error("🔥 Error po-data-v2:", err.message);
-        res.status(500).send("Gagal memuat data pesanan.");
     }
 });
 
