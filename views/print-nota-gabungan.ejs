@@ -5,10 +5,11 @@
     <title>Nota Transaksi - <%= orders[0].customer %></title>
     <style>
        /* Standar untuk Kertas A5 Portrait */
+        /* Standar untuk Kertas A5 Portrait */
         @media print {
             @page { 
-                size: 148mm 210mm; /* Paksa ukuran tepat A5 */
-                margin: 5mm; /* Margin tipis agar tidak terpotong */
+                size: 148mm 210mm; 
+                margin: 4mm; /* Margin dipepetkan */
             }
             body { 
                 padding: 0 !important; 
@@ -21,8 +22,8 @@
                 border: none !important; 
                 margin: 0 !important; 
                 width: 100% !important; 
-                min-height: 98vh !important; /* Gunakan tinggi kertas, bukan angka fix */
-                padding: 5mm !important; 
+                height: 98vh !important; /* Paksa maksimal 1 halaman print */
+                padding: 2mm !important; 
                 box-shadow: none !important;
             }
             .no-print { display: none; }
@@ -31,48 +32,52 @@
         body { font-family: 'Segoe UI', Helvetica, sans-serif; margin: 0; padding: 20px; background-color: #f4f7f6; color: #333; }
         
         .nota-box {
-            width: 148mm; /* Lebar A5 */
-            min-height: 210mm; /* Tinggi A5 untuk preview di layar */
-            position: relative; padding: 10mm;
+            width: 148mm; 
+            height: 210mm; /* Fix tinggi A5 */
+            max-height: 210mm; /* Kunci agar tidak bisa memanjang ke bawah */
+            position: relative; padding: 8mm;
             box-sizing: border-box; overflow: hidden; display: flex; flex-direction: column;
             border: 1px solid #ddd; margin: auto; background: #fff; box-shadow: 0 4px 10px rgba(0,0,0,0.1);
         }
 
-        .header-container { display: flex; align-items: center; border-bottom: 2px solid #2c3e50; padding-bottom: 10px; margin-bottom: 15px; }
-        .logo-header { width: 55px; height: 55px; object-fit: contain; margin-right: 15px; }
+        /* HEADER DIPERPADAT */
+        .header-container { display: flex; align-items: center; border-bottom: 2px solid #2c3e50; padding-bottom: 5px; margin-bottom: 8px; }
+        .logo-header { width: 45px; height: 45px; object-fit: contain; margin-right: 10px; }
         .company-info { flex-grow: 1; }
-        .company-info h2 { margin: 0; font-size: 16px; color: #2c3e50; text-transform: uppercase; font-weight: 800; }
-        .company-info p { margin: 2px 0; font-size: 11px; line-height: 1.3; color: #555; }
+        .company-info h2 { margin: 0; font-size: 13px; color: #2c3e50; text-transform: uppercase; font-weight: 800; }
+        .company-info p { margin: 1px 0; font-size: 9px; line-height: 1.2; color: #555; }
         
         .label-nota { text-align: right; }
-        .label-nota h3 { margin: 0; color: #e67e22; font-size: 18px; letter-spacing: 1px; text-transform: uppercase; }
-        .label-nota p { margin: 2px 0; font-size: 11px; }
+        .label-nota h3 { margin: 0; color: #e67e22; font-size: 15px; letter-spacing: 1px; text-transform: uppercase; }
+        .label-nota p { margin: 1px 0; font-size: 9px; }
 
-        .content-area { position: relative; z-index: 1; flex-grow: 1; }
+        /* AREA KONTEN FLEKSIBEL */
+        .content-area { position: relative; z-index: 1; flex-grow: 1; overflow: hidden; }
         
-        /* Desain Tabel Master-Detail */
-        table { width: 100%; border-collapse: collapse; margin-top: 5px; font-size: 11px; }
-        th { background: #2c3e50; color: white; border: 1px solid #2c3e50; padding: 8px 6px; text-align: left; font-weight: 600; }
-        td { padding: 6px; vertical-align: middle; border-bottom: 1px dashed #ddd; }
+        /* TABEL ULTRA KOMPAK */
+        table { width: 100%; border-collapse: collapse; margin-top: 2px; font-size: 9.5px; line-height: 1.2; }
+        th { background: #2c3e50; color: white; border: 1px solid #2c3e50; padding: 4px; text-align: left; font-weight: 600; }
+        td { padding: 3px 4px; vertical-align: middle; border-bottom: 1px dashed #ddd; }
         
-        .master-row td { background: #f8f9fa; font-weight: bold; border-top: 1px solid #ccc; border-bottom: 1px solid #ccc; font-size: 12px; }
+        .master-row td { background: #f8f9fa; font-weight: bold; border-top: 1px solid #ccc; border-bottom: 1px solid #ccc; font-size: 10.5px; padding: 4px; }
         .detail-row td { color: #444; }
-        .subtotal-po td { font-style: italic; background: #fff; border-bottom: 2px solid #eee; }
+        .subtotal-po td { font-style: italic; background: #fff; border-bottom: 1px solid #eee; padding: 2px 4px; }
 
-        .footer-nota { margin-top: auto; padding-top: 15px; page-break-inside: avoid; }
-        .total-box { width: 100%; border-top: 2px solid #2c3e50; padding-top: 10px; margin-bottom: 20px; }
-        .total-row { display: flex; justify-content: flex-end; margin-bottom: 5px; font-size: 12px; }
+        /* FOOTER & TTD DIPERPADAT */
+        .footer-nota { margin-top: auto; padding-top: 5px; page-break-inside: avoid; }
+        .total-box { width: 100%; border-top: 2px solid #2c3e50; padding-top: 5px; margin-bottom: 10px; }
+        .total-row { display: flex; justify-content: flex-end; margin-bottom: 2px; font-size: 11px; }
         .total-row span:first-child { width: 150px; text-align: right; margin-right: 15px; color: #555; }
         .total-row span:last-child { width: 100px; text-align: right; font-weight: bold; }
         
-        .sisa-row { font-size: 15px; font-weight: 800; color: #d63031; border-top: 1px solid #ccc; padding-top: 5px; margin-top: 5px; }
-        .lunas-row { font-size: 15px; font-weight: 800; color: #27ae60; border-top: 1px solid #ccc; padding-top: 5px; margin-top: 5px; }
+        .sisa-row { font-size: 13px; font-weight: 800; color: #d63031; border-top: 1px solid #ccc; padding-top: 3px; margin-top: 3px; }
+        .lunas-row { font-size: 13px; font-weight: 800; color: #27ae60; border-top: 1px solid #ccc; padding-top: 3px; margin-top: 3px; }
 
-        .ttd-section { display: flex; justify-content: space-between; margin-top: 20px; font-size: 11px; text-align: center; }
+        .ttd-section { display: flex; justify-content: space-between; margin-top: 5px; font-size: 9px; text-align: center; }
         .ttd-box { width: 40%; }
-        .ttd-space { height: 60px; }
+        .ttd-space { height: 40px; } /* Tinggi space tanda tangan dikurangi */
         
-        .watermark { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%) rotate(-30deg); opacity: 0.04; width: 350px; z-index: 0; pointer-events: none; }
+        .watermark { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%) rotate(-30deg); opacity: 0.04; width: 280px; z-index: 0; pointer-events: none; }
         .text-end { text-align: right !important; }
         .text-center { text-align: center !important; }
     </style>
