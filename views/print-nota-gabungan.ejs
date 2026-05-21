@@ -2,53 +2,63 @@
 <html lang="id">
 <head>
     <meta charset="UTF-8">
-    <title>Nota Gabungan - <%= orders[0].customer %></title>
+    <title>Nota Transaksi - <%= orders[0].customer %></title>
     <style>
+        /* Standar untuk Kertas A5 Portrait */
         @media print {
-            @page { size: 105mm 148mm auto; margin: 0; }
-            body { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+            @page { size: A5 portrait; margin: 10mm; }
+            body { -webkit-print-color-adjust: exact; print-color-adjust: exact; background: none; }
+            .nota-box { border: none !important; margin: 0 !important; width: 100% !important; padding: 0 !important; }
             .no-print { display: none; }
         }
-        .footer-nota { page-break-inside: avoid; }
-        body { font-family: 'Segoe UI', sans-serif; margin: 0; padding: 0; background-color: #fff; color: #333; }
+        
+        body { font-family: 'Segoe UI', Helvetica, sans-serif; margin: 0; padding: 20px; background-color: #f4f7f6; color: #333; }
         
         .nota-box {
-            width: 105mm; min-height: 148mm; position: relative; padding: 8mm;
+            width: 148mm; /* Lebar A5 */
+            min-height: 210mm; /* Tinggi A5 */
+            position: relative; padding: 10mm;
             box-sizing: border-box; overflow: hidden; display: flex; flex-direction: column;
-            border: 1px solid #eee; margin: auto;
+            border: 1px solid #ddd; margin: auto; background: #fff; box-shadow: 0 4px 10px rgba(0,0,0,0.1);
         }
 
-        .header-container { display: flex; align-items: center; border-bottom: 2px solid #333; padding-bottom: 8px; margin-bottom: 10px; }
-        .logo-header { width: 45px; height: 45px; object-fit: contain; margin-right: 10px; }
+        .header-container { display: flex; align-items: center; border-bottom: 2px solid #2c3e50; padding-bottom: 10px; margin-bottom: 15px; }
+        .logo-header { width: 55px; height: 55px; object-fit: contain; margin-right: 15px; }
         .company-info { flex-grow: 1; }
-        .company-info h2 { margin: 0; font-size: 10px; color: #2c3e50; text-transform: uppercase; }
-        .company-info p { margin: 1px 0; font-size: 8px; line-height: 1.2; }
+        .company-info h2 { margin: 0; font-size: 16px; color: #2c3e50; text-transform: uppercase; font-weight: 800; }
+        .company-info p { margin: 2px 0; font-size: 11px; line-height: 1.3; color: #555; }
         
         .label-nota { text-align: right; }
-        .label-nota h3 { margin: 0; color: #e67e22; font-size: 8px; }
-        .label-nota p { margin: 1px 0; font-size: 8px; }
+        .label-nota h3 { margin: 0; color: #e67e22; font-size: 18px; letter-spacing: 1px; text-transform: uppercase; }
+        .label-nota p { margin: 2px 0; font-size: 11px; }
 
         .content-area { position: relative; z-index: 1; flex-grow: 1; }
-        table { width: 100%; border-collapse: collapse; margin-top: 5px; font-size: 9px; }
-        th { background: #f8f9fa; border-bottom: 1px solid #333; padding: 6px; text-align: left; }
-        td { border-bottom: 1px solid #eee; padding: 4px 2px; vertical-align: top; }
-
-        .footer-nota { margin-top: auto; padding-top: 2px; }
-        .total-box { width: 100%; margin-bottom: 5px; border-top: 1px solid #333; padding-top: 5px; }
-        .total-row { display: flex; justify-content: space-between; margin-bottom: 2px; font-size: 11px; }
         
-        .ttd-section { display: flex; justify-content: space-between; margin-top: 10px; font-size: 9px; text-align: center; }
-        .ttd-box { width: 45%; }
-        .ttd-space { height: 35px; }
+        /* Desain Tabel Master-Detail */
+        table { width: 100%; border-collapse: collapse; margin-top: 5px; font-size: 11px; }
+        th { background: #2c3e50; color: white; border: 1px solid #2c3e50; padding: 8px 6px; text-align: left; font-weight: 600; }
+        td { padding: 6px; vertical-align: middle; border-bottom: 1px dashed #ddd; }
         
-        .watermark { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%) rotate(-30deg); opacity: 0.05; width: 220px; z-index: 0; pointer-events: none; }
-        .text-end { text-align: right; }
-        .text-center { text-align: center; }
+        .master-row td { background: #f8f9fa; font-weight: bold; border-top: 1px solid #ccc; border-bottom: 1px solid #ccc; font-size: 12px; }
+        .detail-row td { color: #444; }
+        .subtotal-po td { font-style: italic; background: #fff; border-bottom: 2px solid #eee; }
 
-        .warning-box {
-            font-size: 7px; color: #d63031; background: #fff2f2;
-            padding: 3px; border: 1px solid #ff7675; margin-top: 3px; border-radius: 3px;
-        }
+        .footer-nota { margin-top: auto; padding-top: 15px; page-break-inside: avoid; }
+        .total-box { width: 100%; border-top: 2px solid #2c3e50; padding-top: 10px; margin-bottom: 20px; }
+        .total-row { display: flex; justify-content: flex-end; margin-bottom: 5px; font-size: 12px; }
+        .total-row span:first-child { width: 150px; text-align: right; margin-right: 15px; color: #555; }
+        .total-row span:last-child { width: 100px; text-align: right; font-weight: bold; }
+        
+        .sisa-row { font-size: 15px; font-weight: 800; color: #d63031; border-top: 1px solid #ccc; padding-top: 5px; margin-top: 5px; }
+        .lunas-row { font-size: 15px; font-weight: 800; color: #27ae60; border-top: 1px solid #ccc; padding-top: 5px; margin-top: 5px; }
+
+        .ttd-section { display: flex; justify-content: space-between; margin-top: 20px; font-size: 11px; text-align: center; }
+        .ttd-box { width: 40%; }
+        .ttd-space { height: 60px; }
+        
+        .watermark { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%) rotate(-30deg); opacity: 0.04; width: 350px; z-index: 0; pointer-events: none; }
+        .text-end { text-align: right !important; }
+        .text-center { text-align: center !important; }
     </style>
 
     <% if (mode === 'thermal') { %>
@@ -59,6 +69,7 @@
 <body>
     <div class="nota-box">
         <img src="<%= config.logo_path %>" class="watermark">
+        
         <div class="header-container">
             <img src="<%= config.logo_path %>" class="logo-header">
             <div class="company-info">
@@ -67,9 +78,9 @@
                 <p><strong>WA: <%= config.no_hp %></strong></p>
             </div>
             <div class="label-nota">
-                <h3><%= mode === 'thermal' ? 'STRUK TAGIHAN' : 'NOTA RESMI' %></h3>
-                <p>Tgl: <%= new Date().toLocaleDateString('id-ID') %></p>
-                <p>Cust: <strong><%= orders[0].customer %></strong></p>
+                <h3><%= mode === 'thermal' ? 'STRUK TAGIHAN' : 'NOTA TRANSAKSI' %></h3>
+                <p>Tgl: <strong><%= new Date().toLocaleDateString('id-ID', { day:'2-digit', month:'short', year:'numeric' }) %></strong></p>
+                <p>Cust: <strong style="font-size: 13px; color: #2c3e50;"><%= orders[0].customer %></strong></p>
             </div>
         </div>
 
@@ -77,10 +88,11 @@
             <table>
                 <thead>
                     <tr>
-                        <th style="width: 40%;">Deskripsi PO</th>
-                        <th class="text-center" style="width: 15%;">Qty</th>
-                        <th class="text-end" style="width: 20%;">Hrg/Baju</th>
-                        <th class="text-end" style="width: 25%;">Total</th>
+                        <th class="text-center" style="width: 5%;">No</th>
+                        <th style="width: 45%;">Deskripsi & Rincian Pesanan</th>
+                        <th class="text-center" style="width: 10%;">Qty</th>
+                        <th class="text-end" style="width: 20%;">Harga/Pcs</th>
+                        <th class="text-end" style="width: 20%;">Subtotal</th>
                     </tr>
                 </thead>
                 <tbody>
@@ -88,25 +100,44 @@
                         let grandTotalTagihan = 0;
                         let grandTotalBayar = 0;
 
-                        orders.forEach(po => {
+                        orders.forEach((po, index) => {
                             let totalHargaPO = (po.total_harga_customer || 0);
                             let totalBayarPO = (po.total_bayar || 0);
                             
                             grandTotalTagihan += totalHargaPO;
                             grandTotalBayar += totalBayarPO;
 
-                            let detailSatu = details.find(d => Number(d.po_id) === Number(po.id));
-                            let qtyBaju = detailSatu ? detailSatu.jumlah : 0;
-                            let hargaPerBaju = qtyBaju > 0 ? (totalHargaPO / qtyBaju) : 0;
+                            let poDetails = details.filter(d => Number(d.po_id) === Number(po.id));
                     %>
-                    <tr>
-                        <td><strong><%= po.nama_po %></strong></td>
-                        <td class="text-center"><%= qtyBaju %></td>
-                        <td class="text-end"><%= hargaPerBaju.toLocaleString('id-ID') %></td>
-                        <td class="text-end" style="font-weight: bold;">
+                    
+                    <!-- BARIS INDUK (MASTER PO) -->
+                    <tr class="master-row">
+                        <td class="text-center"><%= index + 1 %></td>
+                        <td colspan="4" style="color: #2c3e50;">PO: <%= po.nama_po %></td>
+                    </tr>
+
+                    <!-- BARIS RINCIAN (SUB-PO) -->
+                    <% poDetails.forEach(d => { 
+                        let subtotalDetail = (d.jumlah || 0) * (d.harga_customer || 0);
+                    %>
+                    <tr class="detail-row">
+                        <td></td>
+                        <td>↳ <%= d.jenis_bordir %> <span style="color:#7f8c8d;">(<%= d.nama_desain %>)</span></td>
+                        <td class="text-center"><%= d.jumlah %> <small>pcs</small></td>
+                        <td class="text-end"><%= (d.harga_customer || 0).toLocaleString('id-ID') %></td>
+                        <td class="text-end"><%= subtotalDetail.toLocaleString('id-ID') %></td>
+                    </tr>
+                    <% }) %>
+
+                    <!-- SUBTOTAL PO (Opsional, memperjelas harga per PO) -->
+                    <tr class="subtotal-po">
+                        <td colspan="3"></td>
+                        <td class="text-end">Subtotal PO:</td>
+                        <td class="text-end" style="font-weight: bold; color: #2c3e50;">
                             <%= totalHargaPO.toLocaleString('id-ID') %>
                         </td>
                     </tr>
+
                     <% }) %>
                 </tbody>
             </table>
@@ -115,30 +146,38 @@
         <div class="footer-nota">
             <div class="total-box">
                 <div class="total-row">
-                    <span>Total Tagihan:</span>
+                    <span>Total Keseluruhan:</span>
                     <span>Rp <%= grandTotalTagihan.toLocaleString('id-ID') %></span>
                 </div>
                 <div class="total-row" style="color: #27ae60;">
-                    <span>Total Bayar (DP):</span>
+                    <span>Telah Dibayar (DP):</span>
                     <span>Rp <%= grandTotalBayar.toLocaleString('id-ID') %></span>
                 </div>
-                <hr style="border: 0; border-top: 1px solid #333; margin: 4px 0;">
-                <div class="total-row" style="font-weight: bold; font-size: 13px;">
-                    <span>SISA TAGIHAN:</span>
-                    <span>Rp <%= (grandTotalTagihan - grandTotalBayar).toLocaleString('id-ID') %></span>
-                </div>
+                
+                <% let sisa = grandTotalTagihan - grandTotalBayar; %>
+                <% if (sisa <= 0) { %>
+                    <div class="total-row lunas-row">
+                        <span>STATUS:</span>
+                        <span>✅ LUNAS</span>
+                    </div>
+                <% } else { %>
+                    <div class="total-row sisa-row">
+                        <span>SISA TAGIHAN:</span>
+                        <span>Rp <%= sisa.toLocaleString('id-ID') %></span>
+                    </div>
+                <% } %>
             </div>
 
             <div class="ttd-section">
                 <div class="ttd-box">
-                    Penerima,
+                    Penerima / Customer,
                     <div class="ttd-space"></div>
                     ( ............................ )
                 </div>
                 <div class="ttd-box">
                     Hormat Kami,
                     <div class="ttd-space"></div>
-                    ( ............................ )
+                    <strong><%= config.nama_perusahaan %></strong>
                 </div>
             </div>
         </div>
@@ -146,7 +185,8 @@
 
     <script>
         window.onload = function() {
-            setTimeout(() => { window.print(); }, 500);
+            // Otomatis Print Dialog saat halaman selesai dimuat
+            setTimeout(() => { window.print(); }, 800);
         };
     </script>
 </body>

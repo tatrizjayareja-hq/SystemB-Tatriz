@@ -202,8 +202,12 @@
                                                 <i class="bi bi-arrow-repeat"></i> Repeat Order
                                             </button>                                       
                                             <hr class="my-1">
-                                            <a href="/cetak-nota/<%= po.id %>" target="_blank"><i class="bi bi-printer"></i> Nota A6</a>
-                                            <a href="/cetak-nota-rinci/<%= po.id %>" target="_blank"><i class="bi bi-list-check"></i> Nota Rinci</a>
+                                            <a href="/cetak-nota-gabungan?ids=<%= po.id %>" target="_blank" class="fw-bold text-dark">
+                                                <i class="bi bi-printer"></i> Cetak Nota Lengkap
+                                            </a>
+                                            <a href="/cetak-nota-gabungan?ids=<%= po.id %>&mode=thermal" target="_blank" class="text-secondary">
+                                                <i class="bi bi-receipt"></i> Cetak Thermal
+                                            </a>
                                             <a href="/delete-po/<%= po.id %>" class="text-danger fw-bold" onclick="return confirm('Hapus PO ini?')"><i class="bi bi-trash"></i> Hapus PO</a>
                                         </div>
                                     </div>

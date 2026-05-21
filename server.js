@@ -1025,17 +1025,20 @@ app.get('/admin/repeat-po/:id', isAdmin, async (req, res) => {
 app.get('/cetak-nota-gabungan', isAdmin, async (req, res) => {
     const tId = req.session.tenantId;
     let ids = req.query.ids; 
-    const mode = req.query.mode || 'standard'; // Tangkap mode (standard/thermal)
+    const mode = req.query.mode || 'standard'; 
     
     if (!ids) return res.send("Tidak ada PO yang dipilih.");
     
-    // Konversi ids menjadi array jika datang sebagai string tunggal (id1,id2)
+    // Pastikan konversi ID aman (entah dari klik 1 PO atau banyak PO)
     let idList = Array.isArray(ids) ? ids : ids.split(',');
-    idList = idList.map(id => parseInt(id));
+    idList = idList.map(id => parseInt(id)).filter(id => !isNaN(id));
+
+    if (idList.length === 0) return res.send("ID PO tidak valid.");
 
     try {
         const config = await db.get("SELECT * FROM settings WHERE tenant_id = $1", [tId]);
 
+        // Query PO Utama (Mendukung 1 atau Banyak ID sekaligus)
         const sqlOrders = `
             SELECT p.*, COALESCE(bayar.total, 0) as total_bayar 
             FROM po_utama p
@@ -1045,10 +1048,16 @@ app.get('/cetak-nota-gabungan', isAdmin, async (req, res) => {
                 GROUP BY po_id
             ) bayar ON p.id = bayar.po_id
             WHERE p.id = ANY($1::int[]) AND p.tenant_id = $2
+            ORDER BY p.id ASC
         `;
-
         const orders = await db.all(sqlOrders, [idList, tId]);
-        const details = await db.all(`SELECT * FROM po_detail WHERE po_id = ANY($1::int[])`, [idList]);
+
+        // Query Detail PO berdasarkan ID yang terpilih
+        const details = await db.all(`
+            SELECT * FROM po_detail 
+            WHERE po_id = ANY($1::int[]) 
+            ORDER BY id ASC
+        `, [idList]);
 
         if (!orders || orders.length === 0) return res.send("Data PO tidak ditemukan.");
 
@@ -1056,11 +1065,11 @@ app.get('/cetak-nota-gabungan', isAdmin, async (req, res) => {
             orders, 
             details, 
             config: config || {},
-            mode: mode // Pastikan ini dikirim ke EJS
+            mode: mode 
         });
 
     } catch (err) {
-        console.error("🔥 Error Cetak Gabungan:", err.message);
+        console.error("🔥 Error Cetak Nota Universal:", err.message);
         res.status(500).send("Gagal memproses cetak nota: " + err.message);
     }
 });
