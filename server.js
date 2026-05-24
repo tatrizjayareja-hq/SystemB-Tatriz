@@ -1134,22 +1134,23 @@ app.get('/api/piutang-detail/:customer', isAdmin, async (req, res) => {
 
 app.get('/laporan-kas', isAdmin, async (req, res) => {
     const tId = req.session.tenantId;
-    const isPro = (tId === 1 || tId === 100 || req.session.tenantLevel >= 2)
+    const isPro = (tId === 1 || tId === 100 || req.session.tenantLevel >= 2);
     const bulanIni = req.query.bulan || new Date().toISOString().slice(0, 7);
     
     try {
-        // 0. Ambil Config (Gunakan db.query)
+        // 0. Ambil Config
         const configRes = await db.query("SELECT * FROM settings WHERE tenant_id = $1", [tId]);
         const conf = configRes.rows[0] || { beban_tetap: 0, nominal_buffer: 0 };
 
-        // 1. Query Statistik Keuangan (Ganti LIKE dengan TO_CHAR)
+        // 1. Query Statistik Keuangan (Tambahan: JATAH PROFIT OWNER bulan ini)
         const sqlData = `
             SELECT 
-                (SELECT SUM(h.jumlah_setor * d.harga_customer) FROM hasil_kerja h JOIN po_detail d ON h.detail_id = d.id WHERE TO_CHAR(h.tanggal::DATE, 'YYYY-MM') = $1 AND h.tenant_id = $2) as prod_bln,
-                (SELECT SUM(jumlah) FROM arus_kas WHERE jenis = 'PENGELUARAN' AND kategori NOT IN ('BIAYA KONTRAKAN', 'BAYAR HUTANG', 'JATAH PROFIT OWNER') AND TO_CHAR(tanggal::DATE, 'YYYY-MM') = $1 AND tenant_id = $2) as op_bln,
-                (SELECT SUM(jumlah) FROM arus_kas WHERE kategori = 'BIAYA KONTRAKAN' AND TO_CHAR(tanggal::DATE, 'YYYY-MM') = $1 AND tenant_id = $2) as k_bayar_bln,
-                (SELECT SUM(CASE WHEN kategori = 'HUTANG' THEN jumlah WHEN kategori = 'BAYAR HUTANG' THEN -jumlah ELSE 0 END) FROM arus_kas WHERE tenant_id = $2) as hutang_riil,
-                (SELECT SUM(CASE WHEN jenis = 'PEMASUKAN' THEN jumlah ELSE -jumlah END) FROM arus_kas WHERE tenant_id = $2) as saldo_laci
+                (SELECT COALESCE(SUM(h.jumlah_setor * d.harga_customer), 0) FROM hasil_kerja h JOIN po_detail d ON h.detail_id = d.id WHERE TO_CHAR(h.tanggal::DATE, 'YYYY-MM') = $1 AND h.tenant_id = $2) as prod_bln,
+                (SELECT COALESCE(SUM(jumlah), 0) FROM arus_kas WHERE jenis = 'PENGELUARAN' AND kategori NOT IN ('BIAYA KONTRAKAN', 'BAYAR HUTANG', 'JATAH PROFIT OWNER') AND TO_CHAR(tanggal::DATE, 'YYYY-MM') = $1 AND tenant_id = $2) as op_bln,
+                (SELECT COALESCE(SUM(jumlah), 0) FROM arus_kas WHERE kategori = 'BIAYA KONTRAKAN' AND TO_CHAR(tanggal::DATE, 'YYYY-MM') = $1 AND tenant_id = $2) as k_bayar_bln,
+                (SELECT COALESCE(SUM(CASE WHEN kategori = 'HUTANG' THEN jumlah WHEN kategori = 'BAYAR HUTANG' THEN -jumlah ELSE 0 END), 0) FROM arus_kas WHERE tenant_id = $2) as hutang_riil,
+                (SELECT COALESCE(SUM(CASE WHEN jenis = 'PEMASUKAN' THEN jumlah ELSE -jumlah END), 0) FROM arus_kas WHERE tenant_id = $2) as saldo_laci,
+                (SELECT COALESCE(SUM(jumlah), 0) FROM arus_kas WHERE kategori = 'JATAH PROFIT OWNER' AND TO_CHAR(tanggal::DATE, 'YYYY-MM') = $1 AND tenant_id = $2) as profit_ditarik_bln
         `;
         const dataRes = await db.query(sqlData, [bulanIni, tId]);
         const data = dataRes.rows[0];
@@ -1164,8 +1165,24 @@ app.get('/laporan-kas', isAdmin, async (req, res) => {
         const rowPRes = await db.query(sqlPiutang, [tId]);
         const rowP = rowPRes.rows[0];
 
-        // 3. Query Rincian Transaksi (Ganti LIKE dengan TO_CHAR)
-        // Di server.js bagian rincian transaksi
+        // 3. Query Piutang KHUSUS PO yang Dikerjakan Bulan Ini (Mirror dari piutang-bulanan)
+        const sqlPiutangBulanIni = `
+            SELECT 
+                COALESCE(SUM(GREATEST(0, (
+                    COALESCE((SELECT SUM(h.jumlah_setor * d.harga_customer) FROM hasil_kerja h JOIN po_detail d ON h.detail_id = d.id WHERE h.po_id = p.id), 0) 
+                    - 
+                    COALESCE((SELECT SUM(jumlah) FROM arus_kas WHERE po_id = p.id AND kategori IN ('PEMBAYARAN BORDIR', 'PELUNASAN', 'DP/CICILAN')), 0)
+                ))), 0) as total_piutang_bulan_ini
+            FROM po_utama p
+            WHERE p.tenant_id = $2
+            AND EXISTS (
+                SELECT 1 FROM hasil_kerja h WHERE h.po_id = p.id AND TO_CHAR(h.tanggal::DATE, 'YYYY-MM') = $1
+            )
+        `;
+        const pbRes = await db.query(sqlPiutangBulanIni, [bulanIni, tId]);
+        const piutangBulanIni = parseFloat(pbRes.rows[0].total_piutang_bulan_ini);
+
+        // 4. Query Rincian Transaksi
         const rincianRes = await db.query(`
             SELECT ak.*, p.customer, p.nama_po 
             FROM arus_kas ak 
@@ -1174,7 +1191,7 @@ app.get('/laporan-kas', isAdmin, async (req, res) => {
             ORDER BY ak.tanggal DESC, ak.id DESC
         `, [bulanIni, tId]);
 
-        // 4. Query Omzet Harian (Ganti LIKE dengan TO_CHAR)
+        // 5. Query Omzet Harian
         const monitorRes = await db.query(`
             SELECT TO_CHAR(h.tanggal::DATE, 'YYYY-MM-DD') as tanggal, SUM(h.jumlah_setor * d.harga_customer) as total_harian
             FROM hasil_kerja h 
@@ -1184,11 +1201,14 @@ app.get('/laporan-kas', isAdmin, async (req, res) => {
             ORDER BY h.tanggal DESC
         `, [bulanIni, tId]);
 
-        // PERHITUNGAN (Gunakan parseFloat karena SUM di PG seringkali String)
+        // PERHITUNGAN
         const prod = parseFloat(data?.prod_bln || 0);
         const op = parseFloat(data?.op_bln || 0);
         const k_terbayar = parseFloat(data?.k_bayar_bln || 0);
+        const profitDitarik = parseFloat(data?.profit_ditarik_bln || 0);
+        
         const estimasiProfit = prod - op - (parseFloat(conf.beban_tetap) || 0);
+        const sisaProfit = estimasiProfit - profitDitarik;
         const sisaBebanKontrakan = Math.max(0, (parseFloat(conf.beban_tetap) || 0) - k_terbayar);
 
         res.render('laporan-kas', {
@@ -1198,8 +1218,11 @@ app.get('/laporan-kas', isAdmin, async (req, res) => {
             sisaHutangRiil: parseFloat(data?.hutang_riil || 0),
             sisaBebanKontrakan,
             estimasiProfit,
+            profitDitarik,
+            sisaProfit,
             saldoRiil: parseFloat(data?.saldo_laci || 0),
             piutangBerjalan: parseFloat(rowP?.piutang_total || 0),
+            piutangBulanIni, // Variable baru untuk EJS
             monitorHarian: monitorRes.rows || [],
             rincianKas: rincianRes.rows || [],
             config: conf,

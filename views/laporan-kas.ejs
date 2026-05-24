@@ -56,14 +56,29 @@
                             <strong class="text-danger" style="font-size: 12px;">Rp <%= (Number(totalBiaya || 0) + Number(config.beban_tetap || 0)).toLocaleString('id-ID') %></strong>
                         </div>
                     </div>
-                    <div class="text-center mt-2 border-top pt-1 bg-dark rounded">
-                        <small class="fw-bold text-white" style="font-size: 9px;">HAK PROFIT OWNER BULAN INI:</small>
-                        <strong class="text-warning d-block" style="font-size: 18px;">
+                    
+                    <div class="text-center mt-2 border-top pt-1 bg-dark rounded pb-2 px-2">
+                        <small class="fw-bold text-white" style="font-size: 9px;">TOTAL PROFIT BULAN INI:</small>
+                        <strong class="text-warning d-block" style="font-size: 16px;">
                             Rp <%= Number(estimasiProfit || 0).toLocaleString('id-ID') %>
                         </strong>
+                        
+                        <div class="d-flex justify-content-between border-top border-secondary mt-1 pt-1" style="font-size: 10px;">
+                            <span class="text-light">Telah Ditarik:</span>
+                            <span class="text-danger">Rp <%= Number(profitDitarik || 0).toLocaleString('id-ID') %></span>
+                        </div>
+                        <div class="d-flex justify-content-between mt-1" style="font-size: 10px;">
+                            <span class="text-light fw-bold">SISA PROFIT:</span>
+                            <span class="text-success fw-bold">Rp <%= Number(sisaProfit || 0).toLocaleString('id-ID') %></span>
+                        </div>
+                    </div>
+
+                    <div class="alert alert-warning p-1 text-center mt-2 mb-0 border-warning shadow-sm" style="font-size: 9px; border-radius: 6px; background-color: #fffaf0;">
+                        <i class="bi bi-info-circle-fill text-warning"></i> 
+                        <span class="text-muted">Bukti uang di luar (Piutang produksi <%= bulanIni %>):</span><br>
+                        <strong class="text-danger" style="font-size: 12px;">Rp <%= Number(piutangBulanIni || 0).toLocaleString('id-ID') %></strong>
                     </div>
                 </div>
-            </div>
 
             <div class="card shadow-sm mb-2" style="border-left: 5px solid #27ae60; position: relative; overflow: hidden; background: #f9fffb;">
                         <% if (!isPro) { %>
