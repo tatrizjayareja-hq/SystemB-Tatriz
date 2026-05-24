@@ -124,7 +124,7 @@
                 </div>
             </div>
 
-        </div> <div class="col-md-5">
+        <div class="col-md-5">
             <div class="card shadow-sm h-100" style="position: relative; overflow: hidden;">
                 <% if (!isPro) { %>
                     <div class="locked-overlay" onclick="ajakUpgrade('Omzet Harian')">
@@ -132,16 +132,21 @@
                         <small class="fw-bold text-dark" style="font-size: 8px;">Omzet Harian Locked</small>
                     </div>
                 <% } %>
-                <div class="p-2 bg-primary text-white fw-bold d-flex align-items-center" style="font-size: 11px; border-radius: 12px 12px 0 0;">
+                <div class="p-2 bg-primary text-white fw-bold d-flex align-items-center" style="font-size: 11px; border-radius: 12px 12px 0 0; z-index: 2;">
                     <i class="bi bi-calendar3 me-2"></i> OMZET HARIAN
                 </div>
-                <div class="table-responsive" style="height: calc(100% - 32px); overflow-y: auto;">
+                
+                <div class="table-responsive" style="max-height: 400px; overflow-y: auto;">
                     <table class="table table-sm table-hover mb-0 compact-table" style="font-size: 11px;">
                         <tbody>
                             <% monitorHarian.forEach(m => { %>
                                 <tr>
-                                    <td class="ps-3 py-2"><%= new Date(m.tanggal).toLocaleDateString('id-ID', {day:'2-digit', month:'short'}) %></td>
-                                    <td class="text-end fw-bold pe-3 py-2 text-primary">Rp <%= Number(m.total_harian || 0).toLocaleString('id-ID') %></td>
+                                    <td class="ps-3 py-2 border-bottom">
+                                        <%= new Date(m.tanggal).toLocaleDateString('id-ID', {day:'2-digit', month:'short'}) %>
+                                    </td>
+                                    <td class="text-end fw-bold pe-3 py-2 text-primary border-bottom">
+                                        Rp <%= Number(m.total_harian || 0).toLocaleString('id-ID') %>
+                                    </td>
                                 </tr>
                             <% }) %>
                         </tbody>
