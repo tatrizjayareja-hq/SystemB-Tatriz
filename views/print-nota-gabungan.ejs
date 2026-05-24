@@ -114,8 +114,8 @@
                         <th class="text-center" style="width: 5%;">No</th>
                         <th style="width: 45%;">Deskripsi & Rincian Pesanan</th>
                         <th class="text-center" style="width: 10%;">Qty</th>
-                        <th class="text-end" style="width: 20%;">Harga/Pcs</th>
-                        <th class="text-end" style="width: 20%;">Subtotal</th>
+                        <th class="text-end" style="width: 20%;">Harga/Titik</th>
+                        <th class="text-end" style="width: 20%;">Total</th>
                     </tr>
                 </thead>
                 <tbody>
@@ -131,28 +131,31 @@
                             grandTotalBayar += totalBayarPO;
 
                             let poDetails = details.filter(d => Number(d.po_id) === Number(po.id));
+                            
+                            // Hitung Harga 1 Set Baju (Menjumlahkan harga satuan dari tiap titik bordir)
+                            let hargaPerSet = poDetails.reduce((sum, d) => sum + (d.harga_customer || 0), 0);
                     %>
                     
-                    <!-- BARIS INDUK (MASTER PO) -->
                     <tr class="master-row">
                         <td class="text-center"><%= index + 1 %></td>
-                        <td colspan="4" style="color: #2c3e50;">PO: <%= po.nama_po %></td>
+                        <td colspan="2" style="color: #2c3e50;">PO: <%= po.nama_po %></td>
+                        <td colspan="2" class="text-end" style="color: #e67e22; font-size: 10px;">
+                            Harga 1 Set = <strong><%= hargaPerSet.toLocaleString('id-ID') %></strong>
+                        </td>
                     </tr>
 
-                    <!-- BARIS RINCIAN (SUB-PO) -->
                     <% poDetails.forEach(d => { 
                         let subtotalDetail = (d.jumlah || 0) * (d.harga_customer || 0);
                     %>
                     <tr class="detail-row">
                         <td></td>
-                        <td>↳ <%= d.jenis_bordir %> <span style="color:#7f8c8d;">(<%= d.nama_desain %>)</span></td>
+                        <td>↳ <%= d.jenis_bordir %></td>
                         <td class="text-center"><%= d.jumlah %> <small>pcs</small></td>
                         <td class="text-end"><%= (d.harga_customer || 0).toLocaleString('id-ID') %></td>
                         <td class="text-end"><%= subtotalDetail.toLocaleString('id-ID') %></td>
                     </tr>
                     <% }) %>
 
-                    <!-- SUBTOTAL PO (Opsional, memperjelas harga per PO) -->
                     <tr class="subtotal-po">
                         <td colspan="3"></td>
                         <td class="text-end">Subtotal PO:</td>
