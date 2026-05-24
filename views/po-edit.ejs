@@ -96,10 +96,7 @@
                         <th>Jenis Bordir</th>
                         <th>Nama Desain</th>
                         <th>Qty</th>
-                        <% if (user.tenantId === 1 || user.tenantLevel >= 2) { %>
-                            <th>Hrg CMT</th>
-                            <th>Hrg Op</th>
-                        <% } %>
+                        <th>Hrg CMT</th>
                         <th>Hrg Cust</th>
                         <th style="text-align: center;">Aksi</th>
                     </tr>
@@ -108,19 +105,14 @@
                     <% details.forEach((item, index) => { %>
                         <tr>
                             <input type="hidden" name="detail_ids" value="<%= item.id %>">
+                            <input type="hidden" name="harga_operator" class="hidden-op" value="<%= item.harga_operator %>">
                             
                             <td><input type="text" name="jenis_bordir" value="<%= item.jenis_bordir %>"></td>
                             <td><input type="text" name="nama_desain" value="<%= item.nama_desain %>"></td>
                             <td><input type="number" name="jumlah" value="<%= item.jumlah %>"></td>
-
-                            <% if (user.tenantLevel < 2 && user.tenantId !== 1) { %>
-                                <input type="hidden" name="harga_cmt" value="<%= item.harga_cmt %>">
-                                <input type="hidden" name="harga_operator" value="<%= item.harga_operator %>">
-                            <% } else { %>
-                                <td><input type="number" name="harga_cmt" value="<%= item.harga_cmt %>"></td>
-                                <td><input type="number" name="harga_operator" value="<%= item.harga_operator %>"></td>
-                            <% } %>
-
+                            
+                            <td><input type="number" name="harga_cmt" value="<%= item.harga_cmt %>" oninput="sinkronOperator(this)"></td>
+                            
                             <td><input type="number" name="harga_customer" value="<%= item.harga_customer %>"></td>
                             
                             <td class="remove-row" onclick="hapusBaris(this, '<%= item.id %>')">✕</td>
@@ -153,33 +145,28 @@
         btn.parentElement.remove();
     }
 
+    // Fungsi untuk menyalin nilai dari input Harga CMT ke hidden input Harga Operator
+    function sinkronOperator(el) {
+        const row = el.closest('tr');
+        const hiddenOp = row.querySelector('.hidden-op');
+        
+        if (hiddenOp) {
+            hiddenOp.value = el.value;
+        }
+    }
+
     function tambahBaris() {
         const tbody = document.querySelector("#tableRincian tbody");
         const row = document.createElement("tr");
         
-        const configEl = document.getElementById('userConfig');
-        const isPremium = configEl.getAttribute('data-is-premium') === 'true';
-        
         let htmlContent = `
             <input type="hidden" name="detail_ids" value="">
+            <input type="hidden" name="harga_operator" class="hidden-op" value="0">
+            
             <td><input type="text" name="jenis_bordir" placeholder="Jenis"></td>
             <td><input type="text" name="nama_desain" placeholder="Desain"></td>
             <td><input type="number" name="jumlah" value="0"></td>
-        `;
-
-        if (isPremium) {
-            htmlContent += `
-                <td><input type="number" name="harga_cmt" value="0"></td>
-                <td><input type="number" name="harga_operator" value="0"></td>
-            `;
-        } else {
-            htmlContent += `
-                <input type="hidden" name="harga_cmt" value="0">
-                <input type="hidden" name="harga_operator" value="0">
-            `;
-        }
-
-        htmlContent += `
+            <td><input type="number" name="harga_cmt" value="0" oninput="sinkronOperator(this)"></td>
             <td><input type="number" name="harga_customer" value="0"></td>
             <td class="remove-row" onclick="hapusBaris(this, '')">✕</td>
         `;
