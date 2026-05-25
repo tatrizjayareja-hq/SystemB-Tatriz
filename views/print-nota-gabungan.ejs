@@ -113,7 +113,7 @@
                 <p><strong>WA: <%= config.no_hp %></strong></p>
             </div>
             <div class="label-nota">
-                <h3><%= mode === 'thermal' ? 'STRUK TAGIHAN' : 'NOTA TRANSAKSI' %></h3>
+                <h3><%= mode === 'thermal' ? 'STRUK TAGIHAN' : 'NOTA RESMI' %></h3>
                 <p>Tgl: <strong><%= new Date().toLocaleDateString('id-ID', { day:'2-digit', month:'short', year:'numeric' }) %></strong></p>
                 <p>Cust: <strong style="font-size: 13px; color: #2c3e50;"><%= orders[0].customer %></strong></p>
             </div>
