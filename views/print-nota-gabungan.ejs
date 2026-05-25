@@ -8,7 +8,7 @@
         @media print {
             @page { 
                 size: 148mm 210mm; 
-                margin: 5mm; 
+                margin: 4mm; /* Margin sedikit dikecilkan untuk ruang aman HP */
             }
             body { 
                 padding: 0 !important; 
@@ -19,12 +19,14 @@
             }
             .nota-box { 
                 border: none !important; 
-                margin: 0 !important; 
+                margin: 0 auto !important; 
                 width: 100% !important; 
-                /* Hapus max-height agar bisa memanjang ke halaman 2 jika perlu */
-                min-height: 100vh !important; 
+                /* PERBAIKAN UTAMA: Hapus 100vh, ganti ke auto agar tidak luber di HP */
+                min-height: auto !important; 
+                height: auto !important; 
                 padding: 2mm !important; 
                 box-shadow: none !important;
+                page-break-inside: avoid; /* Mencegah kotak terbelah dua */
             }
             .no-print { display: none; }
         }
@@ -32,8 +34,10 @@
         body { font-family: 'Segoe UI', Helvetica, sans-serif; margin: 0; padding: 20px; background-color: #f4f7f6; color: #333; }
         
         .nota-box {
-            width: 148mm; 
-            min-height: 210mm; /* Kembali pakai min-height, bukan height mati */
+            /* PERBAIKAN: Gunakan max-width agar responsif di layar HP sebelum di-print */
+            max-width: 148mm; 
+            width: 100%;
+            min-height: 210mm; 
             position: relative; padding: 8mm;
             box-sizing: border-box; display: flex; flex-direction: column;
             border: 1px solid #ddd; margin: auto; background: #fff; box-shadow: 0 4px 10px rgba(0,0,0,0.1);
@@ -50,7 +54,7 @@
         .label-nota h3 { margin: 0; color: #e67e22; font-size: 15px; letter-spacing: 1px; text-transform: uppercase; }
         .label-nota p { margin: 1px 0; font-size: 9px; }
 
-        /* AREA KONTEN (Hapus overflow hidden agar isi tidak terpotong) */
+        /* AREA KONTEN */
         .content-area { position: relative; z-index: 1; flex-grow: 1; }
         
         /* TABEL */
@@ -58,7 +62,6 @@
         th { background: #2c3e50; color: white; border: 1px solid #2c3e50; padding: 4px; text-align: left; font-weight: 600; }
         td { padding: 3px 4px; vertical-align: middle; border-bottom: 1px dashed #ddd; }
         
-        /* Cegah baris terpotong di antara halaman 1 dan 2 */
         tr { page-break-inside: avoid; } 
         
         .master-row td { background: #f8f9fa; font-weight: bold; border-top: 1px solid #ccc; border-bottom: 1px solid #ccc; font-size: 10.5px; padding: 4px; }
@@ -66,7 +69,7 @@
         .subtotal-po td { font-style: italic; background: #fff; border-bottom: 1px solid #eee; padding: 2px 4px; }
 
         /* FOOTER & TTD */
-        .footer-nota { margin-top: auto; padding-top: 5px; page-break-inside: avoid; } /* Cegah total pisah dengan tabel jika mepet */
+        .footer-nota { margin-top: auto; padding-top: 5px; page-break-inside: avoid; } 
         .total-box { width: 100%; border-top: 2px solid #2c3e50; padding-top: 5px; margin-bottom: 10px; }
         .total-row { display: flex; justify-content: flex-end; margin-bottom: 2px; font-size: 11px; }
         .total-row span:first-child { width: 150px; text-align: right; margin-right: 15px; color: #555; }
@@ -82,6 +85,15 @@
         .watermark { position: absolute; top: 30%; left: 50%; transform: translate(-50%, -50%) rotate(-30deg); opacity: 0.04; width: 280px; z-index: 0; pointer-events: none; }
         .text-end { text-align: right !important; }
         .text-center { text-align: center !important; }
+
+        /* PERBAIKAN: Penyesuaian khusus layar HP sebelum di-print */
+        @media screen and (max-width: 600px) {
+            body { padding: 10px; }
+            .nota-box { 
+                min-height: auto; /* Jangan paksa setinggi A5 di layar HP kecil */
+                padding: 4mm;
+            }
+        }
     </style>
 
     <% if (mode === 'thermal') { %>
