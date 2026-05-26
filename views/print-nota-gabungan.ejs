@@ -7,8 +7,8 @@
        /* Standar untuk Kertas A5 Portrait */
         @media print {
             @page { 
-                size: 148mm 210mm; 
-                margin: 4mm; /* Margin sedikit dikecilkan untuk ruang aman HP */
+                size: A5 portrait; 
+                margin: 0.5cm; /* Biarkan browser yang mengatur jarak aman printer */
             }
             body { 
                 padding: 0 !important; 
@@ -19,14 +19,16 @@
             }
             .nota-box { 
                 border: none !important; 
-                margin: 0 auto !important; 
+                margin: 0 !important; 
                 width: 100% !important; 
-                /* PERBAIKAN UTAMA: Hapus 100vh, ganti ke auto agar tidak luber di HP */
+                max-width: 100% !important; 
                 min-height: auto !important; 
-                height: auto !important; 
-                padding: 2mm !important; 
+                padding: 0 !important; /* Hapus padding box agar margin @page yang bekerja */
                 box-shadow: none !important;
-                page-break-inside: avoid; /* Mencegah kotak terbelah dua */
+            }
+            /* Mengecilkan font secara global saat diprint agar tidak terlihat membesar */
+            * {
+                font-size: 9.5px !important;
             }
             .no-print { display: none; }
         }
@@ -34,9 +36,8 @@
         body { font-family: 'Segoe UI', Helvetica, sans-serif; margin: 0; padding: 20px; background-color: #f4f7f6; color: #333; }
         
         .nota-box {
-            /* PERBAIKAN: Gunakan max-width agar responsif di layar HP sebelum di-print */
-            max-width: 148mm; 
-            width: 100%;
+            width: 100%; 
+            max-width: 148mm; /* Ukuran A5 di layar */
             min-height: 210mm; 
             position: relative; padding: 8mm;
             box-sizing: border-box; display: flex; flex-direction: column;
@@ -57,23 +58,30 @@
         /* AREA KONTEN */
         .content-area { position: relative; z-index: 1; flex-grow: 1; }
         
-        /* TABEL */
-        table { width: 100%; border-collapse: collapse; margin-top: 2px; font-size: 9.5px; line-height: 1.2; }
+        /* TABEL - PERBAIKAN UTAMA DI SINI */
+        table { 
+            width: 100%; 
+            table-layout: fixed; /* KUNCI: Mencegah kolom meluber melewati batas kertas */
+            border-collapse: collapse; 
+            margin-top: 2px; 
+            font-size: 9.5px; 
+            line-height: 1.2; 
+        }
         th { background: #2c3e50; color: white; border: 1px solid #2c3e50; padding: 4px; text-align: left; font-weight: 600; }
-        td { padding: 3px 4px; vertical-align: middle; border-bottom: 1px dashed #ddd; }
+        td { padding: 4px 2px; vertical-align: middle; border-bottom: 1px dashed #ddd; word-wrap: break-word; }
         
         tr { page-break-inside: avoid; } 
         
-        .master-row td { background: #f8f9fa; font-weight: bold; border-top: 1px solid #ccc; border-bottom: 1px solid #ccc; font-size: 10.5px; padding: 4px; }
+        .master-row td { background: #f8f9fa; font-weight: bold; border-top: 1px solid #ccc; border-bottom: 1px solid #ccc; font-size: 10.5px; padding: 4px 2px; }
         .detail-row td { color: #444; }
-        .subtotal-po td { font-style: italic; background: #fff; border-bottom: 1px solid #eee; padding: 2px 4px; }
+        .subtotal-po td { font-style: italic; background: #fff; border-bottom: 1px solid #eee; padding: 2px; }
 
         /* FOOTER & TTD */
         .footer-nota { margin-top: auto; padding-top: 5px; page-break-inside: avoid; } 
         .total-box { width: 100%; border-top: 2px solid #2c3e50; padding-top: 5px; margin-bottom: 10px; }
         .total-row { display: flex; justify-content: flex-end; margin-bottom: 2px; font-size: 11px; }
         .total-row span:first-child { width: 150px; text-align: right; margin-right: 15px; color: #555; }
-        .total-row span:last-child { width: 100px; text-align: right; font-weight: bold; }
+        .total-row span:last-child { width: 100px; text-align: right; font-weight: bold; padding-right: 2px; }
         
         .sisa-row { font-size: 13px; font-weight: 800; color: #d63031; border-top: 1px solid #ccc; padding-top: 3px; margin-top: 3px; }
         .lunas-row { font-size: 13px; font-weight: 800; color: #27ae60; border-top: 1px solid #ccc; padding-top: 3px; margin-top: 3px; }
@@ -83,16 +91,13 @@
         .ttd-space { height: 40px; }
         
         .watermark { position: absolute; top: 30%; left: 50%; transform: translate(-50%, -50%) rotate(-30deg); opacity: 0.04; width: 280px; z-index: 0; pointer-events: none; }
+        
         .text-end { text-align: right !important; }
         .text-center { text-align: center !important; }
 
-        /* PERBAIKAN: Penyesuaian khusus layar HP sebelum di-print */
         @media screen and (max-width: 600px) {
             body { padding: 10px; }
-            .nota-box { 
-                min-height: auto; /* Jangan paksa setinggi A5 di layar HP kecil */
-                padding: 4mm;
-            }
+            .nota-box { min-height: auto; padding: 4mm; }
         }
     </style>
 
