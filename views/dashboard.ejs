@@ -96,7 +96,7 @@
                 </span>
             </div>
 
-            <% if (user.tenantId === 1 || user.tenantLevel >= 2) { %>
+            <% if (user.tenantId === 1 || user.tenantId === 100 || user.tenantLevel >= 2) { %>
                 <div id="profitSection" style="display: none; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 15px; padding-top: 15px; border-top: 1px dotted #ddd;">
                     <div>
                         <small style="color: #95a5a6; font-size: 10px; font-weight: bold;">🔒 UANG DIKUNCI</small><br>
@@ -143,8 +143,18 @@
             <a href="/laporan-kas" class="menu-item"><i class="bi bi-cash-stack"></i> Laporan Keuangan</a>
             <a href="/input-kerja-admin" class="menu-item"><i class="bi bi-plus-circle-fill"></i> Input Data Operator <small style="font-size: 9px; color: #95a5a6; margin-left: 5px;">Admin</small></a>
             <a href="/daftar-produksi" class="menu-item"><i class="bi bi-list-check"></i> Log Produksi Harian</a>
-            
-            <% if (user.tenantId === 1 || user.tenantLevel >= 2) { %>
+            <% if (user.tenantId === 1 || user.tenantId === 100 || user.tenantLevel >= 2) { %>
+                <a href="/jadwal-produksi" class="btn btn-warning fw-bold px-4 shadow-sm">
+                    <i class="bi bi-calendar-range"></i> Jadwal Produksi
+                    <small style="color: var(--warning); font-size: 9px; margin-left: auto;">PRO</small>
+                </a>
+            <% } else { %>
+                <a href="javascript:void(0)" onclick="ajakUpgrade('Jadwal Produksi')" class="menu-item menu-locked">
+                    <i class="bi bi-calendar-range"></i> Jadwal Produksi 
+                    <i class="bi bi-lock-fill"></i>
+                </a>
+            <% } %>
+            <% if (user.tenantId === 1 || user.tenantId === 100 || user.tenantLevel >= 2) { %>
                 <a href="/performa-operator" class="menu-item">
                     <i class="bi bi-bar-chart-line"></i> Performa Operator 
                     <small style="color: var(--warning); font-size: 9px; margin-left: auto;">PRO</small>
@@ -163,10 +173,11 @@
             <a href="/setup-auth" class="menu-item"><i class="bi bi-gear"></i> Pengaturan Sistem</a>
 
             <div style="border-top: 2px dashed #eee; margin-top: 5px; padding-top: 5px; background: #fdfdfd;">
-                <% if (user.tenantId === 1 || user.tenantLevel >= 2) { %>
+                <% if (user.tenantId === 1 || user.tenantId === 100 || user.tenantLevel >= 2) { %>
                     <a href="/admin/data-cmt" class="menu-item"><i class="bi bi-briefcase"></i> Data Order CMT <small style="color: var(--warning); font-size: 9px; margin-left: auto;">PRO</small></a>
                     <a href="/cek-balance" class="menu-item"><i class="bi bi-shield-check"></i> Cek Audit Balance <small style="color: var(--warning); font-size: 9px; margin-left: auto;">PRO</small></a>
                     <a href="/backup-database" class="menu-item" style="color: var(--warning);"><i class="bi bi-cloud-download"></i> Backup Database</a>
+                    
                 <% } else { %>
                     <a href="javascript:void(0)" onclick="ajakUpgrade('Pengelolaan CMT')" class="menu-item menu-locked">
                         <i class="bi bi-briefcase"></i> Data Order CMT 
@@ -184,7 +195,7 @@
             </div>
         </div>
 
-        <% if (user.tenantId === 1 || user.tenantLevel >= 2) { %>
+        <% if (user.tenantId === 1 || user.tenantId === 100 || user.tenantLevel >= 2) { %>
             <div class="piutang-banner">
                 <small style="color: #a4b0be; font-weight: bold; font-size: 10px; text-transform: uppercase;">Total Uang di Luar (Piutang)</small>
                 <h2 style="color: #ff4757; margin: 5px 0; font-weight: 800;">
