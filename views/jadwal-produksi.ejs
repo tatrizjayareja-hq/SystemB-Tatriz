@@ -1,0 +1,153 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Jadwal Estimasi Produksi - Tatriz</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.0/font/bootstrap-icons.css">
+    <script src="https://cdn.jsdelivr.net/npm/sortablejs@latest/Sortable.min.js"></script>
+    
+    <style>
+        body { background: #f4f7f6; font-family: 'Segoe UI', Tahoma, sans-serif; }
+        .drag-handle { cursor: grab; font-size: 1.2rem; color: #6c757d; }
+        .drag-handle:active { cursor: grabbing; }
+        .sortable-ghost { opacity: 0.4; background-color: #f8f9fa; }
+        .table-primary { background-color: #0d6efd !important; }
+        .estimasi-tgl { font-weight: bold; color: #198754; }
+    </style>
+</head>
+<body>
+
+<div class="container-fluid p-4">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <a href="/dashboard" class="text-decoration-none text-muted fw-bold">
+            <i class="bi bi-arrow-left"></i> Kembali
+        </a>
+        <h4 class="fw-bold text-dark m-0"><i class="bi bi-calendar-range text-primary"></i> Estimasi Jadwal Produksi</h4>
+    </div>
+
+    <div class="card shadow-sm border-0 mb-4 border-start border-5 border-primary">
+        <div class="card-body">
+            <div class="row align-items-end">
+                <div class="col-md-4">
+                    <label class="fw-bold text-muted small mb-1">Target Produksi Harian (Rp)</label>
+                    <div class="input-group">
+                        <span class="input-group-text bg-light">Rp</span>
+                        <input type="number" id="targetHarian" class="form-control fw-bold" value="1000000" onkeyup="hitungEstimasi()" onchange="hitungEstimasi()">
+                    </div>
+                </div>
+                <div class="col-md-8 text-muted small pb-2">
+                    <i class="bi bi-info-circle text-primary"></i> 
+                    Estimasi penyelesaian dihitung otomatis berdasarkan urutan tabel. 
+                    <strong>Geser baris (Drag & Drop)</strong> ikon <i class="bi bi-grip-vertical"></i> untuk mengubah prioritas PO.
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="card shadow-sm border-0">
+        <div class="table-responsive">
+            <table class="table table-hover table-bordered align-middle mb-0" style="font-size: 13px;">
+                <thead class="table-primary text-white text-center">
+                    <tr>
+                        <th style="width: 50px;">Geser</th>
+                        <th>Prioritas</th>
+                        <th>Data Pesanan / Customer</th>
+                        <th style="width: 100px;">Status</th>
+                        <th class="text-end" style="width: 150px;">Total Nilai (Rp)</th>
+                        <th style="width: 120px;">Estimasi Waktu</th>
+                        <th style="width: 150px;">Perkiraan Selesai</th>
+                    </tr>
+                </thead>
+                <tbody id="bodyJadwal">
+                    <% orders.forEach(function(po, index) { %>
+                        <tr class="po-row" data-nilai="<%= po.total_harga_customer || 0 %>">
+                            <td class="text-center drag-handle"><i class="bi bi-grip-vertical"></i></td>
+                            <td class="text-center fw-bold urutan-nomor"><%= index + 1 %></td>
+                            <td>
+                                <strong class="text-dark"><%= po.nama_po %></strong><br>
+                                <small class="text-secondary"><i class="bi bi-person"></i> <%= po.customer %> | Qty: <%= po.total_qty %></small>
+                            </td>
+                            <td class="text-center">
+                                <span class="badge <%= po.status === 'Produksi' ? 'bg-success' : 'bg-secondary' %>">
+                                    <%= po.status %>
+                                </span>
+                            </td>
+                            <td class="text-end fw-bold text-primary nilai-rp">
+                                <%= (po.total_harga_customer || 0).toLocaleString('id-ID') %>
+                            </td>
+                            <td class="text-center estimasi-hari bg-light">
+                                -
+                            </td>
+                            <td class="text-center estimasi-tgl bg-light">
+                                -
+                            </td>
+                        </tr>
+                    <% }); %>
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+<script>
+    // 1. Inisialisasi Sortable (Drag & Drop)
+    const tbody = document.getElementById('bodyJadwal');
+    Sortable.create(tbody, {
+        handle: '.drag-handle', // Area yang bisa di-drag
+        animation: 150,
+        ghostClass: 'sortable-ghost',
+        onEnd: function () {
+            // Jalankan kalkulasi ulang saat baris selesai digeser
+            hitungEstimasi();
+        }
+    });
+
+    // 2. Fungsi Utama Kalkulasi Estimasi
+    function hitungEstimasi() {
+        const targetHarian = parseFloat(document.getElementById('targetHarian').value);
+        if (isNaN(targetHarian) || targetHarian <= 0) return;
+
+        const rows = document.querySelectorAll('.po-row');
+        let akumulasiHari = 0;
+        let urutan = 1;
+
+        // Tanggal mulai (Hari ini)
+        let tanggalMulai = new Date();
+
+        rows.forEach(row => {
+            // Update Nomor Urut Prioritas
+            row.querySelector('.urutan-nomor').innerText = urutan++;
+
+            // Ambil Nilai PO
+            const nilaiPO = parseFloat(row.dataset.nilai);
+            
+            // Hitung butuh berapa hari untuk PO ini
+            const butuhHari = nilaiPO / targetHarian;
+            akumulasiHari += butuhHari;
+
+            // Format angka desimal hari (misal: 1.5 Hari)
+            row.querySelector('.estimasi-hari').innerText = butuhHari.toFixed(1) + " Hari";
+
+            // Hitung Tanggal Perkiraan Selesai
+            let tglSelesai = new Date(tanggalMulai);
+            // Tambahkan pembulatan hari ke atas untuk tanggal estimasi
+            tglSelesai.setDate(tglSelesai.getDate() + Math.ceil(akumulasiHari));
+
+            // Format tanggal (DD/MM/YYYY)
+            let d = tglSelesai.getDate().toString().padStart(2, '0');
+            let m = (tglSelesai.getMonth() + 1).toString().padStart(2, '0');
+            let y = tglSelesai.getFullYear();
+
+            row.querySelector('.estimasi-tgl').innerText = `${d}/${m}/${y}`;
+        });
+    }
+
+    // Jalankan kalkulasi pertama kali saat halaman dimuat
+    window.onload = function() {
+        hitungEstimasi();
+    };
+</script>
+</body>
+</html>

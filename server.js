@@ -1020,6 +1020,39 @@ app.get('/admin/repeat-po/:id', isAdmin, async (req, res) => {
     }
 });
 
+app.get('/jadwal-produksi', isAdmin, async (req, res) => {
+    if (!req.session.userId) return res.redirect('/');
+    const tId = req.session.tenantId;
+
+    // Proteksi: Hanya Tenant 1, 100, atau Admin Level 2
+    if (tId !== 1 && tId !== 100 && req.session.tenantLevel < 2) {
+        return res.status(403).send("Akses Ditolak. Khusus Owner/Admin Level 2.");
+    }
+
+    try {
+        const sqlOrders = `
+            SELECT 
+                u.id, u.tanggal, u.nama_po, u.customer, u.status, u.total_harga_customer,
+                (SELECT SUM(jumlah) FROM po_detail WHERE po_id = u.id) as total_qty
+            FROM po_utama u 
+            WHERE u.tenant_id = $1 
+              AND u.status IN ('Produksi', 'Design')
+            ORDER BY 
+                CASE WHEN u.status = 'Produksi' THEN 1 ELSE 2 END, 
+                u.tanggal ASC
+        `;
+        const orders = await db.query(sqlOrders, [tId]);
+
+        res.render('jadwal-produksi', { 
+            orders: orders.rows, 
+            user: req.session 
+        });
+
+    } catch (err) {
+        console.error("🔥 Error jadwal-produksi:", err.message);
+        res.status(500).send("Gagal memuat data jadwal.");
+    }
+});
 
 
 app.get('/cetak-nota-gabungan', isAdmin, async (req, res) => {
