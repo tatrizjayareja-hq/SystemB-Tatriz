@@ -201,47 +201,47 @@ app.post('/login', async (req, res) => {
     }
 });
 
-app.get('/migrate-passwords-massal', async (req, res) => {
-    const bcrypt = require('bcrypt');
+//app.get('/migrate-passwords-massal', async (req, res) => {
+    //const bcrypt = require('bcrypt');
     
-    try {
+    //try {
         // 1. Ambil semua data user dari database
-        const result = await db.query("SELECT id, username, password FROM users");
-        const users = result.rows;
-        let updatedCount = 0;
+        //const result = await db.query("SELECT id, username, password FROM users");
+        //const users = result.rows;
+        //let updatedCount = 0;
 
-        for (const user of users) {
+        //for (const user of users) {
             // 2. Cek apakah password SUDAH di-hash. 
             // Hash bcrypt selalu diawali dengan '$2a$', '$2b$', atau '$2y$'
-            if (user.password && !user.password.startsWith('$2')) {
+            //if (user.password && !user.password.startsWith('$2')) {
                 
                 // 3. Jika masih teks biasa, lakukan hashing
-                const hashedPassword = await bcrypt.hash(user.password, 10);
+                //const hashedPassword = await bcrypt.hash(user.password, 10);
                 
                 // 4. Update password di database untuk user ini
-                await db.query(
-                    "UPDATE users SET password = $1 WHERE id = $2",
-                    [hashedPassword, user.id]
-                );
+                //await db.query(
+                    //"UPDATE users SET password = $1 WHERE id = $2",
+                    //[hashedPassword, user.id]
+                //);
                 
-                updatedCount++;
-                console.log(`Log: Password untuk user ${user.username} berhasil di-hash.`);
-            }
-        }
+                //updatedCount++;
+                //console.log(`Log: Password untuk user ${user.username} berhasil di-hash.`);
+            //}
+        //}
 
-        res.send(`
-            <div style="font-family: sans-serif; padding: 20px;">
-                <h2 style="color: #2ecc71;">✅ Migrasi Selesai!</h2>
-                <p>Berhasil mengamankan password untuk <b>${updatedCount}</b> akun.</p>
-                <p style="color: #e74c3c; font-weight: bold;">PENTING: Segera hapus rute '/migrate-passwords-massal' dari server.js Anda!</p>
-            </div>
-        `);
+        //res.send(`
+            //<div style="font-family: sans-serif; padding: 20px;">
+                //<h2 style="color: #2ecc71;">✅ Migrasi Selesai!</h2>
+                //<p>Berhasil mengamankan password untuk <b>${updatedCount}</b> akun.</p>
+                //<p style="color: #e74c3c; font-weight: bold;">PENTING: Segera hapus rute '/migrate-passwords-massal' dari server.js Anda!</p>
+            //</div>
+        //`);
 
-    } catch (err) {
-        console.error("🔥 Error saat migrasi:", err);
-        res.status(500).send("Terjadi kesalahan pada server saat migrasi massal.");
-    }
-});
+    //} catch (err) {
+        //console.error("🔥 Error saat migrasi:", err);
+        //res.status(500).send("Terjadi kesalahan pada server saat migrasi massal.");
+    //}
+//});
 
 app.use(async (req, res, next) => {
     // 1. Data Default (Fallback jika DB error atau belum login)
