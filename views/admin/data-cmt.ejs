@@ -30,7 +30,10 @@
                     <tr>
                         <th width="30%">PO / Desain</th>
                         <th width="10%" class="text-center">Gudang</th>
-                        <th width="45%">Monitor Vendor & Status</th>
+                        <th width="45%">
+                            <input type="checkbox" id="checkAllVisible" class="form-check-input shadow-sm me-2" onchange="pilihSemuaTampil(this)" title="Pilih Semua">
+                            Monitor Vendor & Status
+                        </th>
                         <th width="15%" class="text-end">Aksi</th>
                     </tr>
                 </thead>
@@ -169,6 +172,43 @@
     function updateCount() {
         const checked = document.querySelectorAll('.check-nota:checked').length;
         document.getElementById('countPilihan').innerText = checked;
+    }
+
+    // Fungsi untuk Centang/Hapus Centang Semua Checkbox Nota
+    function pilihSemuaTampil(source) {
+        // Ambil semua baris tabel CMT
+        const rows = document.querySelectorAll('.cmt-row');
+
+        rows.forEach(row => {
+            // Pastikan kita HANYA mencentang baris yang sedang tampil (tidak disembunyikan oleh kolom pencarian)
+            if (row.style.display !== "none") {
+                // Cari semua checkbox nota di dalam baris ini
+                const checkboxes = row.querySelectorAll('.check-nota');
+                checkboxes.forEach(cb => {
+                    cb.checked = source.checked; // Samakan dengan status checkbox master
+                });
+            }
+        });
+
+        // Wajib panggil fungsi ini agar angka di tombol "Cetak Nota Pilihan (0)" ikut ter-update
+        updateCount();
+    }
+
+    function jalankanFilterCmt() {
+        const filter = document.getElementById('filterInput').value.toLowerCase();
+        const rows = document.querySelectorAll('.cmt-row');
+        
+        // Hapus centang pada master checkbox saat mencari
+        document.getElementById('checkAllVisible').checked = false; 
+
+        rows.forEach(row => {
+            const text = row.getAttribute('data-search') || "";
+            if (text.includes(filter)) {
+                row.style.display = "";
+            } else {
+                row.style.display = "none";
+            }
+        });
     }
 
     function cetakNotaPilihan() {
