@@ -1054,6 +1054,28 @@ app.get('/jadwal-produksi', isAdmin, async (req, res) => {
     }
 });
 
+// Rute untuk menyimpan urutan jadwal yang baru digeser
+app.post('/simpan-urutan-jadwal', isAdmin, async (req, res) => {
+    if (!req.session.userId) return res.status(401).send("Unauthorized");
+    
+    const urutanData = req.body.data; // Array berisi [{id: 1, urutan: 1}, {id: 5, urutan: 2}, ...]
+
+    try {
+        // Lakukan update ke database untuk setiap PO
+        // Karena ini multi-query, idealnya menggunakan database transaction, 
+        // tapi cara looping sederhana ini juga bisa digunakan:
+        for (let item of urutanData) {
+            await db.query(
+                `UPDATE po_utama SET urutan_prioritas = $1 WHERE id = $2 AND tenant_id = $3`, 
+                [item.urutan, item.id, req.session.tenantId]
+            );
+        }
+        res.json({ success: true, message: "Urutan berhasil disimpan." });
+    } catch (err) {
+        console.error("🔥 Error simpan urutan:", err.message);
+        res.status(500).json({ success: false, message: "Gagal menyimpan." });
+    }
+});
 
 app.get('/cetak-nota-gabungan', isAdmin, async (req, res) => {
     const tId = req.session.tenantId;

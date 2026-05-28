@@ -62,7 +62,7 @@
                 </thead>
                 <tbody id="bodyJadwal">
                     <% orders.forEach(function(po, index) { %>
-                        <tr class="po-row" data-nilai="<%= po.total_harga_customer || 0 %>">
+                        <tr class="po-row" data-id="<%= po.id %>" data-nilai="<%= po.total_harga_customer || 0 %>">
                             <td class="text-center drag-handle"><i class="bi bi-grip-vertical"></i></td>
                             <td class="text-center fw-bold urutan-nomor"><%= index + 1 %></td>
                             <td>
@@ -95,14 +95,43 @@
     // 1. Inisialisasi Sortable (Drag & Drop)
     const tbody = document.getElementById('bodyJadwal');
     Sortable.create(tbody, {
-        handle: '.drag-handle', // Area yang bisa di-drag
+        handle: '.drag-handle',
         animation: 150,
         ghostClass: 'sortable-ghost',
         onEnd: function () {
-            // Jalankan kalkulasi ulang saat baris selesai digeser
-            hitungEstimasi();
+            hitungEstimasi(); // 1. Hitung ulang estimasi hari di layar
+            simpanUrutanKeDatabase(); // 2. Kirim urutan baru ke server (database)
         }
     });
+
+    // Fungsi baru untuk mengirim data ke server
+    async function simpanUrutanKeDatabase() {
+        const rows = document.querySelectorAll('.po-row');
+        let urutanData = [];
+
+        // Ambil semua ID PO dan urutan barunya dari atas ke bawah
+        rows.forEach((row, index) => {
+            urutanData.push({
+                id: row.getAttribute('data-id'),
+                urutan: index + 1 // Nomor 1, 2, 3, dst
+            });
+        });
+
+        try {
+            // Kirim ke backend menggunakan Fetch API
+            const response = await fetch('/simpan-urutan-jadwal', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ data: urutanData })
+            });
+            
+            if (!response.ok) {
+                console.error("Gagal menyimpan urutan ke database.");
+            }
+        } catch (error) {
+            console.error("Error:", error);
+        }
+    }
 
     // 2. Fungsi Utama Kalkulasi Estimasi
     function hitungEstimasi() {

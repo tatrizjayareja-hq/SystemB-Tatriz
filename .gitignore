@@ -4,3 +4,8 @@ database/*.db
 public/uploads/*
 !public/uploads/default.png
 .DS_Store
+TATRIZ DOC/
+*.xlsb
+*.xlsx
+*.docx
+*.pdf
