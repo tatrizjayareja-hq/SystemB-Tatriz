@@ -7,7 +7,7 @@ const multer = require('multer');
 const session = require('express-session');
 // --- PENTING: Import pgSession di sini ---
 const pgSession = require('connect-pg-simple')(session);
-
+const bcrypt = require('bcrypt');
 const app = express();
 const port = process.env.PORT || 3000;
 
@@ -130,61 +130,116 @@ app.post('/login', async (req, res) => {
     console.log(`Log: Mencoba login untuk user: ${username}`);
 
     try {
+        // 1. CARI USER BERDASARKAN USERNAME SAJA (JANGAN CEK PASSWORD DI SQL)
         const result = await db.query(
-            "SELECT * FROM users WHERE username = $1 AND password = $2",
-            [username, password]
+            "SELECT * FROM users WHERE username = $1",
+            [username]
         );
 
-        if (result.rows.length > 0) {
-            const loggedInUser = result.rows[0];
-            console.log(`Log: User ditemukan, Tenant ID: ${loggedInUser.tenant_id}`);
-
-            // Cek Status Tenant
-            const statusRes = await db.query(
-                "SELECT is_active, level FROM settings WHERE tenant_id = $1", 
-                [loggedInUser.tenant_id]
-            );
-
-            const settings = statusRes.rows[0];
-
-            if (settings && settings.is_active === false) {
-                console.log("Log: Akses ditangguhkan (Suspended)");
-                return res.send("<script>alert('Akses Ditangguhkan! Hubungi Admin Tatriz.'); window.history.back();</script>");
-            }
-
-            // SIMPAN SESSION
-            req.session.userId = loggedInUser.id;
-            req.session.username = loggedInUser.username;
-            req.session.nama_lengkap = loggedInUser.nama_lengkap;
-            req.session.role = loggedInUser.role;
-            req.session.tenantId = loggedInUser.tenant_id;
-            req.session.tenantLevel = settings.level || 1;
-
-            // Paksa simpan session sebelum redirect (PENTING untuk Vercel/Serverless)
-            req.session.save((err) => {
-                if (err) {
-                    console.error("Log: Gagal simpan session:", err);
-                    return res.status(500).send("Gagal menyimpan sesi.");
-                }
-                
-                console.log(`Log: Login sukses, redirect ke role: ${loggedInUser.role}`);
-                if (loggedInUser.role === 'admin') {
-                    res.redirect('/dashboard');
-                } else if (loggedInUser.role === 'qc') {
-                    res.redirect('qc-input'); // Arahkan QC ke halaman input khusus mereka
-                } else {
-                    res.redirect('/operator'); // Role operator masuk ke sini
-                }
-            });
-
-        } else {
-            console.log("Log: Username/Password salah");
-            res.send("<script>alert('Username atau Password salah!'); window.history.back();</script>");
+        // Jika user tidak ditemukan
+        if (result.rows.length === 0) {
+            console.log("Log: Username tidak ditemukan");
+            // Hindari pakai <script>alert(), lebih aman redirect dengan parameter error
+            return res.redirect('/login?error=invalid_credentials'); 
         }
+
+        const loggedInUser = result.rows[0];
+
+        // 2. VERIFIKASI PASSWORD MENGGUNAKAN BCRYPT
+        // Membandingkan password yang diketik user dengan password acak (hash) di database
+        const isPasswordValid = await bcrypt.compare(password, loggedInUser.password);
+
+        if (!isPasswordValid) {
+            console.log("Log: Password salah");
+            return res.redirect('/login?error=invalid_credentials');
+        }
+
+        console.log(`Log: User diverifikasi, Tenant ID: ${loggedInUser.tenant_id}`);
+
+        // 3. CEK STATUS TENANT
+        const statusRes = await db.query(
+            "SELECT is_active, level FROM settings WHERE tenant_id = $1", 
+            [loggedInUser.tenant_id]
+        );
+
+        const settings = statusRes.rows[0];
+
+        if (settings && settings.is_active === false) {
+            console.log("Log: Akses ditangguhkan (Suspended)");
+            return res.redirect('/login?error=suspended');
+        }
+
+        // 4. SIMPAN SESSION
+        req.session.userId = loggedInUser.id;
+        req.session.username = loggedInUser.username;
+        req.session.nama_lengkap = loggedInUser.nama_lengkap;
+        req.session.role = loggedInUser.role;
+        req.session.tenantId = loggedInUser.tenant_id;
+        req.session.tenantLevel = settings.level || 1;
+
+        // 5. PAKSA SIMPAN SESSION SEBELUM REDIRECT (PENTING UNTUK VERCEL)
+        req.session.save((err) => {
+            if (err) {
+                console.error("Log: Gagal simpan session:", err);
+                return res.redirect('/login?error=session_failed');
+            }
+                
+            console.log(`Log: Login sukses, redirect ke role: ${loggedInUser.role}`);
+            if (loggedInUser.role === 'admin') {
+                return res.redirect('/dashboard');
+            } else if (loggedInUser.role === 'qc') {
+                return res.redirect('/qc-input'); 
+            } else {
+                return res.redirect('/operator'); 
+            }
+        });
 
     } catch (err) {
         console.error("🔥 Login Error:", err);
-        res.status(500).send("Terjadi kesalahan pada server. Cek Log Vercel.");
+        // Tampilkan pesan error yang generic ke user, detailnya biar di log Vercel
+        res.redirect('/login?error=server_error');
+    }
+});
+
+app.get('/migrate-passwords-massal', async (req, res) => {
+    const bcrypt = require('bcrypt');
+    
+    try {
+        // 1. Ambil semua data user dari database
+        const result = await db.query("SELECT id, username, password FROM users");
+        const users = result.rows;
+        let updatedCount = 0;
+
+        for (const user of users) {
+            // 2. Cek apakah password SUDAH di-hash. 
+            // Hash bcrypt selalu diawali dengan '$2a$', '$2b$', atau '$2y$'
+            if (user.password && !user.password.startsWith('$2')) {
+                
+                // 3. Jika masih teks biasa, lakukan hashing
+                const hashedPassword = await bcrypt.hash(user.password, 10);
+                
+                // 4. Update password di database untuk user ini
+                await db.query(
+                    "UPDATE users SET password = $1 WHERE id = $2",
+                    [hashedPassword, user.id]
+                );
+                
+                updatedCount++;
+                console.log(`Log: Password untuk user ${user.username} berhasil di-hash.`);
+            }
+        }
+
+        res.send(`
+            <div style="font-family: sans-serif; padding: 20px;">
+                <h2 style="color: #2ecc71;">✅ Migrasi Selesai!</h2>
+                <p>Berhasil mengamankan password untuk <b>${updatedCount}</b> akun.</p>
+                <p style="color: #e74c3c; font-weight: bold;">PENTING: Segera hapus rute '/migrate-passwords-massal' dari server.js Anda!</p>
+            </div>
+        `);
+
+    } catch (err) {
+        console.error("🔥 Error saat migrasi:", err);
+        res.status(500).send("Terjadi kesalahan pada server saat migrasi massal.");
     }
 });
 
