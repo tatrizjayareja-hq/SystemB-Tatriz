@@ -5,6 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Login - Tatriz SystemB</title>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
 
     <style>
         :root {
@@ -183,6 +184,24 @@
             .card-header { padding: 30px 20px 15px; }
             .card-body { padding: 30px 20px; }
         }
+
+        .forgot-password-link {
+            text-align: right;
+            margin-bottom: 15px;
+            margin-top: -5px;
+        }
+        
+        .forgot-password-link a {
+            color: #fab1a0;
+            font-size: 11px;
+            text-decoration: none;
+            transition: 0.2s;
+        }
+
+        .forgot-password-link a:hover {
+            color: white;
+            text-decoration: underline;
+        }
     </style>
 </head>
 <body>
@@ -207,13 +226,18 @@
                             <input type="text" name="username" placeholder="Username" required>
                         </div>
                     </div>
-                    <div class="form-group">
+                    <div class="form-group" style="margin-bottom: 5px;">
                         <label>Password</label>
                         <div class="input-wrapper">
                             <i class="fas fa-lock"></i>
                             <input type="password" name="password" placeholder="Password" required>
                         </div>
                     </div>
+                    
+                    <div class="forgot-password-link">
+                        <a href="#" onclick="pemicuLupaPassword()">Lupa Password?</a>
+                    </div>
+
                     <button type="submit" class="btn-login">Masuk Sekarang</button>
                 </form>
 
@@ -231,5 +255,30 @@
         </div>
     </div>
 
+    <script>
+        function pemicuLupaPassword() {
+        Swal.fire({
+            title: 'Lupa Password?',
+            html: `
+                <p style="font-size: 14px;">Masukkan <b>Username</b> atau <b>Nama Toko</b> Anda agar kami bisa mencarinya.</p>
+            `,
+            input: 'text',
+            inputPlaceholder: 'Ketik username / nama toko...',
+            showCancelButton: true,
+            confirmButtonColor: '#25D366', // Warna hijau khas WhatsApp
+            confirmButtonText: '<i class="fab fa-whatsapp"></i> Hubungi Developer',
+            cancelButtonText: 'Batal'
+        }).then((result) => {
+            if (result.isConfirmed && result.value) {
+                // Teks yang akan otomatis dikirim ke WhatsApp kamu
+                const pesan = `Halo Developer Tatriz, saya lupa password login untuk akun saya (Username/Toko: *${result.value}*). Mohon bantuannya untuk reset password sementara.`;
+                const noWA = '6281315290003';
+                
+                // Buka tab baru ke WhatsApp
+                window.open(`https://api.whatsapp.com/send/?phone=${noWA}&text=${encodeURIComponent(pesan)}`, '_blank');
+            }
+        });
+    }
+    </script>
 </body>
 </html>

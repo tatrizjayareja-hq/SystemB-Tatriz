@@ -124,35 +124,98 @@ app.get('/', async (req, res) => {
     }
 });
 
-// --- PROSES LOGIN ---
+
+// ==============================================================
+// 1. PROSES LOGIN UTAMA (DENGAN PROTEKSI BRUTE-FORCE)
+// ==============================================================
 app.post('/login', async (req, res) => {
     const { username, password } = req.body;
     console.log(`Log: Mencoba login untuk user: ${username}`);
 
     try {
-        // 1. CARI USER BERDASARKAN USERNAME SAJA (JANGAN CEK PASSWORD DI SQL)
+        // 1. CARI USER BERDASARKAN USERNAME
         const result = await db.query(
             "SELECT * FROM users WHERE username = $1",
             [username]
         );
 
-        // Jika user tidak ditemukan
         if (result.rows.length === 0) {
             console.log("Log: Username tidak ditemukan");
-            // Hindari pakai <script>alert(), lebih aman redirect dengan parameter error
             return res.redirect('/login?error=invalid_credentials'); 
         }
 
         const loggedInUser = result.rows[0];
 
+        // ==============================================================
+        // BLOK PROTEKSI BRUTE-FORCE (CEK APAKAH AKUN TERKUNCI)
+        // ==============================================================
+        if (loggedInUser.account_locked_until) {
+            const now = new Date();
+            const lockTime = new Date(loggedInUser.account_locked_until);
+
+            // Jika waktu saat ini BELUM melewati masa hukuman 15 menit
+            if (now < lockTime) {
+                console.log(`Log: Akun ${username} sedang terkunci.`);
+                return res.send("<script>alert('Akun terkunci sementara karena terlalu banyak percobaan gagal. Silakan coba lagi dalam 15 menit.'); window.location='/';</script>");
+            }
+        }
+        // ==============================================================
+
         // 2. VERIFIKASI PASSWORD MENGGUNAKAN BCRYPT
-        // Membandingkan password yang diketik user dengan password acak (hash) di database
         const isPasswordValid = await bcrypt.compare(password, loggedInUser.password);
 
         if (!isPasswordValid) {
             console.log("Log: Password salah");
-            return res.redirect('/login?error=invalid_credentials');
+            
+            // --- JIKA SALAH: TAMBAH HITUNGAN GAGAL ---
+            let attempts = (loggedInUser.failed_login_attempts || 0) + 1;
+            
+            if (attempts >= 5) {
+                // Kunci akun 15 menit dari sekarang
+                await db.query(
+                    "UPDATE users SET failed_login_attempts = $1, account_locked_until = NOW() + INTERVAL '15 minutes' WHERE id = $2",
+                    [attempts, loggedInUser.id]
+                );
+                return res.send("<script>alert('Anda telah gagal login 5 kali berturut-turut. Akun dikunci selama 15 menit demi keamanan.'); window.location='/';</script>");
+            } else {
+                // Simpan hitungan gagal ke database tapi belum dikunci
+                await db.query(
+                    "UPDATE users SET failed_login_attempts = $1 WHERE id = $2",
+                    [attempts, loggedInUser.id]
+                );
+                return res.redirect('/login?error=invalid_credentials');
+            }
         }
+
+        // --- JIKA BENAR: RESET HITUNGAN GAGAL & KUNCI ---
+        await db.query(
+            "UPDATE users SET failed_login_attempts = 0, account_locked_until = NULL WHERE id = $1",
+            [loggedInUser.id]
+        );
+
+        // ==============================================================
+        // BLOK CEK PASSWORD SEMENTARA (FORCE CHANGE DALAM 6 JAM)
+        // ==============================================================
+        if (loggedInUser.must_change_password) {
+            const now = new Date();
+            const expiryTime = new Date(loggedInUser.temp_password_expires);
+
+            if (now > expiryTime) {
+                console.log(`Log: Password sementara user ${loggedInUser.username} kedaluwarsa.`);
+                return res.send("<script>alert('Sandi sementara Anda sudah KEDALUWARSA (lebih dari 6 jam). Silakan minta reset ulang ke Developer.'); window.location='/';</script>");
+            }
+
+            req.session.tempUserId = loggedInUser.id; 
+            req.session.tempUsername = loggedInUser.username;
+            
+            return res.send(`
+                <script>
+                    alert('Ini adalah sandi sementara. Demi keamanan, Anda WAJIB membuat sandi permanen baru sekarang.');
+                    window.location='/buat-password-baru';
+                </script>
+            `);
+        }
+        // ==============================================================
 
         console.log(`Log: User diverifikasi, Tenant ID: ${loggedInUser.tenant_id}`);
 
@@ -169,7 +232,7 @@ app.post('/login', async (req, res) => {
             return res.redirect('/login?error=suspended');
         }
 
-        // 4. SIMPAN SESSION
+        // 4. SIMPAN SESSION NORMAL
         req.session.userId = loggedInUser.id;
         req.session.username = loggedInUser.username;
         req.session.nama_lengkap = loggedInUser.nama_lengkap;
@@ -177,7 +240,7 @@ app.post('/login', async (req, res) => {
         req.session.tenantId = loggedInUser.tenant_id;
         req.session.tenantLevel = settings.level || 1;
 
-        // 5. PAKSA SIMPAN SESSION SEBELUM REDIRECT (PENTING UNTUK VERCEL)
+        // 5. PAKSA SIMPAN SESSION SEBELUM REDIRECT
         req.session.save((err) => {
             if (err) {
                 console.error("Log: Gagal simpan session:", err);
@@ -196,8 +259,88 @@ app.post('/login', async (req, res) => {
 
     } catch (err) {
         console.error("🔥 Login Error:", err);
-        // Tampilkan pesan error yang generic ke user, detailnya biar di log Vercel
         res.redirect('/login?error=server_error');
+    }
+});
+
+// ==============================================================
+// 2. HALAMAN BUAT PASSWORD BARU (KUSUS FORCE CHANGE)
+// ==============================================================
+app.get('/buat-password-baru', (req, res) => {
+    // Cegah akses langsung jika tidak memiliki sesi tempUserId
+    if (!req.session.tempUserId) {
+        return res.redirect('/'); 
+    }
+    
+    res.send(`
+        <!DOCTYPE html>
+        <html lang="id">
+        <head>
+            <meta charset="UTF-8">
+            <meta name="viewport" content="width=device-width, initial-scale=1.0">
+            <title>Buat Password Baru</title>
+            <style>
+                body { font-family: 'Segoe UI', sans-serif; background: #f4f7f6; display: flex; justify-content: center; align-items: center; height: 100vh; margin: 0; }
+                .card { background: white; padding: 40px; border-radius: 12px; box-shadow: 0 10px 25px rgba(0,0,0,0.1); text-align: center; width: 350px; max-width: 90%; }
+                input { width: 100%; padding: 12px; margin: 15px 0; border: 1px solid #ddd; border-radius: 8px; box-sizing: border-box; }
+                button { width: 100%; padding: 12px; background: #2ecc71; color: white; border: none; border-radius: 8px; font-weight: bold; cursor: pointer; transition: 0.3s; }
+                button:hover { background: #27ae60; }
+            </style>
+        </head>
+        <body>
+            <div class="card">
+                <h3 style="margin-top:0;">Halo, ${req.session.tempUsername}!</h3>
+                <p style="font-size: 14px; color: #666;">Silakan buat kata sandi permanen yang baru untuk akun Anda.</p>
+                <form action="/simpan-password-baru" method="POST">
+                    <input type="password" name="newPassword" placeholder="Ketik Sandi Baru..." required autofocus>
+                    <button type="submit">SIMPAN & LOGIN</button>
+                </form>
+            </div>
+        </body>
+        </html>
+    `);
+});
+
+
+// ==============================================================
+// 3. PROSES SIMPAN PASSWORD BARU KE DATABASE
+// ==============================================================
+app.post('/simpan-password-baru', async (req, res) => {
+    // Tolak jika sesi sementara tidak ada
+    if (!req.session.tempUserId) {
+        return res.redirect('/');
+    }
+
+    const { newPassword } = req.body;
+
+    // Validasi input
+    if (!newPassword || newPassword.length < 5) {
+        return res.send("<script>alert('Password minimal 5 karakter!'); window.history.back();</script>");
+    }
+
+    try {
+        // Hash password permanen yang baru diketik user
+        const hashedPassword = await bcrypt.hash(newPassword, 10);
+
+        // Update password, matikan status wajib ganti, hapus masa kedaluwarsa
+        await db.query(`
+            UPDATE users 
+            SET password = $1, 
+                must_change_password = FALSE, 
+                temp_password_expires = NULL 
+            WHERE id = $2
+        `, [hashedPassword, req.session.tempUserId]);
+
+        // Bersihkan sesi sementara agar tidak disalahgunakan
+        req.session.tempUserId = null;
+        req.session.tempUsername = null;
+
+        // Arahkan user untuk login kembali dengan sandi barunya
+        res.send("<script>alert('Sandi berhasil diperbarui! Silakan Login kembali dengan sandi baru Anda.'); window.location='/';</script>");
+
+    } catch (err) {
+        console.error("🔥 Error Simpan Password Baru:", err);
+        res.status(500).send("Gagal memproses perubahan password. Silakan hubungi admin.");
     }
 });
 
@@ -3201,7 +3344,6 @@ app.get('/update-level/:tId/:newLevel', isAdmin, async (req, res) => {
 // Pastikan bcrypt sudah dideklarasikan di atas file
 // const bcrypt = require('bcrypt');
 
-// --- 3. RESET PASSWORD MASTER + LOG (POST) ---
 app.post('/developer/reset-pass', isAdmin, async (req, res) => {
     // Validasi Super Admin (Tenant Pusat)
     if (req.session.tenantId !== 1) {
@@ -3220,11 +3362,19 @@ app.post('/developer/reset-pass', isAdmin, async (req, res) => {
 
         const user = await db.query("SELECT username FROM users WHERE id = $1", [userId]);
         
-        await db.query("UPDATE users SET password = $1 WHERE id = $2", [hashedPassword, userId]);
+        // --- PERBAIKAN DI SINI ---
+        // Tambahkan must_change_password = TRUE dan batas waktu 6 jam
+        await db.query(`
+            UPDATE users 
+            SET password = $1, 
+                must_change_password = TRUE, 
+                temp_password_expires = NOW() + INTERVAL '6 hours' 
+            WHERE id = $2
+        `, [hashedPassword, userId]);
 
         await db.query(
             "INSERT INTO dev_logs (admin_id, aksi, target_info, keterangan) VALUES ($1, $2, $3, $4)", 
-            [req.session.userId, 'RESET_PASSWORD', user.rows[0].username, 'Password baru diset manual & di-hash.']
+            [req.session.userId, 'RESET_PASSWORD', user.rows[0].username, 'Sandi sementara diset (Aktif 6 jam).']
         );
 
         res.json({ success: true, message: "Sukses Reset Password!" });
