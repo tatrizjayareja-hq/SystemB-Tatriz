@@ -486,8 +486,6 @@ app.get('/register', (req, res) => {
     res.render('register');
 });
 
-const bcrypt = require('bcrypt'); // Pastikan ini ada di bagian atas file
-
 app.post('/register-tenant', async (req, res) => {
     const { nama_toko, username, password, activation_code } = req.body;
 
