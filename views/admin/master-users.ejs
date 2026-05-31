@@ -125,13 +125,37 @@
         function pemicuReset(userId, username) {
             Swal.fire({
                 title: 'Reset Password',
+                text: `Masukkan password baru untuk user: ${username}`,
                 input: 'text',
                 inputPlaceholder: 'Password baru...',
                 showCancelButton: true,
-                confirmButtonColor: '#195e0b'
-            }).then((result) => {
+                confirmButtonColor: '#195e0b',
+                confirmButtonText: 'Simpan & Hash'
+            }).then(async (result) => {
                 if (result.isConfirmed && result.value) {
-                    window.location.href = `/developer/reset-pass/${userId}/${result.value}`;
+                    // Munculkan animasi loading bawaan SweetAlert
+                    Swal.showLoading();
+                    
+                    try {
+                        // Mengirim data via POST secara diam-diam (di belakang layar)
+                        const response = await fetch('/developer/reset-pass', {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({ userId: userId, newPassword: result.value })
+                        });
+                        
+                        const data = await response.json();
+                        
+                        if (data.success) {
+                            Swal.fire('Berhasil!', data.message, 'success').then(() => {
+                                window.location.reload(); // Refresh halaman agar data terbaru terlihat
+                            });
+                        } else {
+                            Swal.fire('Gagal!', data.message, 'error');
+                        }
+                    } catch (error) {
+                        Swal.fire('Error!', 'Koneksi ke server gagal.', 'error');
+                    }
                 }
             });
         }
@@ -143,10 +167,31 @@
                 input: 'text',
                 inputPlaceholder: 'Kode baru...',
                 showCancelButton: true,
-                confirmButtonColor: '#f39c12'
-            }).then((result) => {
+                confirmButtonColor: '#f39c12',
+                confirmButtonText: 'Simpan Kode'
+            }).then(async (result) => {
                 if (result.isConfirmed && result.value) {
-                    window.location.href = `/developer/reset-kode/${tId}/${result.value}`;
+                    Swal.showLoading();
+                    
+                    try {
+                        const response = await fetch('/developer/reset-kode', {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({ tenantId: tId, newCode: result.value })
+                        });
+                        
+                        const data = await response.json();
+                        
+                        if (data.success) {
+                            Swal.fire('Berhasil!', data.message, 'success').then(() => {
+                                window.location.reload();
+                            });
+                        } else {
+                            Swal.fire('Gagal!', data.message, 'error');
+                        }
+                    } catch (error) {
+                        Swal.fire('Error!', 'Koneksi ke server gagal.', 'error');
+                    }
                 }
             });
         }

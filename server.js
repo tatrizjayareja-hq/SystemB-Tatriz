@@ -3198,40 +3198,68 @@ app.get('/update-level/:tId/:newLevel', isAdmin, async (req, res) => {
     }
 });
 
-// --- 3. RESET PASSWORD MASTER + LOG ---
-app.get('/developer/reset-pass/:uId/:newPass', isAdmin, async (req, res) => {
-    if (req.session.tenantId !== 1) return res.status(403).send("Ditolak!");
-    const { uId, newPass } = req.params;
+// Pastikan bcrypt sudah dideklarasikan di atas file
+// const bcrypt = require('bcrypt');
+
+// --- 3. RESET PASSWORD MASTER + LOG (POST) ---
+app.post('/developer/reset-pass', isAdmin, async (req, res) => {
+    // Validasi Super Admin (Tenant Pusat)
+    if (req.session.tenantId !== 1) {
+        return res.status(403).json({ message: "Akses Ditolak!" });
+    }
+
+    const { userId, newPassword } = req.body;
+
+    if (!userId || !newPassword) {
+        return res.status(400).json({ message: "Data tidak lengkap!" });
+    }
 
     try {
-        const user = await db.query("SELECT username FROM users WHERE id = $1", [uId]);
-        await db.query("UPDATE users SET password = $1 WHERE id = $2", [newPass, uId]);
+        // HASH PASSWORD BARU
+        const hashedPassword = await bcrypt.hash(newPassword, 10);
 
-        await db.query(`INSERT INTO dev_logs (admin_id, aksi, target_info, keterangan) 
-                        VALUES ($1, $2, $3, $4)`, 
-            [req.session.userId, 'RESET_PASSWORD', user.rows[0].username, `Password baru diset manual.`]);
+        const user = await db.query("SELECT username FROM users WHERE id = $1", [userId]);
+        
+        await db.query("UPDATE users SET password = $1 WHERE id = $2", [hashedPassword, userId]);
 
-        res.send("<script>alert('Sukses Reset Password!'); window.location='/master-users';</script>");
+        await db.query(
+            "INSERT INTO dev_logs (admin_id, aksi, target_info, keterangan) VALUES ($1, $2, $3, $4)", 
+            [req.session.userId, 'RESET_PASSWORD', user.rows[0].username, 'Password baru diset manual & di-hash.']
+        );
+
+        res.json({ success: true, message: "Sukses Reset Password!" });
     } catch (err) {
-        res.status(500).send("Gagal reset password.");
+        console.error("Error Reset Pass Developer:", err.message);
+        res.status(500).json({ success: false, message: "Gagal reset password." });
     }
 });
 
-// --- 4. RESET KODE AKTIVASI + LOG ---
-app.get('/developer/reset-kode/:tId/:newCode', isAdmin, async (req, res) => {
-    if (req.session.tenantId !== 1) return res.status(403).send("Ditolak!");
-    const { tId, newCode } = req.params;
+// --- 4. RESET KODE AKTIVASI + LOG (POST) ---
+app.post('/developer/reset-kode', isAdmin, async (req, res) => {
+    if (req.session.tenantId !== 1) {
+        return res.status(403).json({ message: "Akses Ditolak!" });
+    }
+
+    const { tenantId, newCode } = req.body;
+
+    if (!tenantId || !newCode) {
+        return res.status(400).json({ message: "Data tidak lengkap!" });
+    }
 
     try {
-        await db.query("UPDATE settings SET registration_secret = $1 WHERE tenant_id = $2", [newCode, tId]);
+        // Kode aktivasi biasanya tidak perlu di-hash agar admin toko bisa melihatnya,
+        // namun tetap dikirim via POST agar aman dari intipan URL.
+        await db.query("UPDATE settings SET registration_secret = $1 WHERE tenant_id = $2", [newCode, tenantId]);
 
-        await db.query(`INSERT INTO dev_logs (admin_id, aksi, target_info, keterangan) 
-                        VALUES ($1, $2, $3, $4)`, 
-            [req.session.userId, 'RESET_KODE', `Tenant #${tId}`, `Kode baru: ${newCode}`]);
+        await db.query(
+            "INSERT INTO dev_logs (admin_id, aksi, target_info, keterangan) VALUES ($1, $2, $3, $4)", 
+            [req.session.userId, 'RESET_KODE', `Tenant #${tenantId}`, `Kode registrasi diperbarui.`]
+        );
 
-        res.send("<script>alert('Kode Aktivasi Berhasil Diubah!'); window.location='/master-users';</script>");
+        res.json({ success: true, message: "Kode Aktivasi Berhasil Diubah!" });
     } catch (err) {
-        res.status(500).send("Gagal reset kode.");
+        console.error("Error Reset Kode Developer:", err.message);
+        res.status(500).json({ success: false, message: "Gagal reset kode aktivasi." });
     }
 });
 
