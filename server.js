@@ -486,12 +486,12 @@ app.get('/register', (req, res) => {
     res.render('register');
 });
 
-// Proses Pendaftaran Tenant
+const bcrypt = require('bcrypt'); // Pastikan ini ada di bagian atas file
+
 app.post('/register-tenant', async (req, res) => {
     const { nama_toko, username, password, activation_code } = req.body;
 
     try {
-        // ... (bagian 1, 2, dan 3 tetap sama) ...
         const masterRes = await db.query("SELECT registration_secret FROM settings WHERE tenant_id = 1");
         const validCode = masterRes.rows[0]?.registration_secret || 'SYSTEMB2026';
 
@@ -511,10 +511,13 @@ app.post('/register-tenant', async (req, res) => {
             [newTenantId, nama_toko, 'Tatriz SystemB', validCode] 
         );
 
-        // 5. Simpan Akun User
+        // --- PERBAIKAN: HASH PASSWORD SEBELUM DISIMPAN ---
+        const hashedPassword = await bcrypt.hash(password, 10);
+
+        // 5. Simpan Akun User (Gunakan hashedPassword)
         await db.query(
             "INSERT INTO users (tenant_id, username, password, role, nama_lengkap) VALUES ($1, $2, $3, 'admin', $4)",
-            [newTenantId, username, password, 'Owner ' + nama_toko]
+            [newTenantId, username, hashedPassword, 'Owner ' + nama_toko]
         );
 
         // --- TAMBAHAN: Simpan 1 Mesin Default (WAJIB ADA) ---
