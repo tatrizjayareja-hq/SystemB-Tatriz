@@ -534,32 +534,63 @@ app.post('/register-tenant', async (req, res) => {
     }
 });
 
-
-// Halaman Verifikasi Password Admin
+// 1. Halaman Verifikasi Password Admin (GET)
 app.get('/setup-auth', isAdmin, async (req, res) => {
-    res.render('setup-auth');
+    try {
+        // Ambil data nama perusahaan untuk ditampilkan di EJS
+        const configRes = await db.query(
+            "SELECT nama_perusahaan FROM settings WHERE tenant_id = $1", 
+            [req.session.tenantId]
+        );
+        
+        const config = configRes.rows[0] || { nama_perusahaan: "Perusahaan Anda" };
+
+        res.render('setup-auth', { config: config });
+    } catch (err) {
+        console.error("Error muat halaman verifikasi:", err.message);
+        res.status(500).send("Terjadi kesalahan server.");
+    }
 });
 
-// Proses Verifikasi Password Admin
+// 2. Proses Verifikasi Password Admin (POST)
 app.post('/setup-auth', isAdmin, async (req, res) => {
     const { password } = req.body;
     const tId = req.session.tenantId;
+    const userId = req.session.userId;
 
-    
     try {
-        const row = await db.get("SELECT password_admin, password FROM settings s JOIN users u ON s.tenant_id = u.tenant_id WHERE s.tenant_id = $1 AND u.id = $2", [tId, req.session.userId]);
-        
-        // Cek password_admin di settings, jika kosong gunakan password login user
-        const correctPassword = row?.password_admin || row?.password;
+        // Ambil password (yang sudah di-hash) milik admin yang sedang login
+        const result = await db.query(
+            "SELECT password FROM users WHERE id = $1 AND tenant_id = $2", 
+            [userId, tId]
+        );
 
-        if (password === correctPassword) {
-            req.session.isAdminSetup = true; // Beri izin akses halaman setup
-            res.redirect('/setup');
-        } else {
-            res.send("<script>alert('Password Salah!'); window.location='/setup-auth';</script>");
+        const user = result.rows[0];
+
+        if (!user) {
+            return res.send("<script>alert('Sesi tidak valid!'); window.location='/login';</script>");
         }
+
+        // --- CEK PASSWORD MENGGUNAKAN BCRYPT ---
+        const isPasswordValid = await bcrypt.compare(password, user.password);
+
+        if (isPasswordValid) {
+            // Password benar! Beri izin khusus di sesi
+            req.session.isAdminSetup = true; 
+            
+            // Simpan sesi dan arahkan ke halaman pengaturan
+            req.session.save((err) => {
+                if (err) throw err;
+                res.redirect('/setup');
+            });
+        } else {
+            // Password salah
+            res.send("<script>alert('Password Salah! Silakan coba lagi.'); window.location='/setup-auth';</script>");
+        }
+        
     } catch (err) {
-        res.status(500).send("Error Verifikasi");
+        console.error("🔥 Error Verifikasi Setup:", err.message);
+        res.status(500).send("Terjadi kesalahan saat memverifikasi.");
     }
 });
 
