@@ -1560,11 +1560,11 @@ app.get('/analisis-profit', isAdmin, async (req, res) => {
     }
 });
 
+// Halaman Manajemen Karyawan
 app.get('/karyawan', isAdmin, async (req, res) => {
     const tId = req.session.tenantId;
 
     try {
-        // PostgreSQL menggunakan $1 sebagai placeholder
         const sql = `
             SELECT id, nama_lengkap, username, role, COALESCE(gaji_pokok, 0) as gaji_pokok 
             FROM users 
@@ -1572,20 +1572,25 @@ app.get('/karyawan', isAdmin, async (req, res) => {
             ORDER BY role DESC, nama_lengkap ASC
         `;
         
-        const users = await db.all(sql, [tId]);
+        // PERBAIKAN: Gunakan db.query dan .rows untuk PostgreSQL
+        const result = await db.query(sql, [tId]);
         
-        res.render('karyawan', { users: users || [] });
+        res.render('karyawan', { users: result.rows || [] });
     } catch (err) {
         console.error("🔥 Gagal memuat karyawan:", err.message);
         res.status(500).send("Gagal mengambil data karyawan.");
     }
 });
 
+// Proses Tambah Karyawan Baru
 app.post('/tambah-karyawan', isAdmin, async (req, res) => {
     const tId = req.session.tenantId;
     const { nama_lengkap, username, password, gaji_pokok, role } = req.body;
 
     try {
+        // --- PERBAIKAN KEAMANAN: Hash password ---
+        const hashedPassword = await bcrypt.hash(password, 10);
+
         const sql = `
             INSERT INTO users (tenant_id, nama_lengkap, username, password, gaji_pokok, role) 
             VALUES ($1, $2, $3, $4, $5, $6)
@@ -1595,15 +1600,17 @@ app.post('/tambah-karyawan', isAdmin, async (req, res) => {
             tId, 
             nama_lengkap, 
             username, 
-            password, 
+            hashedPassword, // <-- Simpan versi hash, bukan teks asli
             parseFloat(gaji_pokok) || 0, 
             role
         ]);
 
+        // Jika berhasil, kembalikan ke halaman daftar karyawan
         res.redirect('/karyawan');
     } catch (err) {
         console.error("🔥 Gagal tambah karyawan:", err.message);
-        res.status(500).send("<script>alert('Username sudah dipakai!'); window.history.back();</script>");
+        // Pesan error dibuat lebih aman dan umum
+        res.send("<script>alert('Gagal menambah karyawan! Pastikan username belum dipakai.'); window.history.back();</script>");
     }
 });
 
