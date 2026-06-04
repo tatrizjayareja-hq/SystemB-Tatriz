@@ -257,12 +257,20 @@ app.post('/login', async (req, res) => {
         req.session.save((err) => {
             if (err) {
                 console.error("Log: Gagal simpan session:", err);
-                // PERBAIKAN: Ubah /login?error menjadi /?error
                 return res.redirect('/?error=session_failed');
             }
                 
             console.log(`Log: Login sukses, redirect ke role: ${loggedInUser.role}`);
+            
             if (loggedInUser.role === 'admin') {
+                // --- PERBAIKAN: Jika setup perusahaan belum selesai, langsung lempar ke /setup ---
+                if (settings && settings.is_setup_complete === false) {
+                    req.session.isAdminSetup = true; // Berikan izin bypass setup-auth karena baru saja sukses login
+                    console.log(`Log: Tenant ${loggedInUser.tenant_id} belum setup. Mengarahkan ke /setup`);
+                    return res.redirect('/setup');
+                }
+                
+                // Jika sudah pernah setup sebelumnya, masuk ke dashboard normal
                 return res.redirect('/dashboard');
             } else if (loggedInUser.role === 'qc') {
                 return res.redirect('/qc-input'); 
@@ -549,25 +557,27 @@ app.post('/save-settings-all', upload.single('logo'), async (req, res) => {
     const tId = req.session.tenantId;
     if (!tId) return res.send("<script>alert('Sesi habis, silakan login kembali'); window.location='/';</script>");
 
-    // Ambil data lama dulu untuk proteksi nilai bonus
-    const oldConfig = await db.get("SELECT * FROM settings WHERE tenant_id = $1", [tId]);
-    const isInternal = (tId === 1 || tId === 100);
-
-    let { 
-        nama_perusahaan, alamat, no_hp, nominal_buffer, 
-        target_bonus, nominal_bonus_dasar, beban_tetap,
-        jam_kerja_reguler, pembagi_lembur, kelipatan_bonus, nominal_bonus_lipat,
-        nama_mesin_baru 
-    } = req.body;
-
-    if (!isInternal) {
-        target_bonus = oldConfig.target_bonus;
-        nominal_bonus_dasar = oldConfig.nominal_bonus_dasar;
-        kelipatan_bonus = oldConfig.kelipatan_bonus;
-        nominal_bonus_lipat = oldConfig.nominal_bonus_lipat;
-    }
-
     try {
+        // PERBAIKAN 1: Mengubah db.get menjadi db.query demi kompatibilitas PostgreSQL
+        const oldConfigRes = await db.query("SELECT * FROM settings WHERE tenant_id = $1", [tId]);
+        const oldConfig = oldConfigRes.rows[0] || {};
+        
+        const isInternal = (tId === 1 || tId === 100);
+
+        let { 
+            nama_perusahaan, alamat, no_hp, nominal_buffer, 
+            target_bonus, nominal_bonus_dasar, beban_tetap,
+            jam_kerja_reguler, pembagi_lembur, kelipatan_bonus, nominal_bonus_lipat,
+            nama_mesin_baru 
+        } = req.body;
+
+        if (!isInternal) {
+            target_bonus = oldConfig.target_bonus;
+            nominal_bonus_dasar = oldConfig.nominal_bonus_dasar;
+            kelipatan_bonus = oldConfig.kelipatan_bonus;
+            nominal_bonus_lipat = oldConfig.nominal_bonus_lipat;
+        }
+
         let logoUrl = null;
 
         // 2. Upload Logo ke Supabase (Jika ada file baru)
@@ -585,13 +595,15 @@ app.post('/save-settings-all', upload.single('logo'), async (req, res) => {
             logoUrl = publicData.publicUrl;
         }
 
-        // 3. Susun SQL Update (Pastikan urutan $ sesuai dengan urutan params)
+        // 3. Susun SQL Update 
+        // PERBAIKAN 2: Menyisipkan is_setup_complete = true langsung di SQL dasar
         let sql = `UPDATE settings SET 
                     nama_perusahaan = $1, alamat = $2, no_hp = $3, 
                     nominal_buffer = $4, target_bonus = $5, 
                     nominal_bonus_dasar = $6, beban_tetap = $7,
                     jam_kerja_reguler = $8, pembagi_lembur = $9,
-                    kelipatan_bonus = $10, nominal_bonus_lipat = $11`;
+                    kelipatan_bonus = $10, nominal_bonus_lipat = $11,
+                    is_setup_complete = true`; 
         
         let params = [
             nama_perusahaan || 'Tatriz Unit', 
@@ -607,7 +619,7 @@ app.post('/save-settings-all', upload.single('logo'), async (req, res) => {
             parseInt(nominal_bonus_lipat) || 0
         ];
 
-        // 4. Penanganan Logo Path & Tenant ID (Gunakan index $12 dan $13)
+        // 4. Penanganan Logo Path & Tenant ID (Urutan $ aman tidak berubah)
         if (logoUrl) {
             sql += `, logo_path = $12 WHERE tenant_id = $13`;
             params.push(logoUrl, tId);
@@ -631,10 +643,13 @@ app.post('/save-settings-all', upload.single('logo'), async (req, res) => {
             }
         }
 
-        res.send("<script>alert('Semua perubahan berhasil disimpan!'); window.location='/setup';</script>");
+        // PERBAIKAN 3: Matikan session bypass setup dan arahkan langsung ke /dashboard
+        req.session.isAdminSetup = false;
+        res.send("<script>alert('Semua perubahan berhasil disimpan! Selamat datang di Dashboard.'); window.location='/dashboard';</script>");
+
     } catch (err) {
         console.error("🔥 Setup Save Error:", err);
-        res.status(500).send("Gagal simpan.");
+        res.status(500).send("Gagal simpan konfigurasi setup.");
     }
 });
 
@@ -753,15 +768,39 @@ app.post('/setup-auth', isAdmin, async (req, res) => {
 });
 
 // Halaman Pengaturan Utama
+// 1. HALAMAN UTAMA SETUP (DENGAN PENGIERIMAN DATA LENGKAP)
+// ==============================================================
 app.get('/setup', isAdmin, async (req, res) => {
+    // Jika tidak diizinkan bypass lewat login, lempar ke auth password
     if (!req.session.isAdminSetup) return res.redirect('/setup-auth');
     
     const tId = req.session.tenantId;
+    
     try {
-        const machines = await db.all("SELECT * FROM mesin WHERE tenant_id = $1 ORDER BY id ASC", [tId]);
-        res.render('setup', { machines });
+        // PERBAIKAN 1: Ambil data profile perusahaan (config) dari tabel settings
+        const configRes = await db.query("SELECT * FROM settings WHERE tenant_id = $1", [tId]);
+        const config = configRes.rows[0] || {};
+
+        // PERBAIKAN 2: Gunakan db.query (bukan db.all) untuk PostgreSQL
+        const machinesRes = await db.query("SELECT * FROM mesin WHERE tenant_id = $1 ORDER BY id ASC", [tId]);
+        const machines = machinesRes.rows;
+
+        // PERBAIKAN 3: Bungkus data user dari session untuk EJS
+        const user = {
+            tenantId: req.session.tenantId,
+            tenantLevel: req.session.tenantLevel
+        };
+
+        // Kirimkan semua variabel yang dibutuhkan oleh setup.ejs
+        res.render('setup', { 
+            machines: machines, 
+            config: config, 
+            user: user 
+        });
+
     } catch (err) {
-        res.status(500).send("Error Load Setup");
+        console.error("🔥 Error Load Setup Page:", err.message);
+        res.status(500).send("Gagal memuat halaman setup.");
     }
 });
 
