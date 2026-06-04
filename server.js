@@ -141,7 +141,8 @@ app.post('/login', async (req, res) => {
 
         if (result.rows.length === 0) {
             console.log("Log: Username tidak ditemukan");
-            return res.redirect('/login?error=invalid_credentials'); 
+            // PERBAIKAN: Ubah /login?error menjadi /?error
+            return res.redirect('/?error=invalid_credentials'); 
         }
 
         const loggedInUser = result.rows[0];
@@ -183,7 +184,8 @@ app.post('/login', async (req, res) => {
                     "UPDATE users SET failed_login_attempts = $1 WHERE id = $2",
                     [attempts, loggedInUser.id]
                 );
-                return res.redirect('/login?error=invalid_credentials');
+                // PERBAIKAN: Ubah /login?error menjadi /?error
+                return res.redirect('/?error=invalid_credentials');
             }
         }
 
@@ -229,7 +231,8 @@ app.post('/login', async (req, res) => {
 
         if (settings && settings.is_active === false) {
             console.log("Log: Akses ditangguhkan (Suspended)");
-            return res.redirect('/login?error=suspended');
+            // PERBAIKAN: Ubah /login?error menjadi /?error
+            return res.redirect('/?error=suspended');
         }
 
         // 4. SIMPAN SESSION NORMAL
@@ -244,7 +247,8 @@ app.post('/login', async (req, res) => {
         req.session.save((err) => {
             if (err) {
                 console.error("Log: Gagal simpan session:", err);
-                return res.redirect('/login?error=session_failed');
+                // PERBAIKAN: Ubah /login?error menjadi /?error
+                return res.redirect('/?error=session_failed');
             }
                 
             console.log(`Log: Login sukses, redirect ke role: ${loggedInUser.role}`);
@@ -259,7 +263,8 @@ app.post('/login', async (req, res) => {
 
     } catch (err) {
         console.error("🔥 Login Error:", err);
-        res.redirect('/login?error=server_error');
+        // PERBAIKAN: Ubah /login?error menjadi /?error
+        res.redirect('/?error=server_error');
     }
 });
 
