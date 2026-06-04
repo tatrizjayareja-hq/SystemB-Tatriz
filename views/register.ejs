@@ -11,6 +11,9 @@
             --dark-green: #195e0b;
             --primary-green: #59cf77;
             --accent-green: #48b865;
+            --bg-light: #f8f9fa;
+            --text-dark: #2d3748;
+            --text-muted: #718096;
         }
 
         body, html {
@@ -18,156 +21,183 @@
             padding: 0;
             min-height: 100vh;
             font-family: 'Segoe UI', Roboto, sans-serif;
-            background: linear-gradient(135deg, #195e0b 0%, #48b865 100%);
+            /* Mengubah arah gradient agar berbeda dengan login */
+            background: linear-gradient(225deg, #48b865 0%, #195e0b 100%);
             display: flex;
             justify-content: center;
             align-items: center;
         }
 
-        /* --- CARD UTAMA (VERTIKAL UNTUK MOBILE) --- */
+        /* --- CARD UTAMA (SEKARANG FULL LIGHT THEME) --- */
         .register-card {
             display: flex;
-            flex-direction: column; /* Vertikal secara default */
-            width: 400px; /* Ukuran standar mobile-friendly */
+            flex-direction: column;
+            width: 400px;
             max-width: 90%;
             background: white;
             border-radius: 20px;
             overflow: hidden;
-            box-shadow: 0 20px 40px rgba(0,0,0,0.3);
+            box-shadow: 0 25px 50px rgba(0,0,0,0.25);
             margin: 20px 0;
+            /* Memberi border top tebal sebagai penanda instan halaman registrasi */
+            border-top: 8px solid var(--primary-green);
         }
 
-        /* --- BAGIAN ATAS: BRANDING --- */
+        /* --- BAGIAN ATAS: BRANDING (SOFT BACKGROUND) --- */
         .side-branding {
-            background: white;
+            background: var(--bg-light);
             display: flex;
             flex-direction: column;
             justify-content: center;
             align-items: center;
-            padding: 30px 20px;
+            padding: 35px 20px 20px;
             text-align: center;
-            border-bottom: 1px solid #eee;
+            border-bottom: 1px solid #e2e8f0;
         }
 
         .side-branding img {
-            width: 80px; /* Lebih kecil untuk mobile */
+            width: 75px;
             height: auto;
-            margin-bottom: 15px;
+            margin-bottom: 12px;
+            filter: drop-shadow(0 4px 6px rgba(0,0,0,0.05));
         }
 
         .side-branding h1 {
             color: var(--dark-green);
             margin: 0;
-            font-size: 24px;
+            font-size: 22px;
             font-weight: 800;
+            letter-spacing: 0.5px;
         }
 
         .side-branding .tagline {
-            color: #636e72;
+            color: var(--text-muted);
             font-size: 13px;
-            margin-top: 10px;
+            margin-top: 6px;
             line-height: 1.5;
         }
 
-        /* --- BAGIAN BAWAH: FORM --- */
+        /* --- BAGIAN BAWAH: FORM (WHITE CLEAN) --- */
         .side-form {
-            background-color: var(--dark-green);
-            color: white;
-            padding: 30px;
+            background-color: #ffffff;
+            color: var(--text-dark);
+            padding: 30px 35px;
             display: flex;
             flex-direction: column;
         }
 
         .side-form h2 {
             margin: 0 0 5px 0;
-            font-size: 22px;
+            font-size: 24px;
             text-align: center;
+            color: var(--dark-green);
+            font-weight: 700;
         }
 
         .side-form p {
-            font-size: 12px;
-            opacity: 0.8;
-            margin-bottom: 20px;
+            font-size: 13px;
+            color: var(--text-muted);
+            margin-bottom: 25px;
             text-align: center;
         }
 
         .form-group {
-            margin-bottom: 15px;
+            margin-bottom: 18px;
         }
 
         .form-group label {
             display: block;
-            font-size: 10px;
-            margin-bottom: 5px;
+            font-size: 11px;
+            margin-bottom: 6px;
             text-transform: uppercase;
             letter-spacing: 1px;
-            font-weight: bold;
+            font-weight: 700;
+            color: var(--text-dark);
         }
 
         .input-wrapper {
             position: relative;
         }
 
+        /* Icon disesuaikan untuk background terang */
         .input-wrapper i {
             position: absolute;
             left: 15px;
             top: 50%;
             transform: translateY(-50%);
-            color: rgba(255,255,255,0.5);
+            color: #a0aec0;
+            transition: 0.3s;
         }
 
+        /* Input diubah dari transparan menjadi light gray dengan border solid */
         .input-wrapper input {
             width: 100%;
-            padding: 12px 15px 12px 40px;
-            background: rgba(255,255,255,0.1);
-            border: 1px solid rgba(255,255,255,0.2);
-            border-radius: 8px;
-            color: white;
+            padding: 13px 15px 13px 45px;
+            background: var(--bg-light);
+            border: 1px solid #e2e8f0;
+            border-radius: 10px;
+            color: var(--text-dark);
             box-sizing: border-box;
             outline: none;
             transition: 0.3s;
             font-size: 14px;
         }
 
+        /* Saat fokus, border berubah menjadi hijau tua */
         .input-wrapper input:focus {
-            background: rgba(255,255,255,0.2);
-            border-color: var(--primary-green);
+            background: white;
+            border-color: var(--dark-green);
+            box-shadow: 0 0 0 4px rgba(25, 94, 11, 0.1);
         }
 
+        .input-wrapper input:focus + i {
+            color: var(--dark-green);
+        }
+
+        /* Tombol pendaftaran menggunakan warna Hijau Tua agar lebih kontras */
         .btn-register {
             width: 100%;
-            padding: 14px;
-            background: var(--primary-green);
-            color: var(--dark-green);
+            padding: 15px;
+            background: var(--dark-green);
+            color: white;
             border: none;
-            border-radius: 8px;
+            border-radius: 10px;
             font-weight: bold;
             font-size: 15px;
             cursor: pointer;
             transition: 0.3s;
             margin-top: 10px;
             text-transform: uppercase;
+            letter-spacing: 1px;
+            box-shadow: 0 4px 12px rgba(25, 94, 11, 0.2);
         }
 
         .btn-register:hover {
-            background: white;
+            background: var(--accent-green);
+            box-shadow: 0 6px 15px rgba(72, 184, 101, 0.3);
             transform: translateY(-2px);
         }
 
         .login-link {
-            margin-top: 20px;
+            margin-top: 25px;
             font-size: 13px;
             text-align: center;
-            opacity: 0.9;
+            color: var(--text-muted);
         }
 
         .login-link a {
-            color: var(--primary-green);
+            color: var(--dark-green);
             text-decoration: none;
             font-weight: bold;
+            transition: 0.2s;
         }
 
-        /* Desktop View (Jika layar lebar, tetap cantik) */
+        .login-link a:hover {
+            text-decoration: underline;
+            color: var(--accent-green);
+        }
+
+        /* Desktop View */
         @media (min-width: 769px) {
             .register-card {
                 width: 450px;
@@ -219,7 +249,9 @@
                         <i class="fas fa-shield-alt"></i>
                         <input type="text" name="activation_code" placeholder="Minta kode ke Admin" required>
                     </div>
-                    <p style="text-align: left; font-size: 9px; margin-top: 5px; color: #ffeb3b;">*Kode ini diperlukan untuk memvalidasi pendaftaran baru.</p>
+                    <p style="text-align: left; font-size: 11px; margin-top: 6px; color: #e67e22; font-weight: 600; margin-bottom: 0;">
+                        *Kode ini diperlukan untuk memvalidasi pendaftaran baru.
+                    </p>
                 </div>
 
                 <button type="submit" class="btn-register">Daftar Sekarang</button>
