@@ -7,6 +7,17 @@
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
     <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
 
+    <link rel="manifest" href="/manifest.json">
+    <meta name="theme-color" content="#195e0b">
+    <script>
+      if ('serviceWorker' in navigator) {
+        window.addEventListener('load', () => {
+          navigator.serviceWorker.register('/service-worker.js')
+            .then(reg => console.log('PWA Tatriz Berhasil Aktif!', reg.scope))
+            .catch(err => console.error('PWA Tatriz Gagal:', err));
+        });
+      }
+    </script>
     <style>
         :root {
             --dark-green: #195e0b;
@@ -270,11 +281,9 @@
             cancelButtonText: 'Batal'
         }).then((result) => {
             if (result.isConfirmed && result.value) {
-                // Teks yang akan otomatis dikirim ke WhatsApp kamu
                 const pesan = `Halo Developer Tatriz, saya lupa password login untuk akun saya (Username/Toko: *${result.value}*). Mohon bantuannya untuk reset password sementara.`;
                 const noWA = '6281315290003';
                 
-                // Buka tab baru ke WhatsApp
                 window.open(`https://api.whatsapp.com/send/?phone=${noWA}&text=${encodeURIComponent(pesan)}`, '_blank');
             }
         });

@@ -6,6 +6,17 @@
     <title>Dashboard - <%= config.nama_perusahaan %></title>
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.1/font/bootstrap-icons.css">
     <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+    <link rel="manifest" href="/manifest.json">
+    <meta name="theme-color" content="#0a463c">
+    <script>
+      if ('serviceWorker' in navigator) {
+        window.addEventListener('load', () => {
+          navigator.serviceWorker.register('/service-worker.js')
+            .then(reg => console.log('PWA Tatriz Berhasil Aktif!', reg.scope))
+            .catch(err => console.error('PWA Tatriz Gagal:', err));
+        });
+      }
+    </script>
     <style>
         /* CSS Dashboard Original & Gembok */
         .menu-locked { opacity: 0.6; position: relative; }
