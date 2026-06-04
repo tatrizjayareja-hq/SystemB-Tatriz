@@ -1208,7 +1208,19 @@ app.get('/po-data-v2', isAdmin, async (req, res) => {
 
             FROM po_utama u 
             WHERE u.tenant_id = $1 
-            ORDER BY u.tanggal DESC, u.id DESC
+            ORDER BY 
+                CASE u.status 
+                    WHEN 'Design' THEN 1
+                    WHEN 'Produksi' THEN 2
+                    WHEN 'QC' THEN 3
+                    WHEN 'Clear' THEN 4
+                    WHEN 'CMT' THEN 5
+                    WHEN 'DP/Cicil' THEN 6
+                    WHEN 'Lunas' THEN 7
+                    ELSE 8
+                END ASC,
+                u.tanggal DESC, 
+                u.id DESC
         `;
         const orders = await db.query(sqlOrders, [tId]);
 
