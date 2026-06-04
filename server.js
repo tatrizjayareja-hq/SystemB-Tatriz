@@ -133,6 +133,16 @@ app.post('/login', async (req, res) => {
     console.log(`Log: Mencoba login untuk user: ${username}`);
 
     try {
+        const checkSystem = await db.query("SELECT COUNT(*) as jml FROM settings");
+        if (checkSystem.rows[0].jml === '0') {
+            console.log("Log: Sistem masih kosong. Memaksa user ke halaman setup/register.");
+            return res.send(`
+                <script>
+                    alert('Sistem belum dikonfigurasi. Anda akan diarahkan ke halaman Setup Awal / Registrasi Perusahaan.');
+                    window.location='/register';
+                </script>
+            `);
+        }
         // 1. CARI USER BERDASARKAN USERNAME
         const result = await db.query(
             "SELECT * FROM users WHERE username = $1",
