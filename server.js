@@ -143,6 +143,7 @@ app.post('/login', async (req, res) => {
                 </script>
             `);
         }
+        
         // 1. CARI USER BERDASARKAN USERNAME
         const result = await db.query(
             "SELECT * FROM users WHERE username = $1",
@@ -151,7 +152,6 @@ app.post('/login', async (req, res) => {
 
         if (result.rows.length === 0) {
             console.log("Log: Username tidak ditemukan");
-            // PERBAIKAN: Ubah /login?error menjadi /?error
             return res.redirect('/?error=invalid_credentials'); 
         }
 
@@ -164,37 +164,30 @@ app.post('/login', async (req, res) => {
             const now = new Date();
             const lockTime = new Date(loggedInUser.account_locked_until);
 
-            // Jika waktu saat ini BELUM melewati masa hukuman 15 menit
             if (now < lockTime) {
                 console.log(`Log: Akun ${username} sedang terkunci.`);
                 return res.send("<script>alert('Akun terkunci sementara karena terlalu banyak percobaan gagal. Silakan coba lagi dalam 15 menit.'); window.location='/';</script>");
             }
         }
-        // ==============================================================
 
         // 2. VERIFIKASI PASSWORD MENGGUNAKAN BCRYPT
         const isPasswordValid = await bcrypt.compare(password, loggedInUser.password);
 
         if (!isPasswordValid) {
             console.log("Log: Password salah");
-            
-            // --- JIKA SALAH: TAMBAH HITUNGAN GAGAL ---
             let attempts = (loggedInUser.failed_login_attempts || 0) + 1;
             
             if (attempts >= 5) {
-                // Kunci akun 15 menit dari sekarang
                 await db.query(
                     "UPDATE users SET failed_login_attempts = $1, account_locked_until = NOW() + INTERVAL '15 minutes' WHERE id = $2",
                     [attempts, loggedInUser.id]
                 );
                 return res.send("<script>alert('Anda telah gagal login 5 kali berturut-turut. Akun dikunci selama 15 menit demi keamanan.'); window.location='/';</script>");
             } else {
-                // Simpan hitungan gagal ke database tapi belum dikunci
                 await db.query(
                     "UPDATE users SET failed_login_attempts = $1 WHERE id = $2",
                     [attempts, loggedInUser.id]
                 );
-                // PERBAIKAN: Ubah /login?error menjadi /?error
                 return res.redirect('/?error=invalid_credentials');
             }
         }
@@ -227,13 +220,13 @@ app.post('/login', async (req, res) => {
                 </script>
             `);
         }
-        // ==============================================================
 
         console.log(`Log: User diverifikasi, Tenant ID: ${loggedInUser.tenant_id}`);
 
         // 3. CEK STATUS TENANT
+        // PERBAIKAN: Sekarang kita panggil juga kolom is_setup_complete di query ini
         const statusRes = await db.query(
-            "SELECT is_active, level FROM settings WHERE tenant_id = $1", 
+            "SELECT is_active, level, is_setup_complete FROM settings WHERE tenant_id = $1", 
             [loggedInUser.tenant_id]
         );
 
@@ -241,7 +234,6 @@ app.post('/login', async (req, res) => {
 
         if (settings && settings.is_active === false) {
             console.log("Log: Akses ditangguhkan (Suspended)");
-            // PERBAIKAN: Ubah /login?error menjadi /?error
             return res.redirect('/?error=suspended');
         }
 
@@ -263,14 +255,13 @@ app.post('/login', async (req, res) => {
             console.log(`Log: Login sukses, redirect ke role: ${loggedInUser.role}`);
             
             if (loggedInUser.role === 'admin') {
-                // --- PERBAIKAN: Jika setup perusahaan belum selesai, langsung lempar ke /setup ---
+                // Sekarang pengecekan ini akan berjalan dengan akurat 100%
                 if (settings && settings.is_setup_complete === false) {
-                    req.session.isAdminSetup = true; // Berikan izin bypass setup-auth karena baru saja sukses login
+                    req.session.isAdminSetup = true; 
                     console.log(`Log: Tenant ${loggedInUser.tenant_id} belum setup. Mengarahkan ke /setup`);
                     return res.redirect('/setup');
                 }
                 
-                // Jika sudah pernah setup sebelumnya, masuk ke dashboard normal
                 return res.redirect('/dashboard');
             } else if (loggedInUser.role === 'qc') {
                 return res.redirect('/qc-input'); 
@@ -281,7 +272,6 @@ app.post('/login', async (req, res) => {
 
     } catch (err) {
         console.error("🔥 Login Error:", err);
-        // PERBAIKAN: Ubah /login?error menjadi /?error
         res.redirect('/?error=server_error');
     }
 });
