@@ -1213,8 +1213,8 @@ app.get('/po-data-v2', isAdmin, async (req, res) => {
                     WHEN 'Design' THEN 1
                     WHEN 'Produksi' THEN 2
                     WHEN 'QC' THEN 3
-                    WHEN 'Clear' THEN 4
-                    WHEN 'CMT' THEN 5
+                    WHEN 'CMT' THEN 4
+                    WHEN 'Clear' THEN 5
                     WHEN 'DP/Cicil' THEN 6
                     WHEN 'Lunas' THEN 7
                     ELSE 8
@@ -1253,6 +1253,56 @@ app.get('/po-data-v2', isAdmin, async (req, res) => {
     } catch (err) {
         console.error("🔥 Error po-data-v2:", err.message);
         res.status(500).send("Gagal memuat data V2.");
+    }
+});
+
+// RUTE UNTUK MENYIMPAN DAN OTOMATIS KIRIM KE CMT DARI POP-UP PO-DATA
+app.post('/simpan-distribusi-cmt', isAdmin, async (req, res) => {
+    const tId = req.session.tenantId;
+    const { po_id, detail_id, nama_vendor } = req.body; 
+
+    if (!po_id) return res.status(400).send("ID PO tidak valid.");
+
+    try {
+        await db.query('BEGIN'); // Mulai transaksi
+
+        // 1. Ubah status PO Utama menjadi CMT
+        await db.query("UPDATE po_utama SET status = 'CMT' WHERE id = $1 AND tenant_id = $2", [po_id, tId]);
+
+        // 2. Loop rincian pesanan. Jika kolom nama_vendor diisi, otomatis buatkan Surat Jalan
+        if (detail_id && Array.isArray(detail_id)) {
+            for (let i = 0; i < detail_id.length; i++) {
+                const vendor = nama_vendor[i].trim();
+                
+                if (vendor !== '') {
+                    // Ambil jumlah pcs dari detail ini
+                    const detRes = await db.query("SELECT jumlah FROM po_detail WHERE id = $1", [detail_id[i]]);
+                    const qtyFull = detRes.rows[0].jumlah;
+
+                    // Buat Surat Jalan Baru
+                    const sjRes = await db.query(`
+                        INSERT INTO cmt_surat_jalan (tenant_id, nama_vendor, status, status_pembayaran)
+                        VALUES ($1, $2, 'PROSES', 'BELUM') RETURNING id
+                    `, [tId, vendor]);
+                    
+                    const sjId = sjRes.rows[0].id;
+
+                    // Masukkan ke Surat Jalan Detail (Kirim Full)
+                    await db.query(`
+                        INSERT INTO cmt_surat_jalan_detail (sj_id, po_detail_id, qty_dikirim)
+                        VALUES ($1, $2, $3)
+                    `, [sjId, detail_id[i], qtyFull]);
+                }
+            }
+        }
+
+        await db.query('COMMIT'); // Simpan permanen
+        res.redirect('/po-data-v2');
+
+    } catch (err) {
+        await db.query('ROLLBACK'); 
+        console.error("🔥 Error Auto-CMT:", err.message);
+        res.status(500).send("Gagal memproses data CMT.");
     }
 });
 
@@ -1913,10 +1963,24 @@ app.get('/operator', async (req, res) => {
     const tglHariIni = new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Jakarta' }).format(new Date());
 
     try {
+        // PERBAIKAN FILTER QUERY
+        // Tampilkan PO Produksi, ATAU PO CMT yang masih punya detail tanpa Surat Jalan Vendor
         const sqlPO = `
             SELECT p.id, p.nama_po 
             FROM po_utama p
-            WHERE p.status = 'Produksi' AND p.tenant_id = $1
+            WHERE p.tenant_id = $1 
+            AND (
+                p.status = 'Produksi' 
+                OR 
+                (p.status = 'CMT' AND EXISTS (
+                    SELECT 1 FROM po_detail d 
+                    WHERE d.po_id = p.id 
+                    AND NOT EXISTS (
+                        SELECT 1 FROM cmt_surat_jalan_detail sjd WHERE sjd.po_detail_id = d.id
+                    )
+                ))
+            )
+            ORDER BY p.tanggal DESC, p.id DESC
         `;
         const active_pos = await db.all(sqlPO, [tId]);
         const daftarMesin = await db.all("SELECT id, nama_mesin FROM mesin WHERE tenant_id = $1 ORDER BY nama_mesin ASC", [tId]);
@@ -2134,13 +2198,19 @@ app.get('/api/po-details/:id', async (req, res) => {
     if (!req.session.userId) return res.status(401).json({ error: "Unauthorized" });
 
     const poId = req.params.id;
+    
     // Menghitung sisa per item desain secara real-time
+    // DITAMBAH FILTER: Jangan tampilkan desain yang sudah masuk ke Surat Jalan CMT
     const sql = `
         SELECT d.id, d.jenis_bordir, d.nama_desain, d.harga_operator, d.jumlah,
                (d.jumlah - COALESCE((SELECT SUM(jumlah_setor) FROM hasil_kerja WHERE detail_id = d.id), 0)) as sisa
         FROM po_detail d
         WHERE d.po_id = $1
+        AND NOT EXISTS (
+            SELECT 1 FROM cmt_surat_jalan_detail sjd WHERE sjd.po_detail_id = d.id
+        )
     `;
+    
     try {
         const rows = await db.all(sql, [poId]);
         res.json(rows);
@@ -2233,34 +2303,43 @@ app.get('/input-kerja-admin', isAdmin, async (req, res) => {
     const tId = req.session.tenantId;
 
     try {
-        // 1. Ambil PO yang statusnya Produksi
-        const active_pos = await db.all(
-            "SELECT id, nama_po FROM po_utama WHERE tenant_id = $1 AND status = 'Produksi'", 
-            [tId]
-        );
+        // 1. Ambil PO Produksi, ATAU PO CMT yang masih punya part internal (belum dibuatkan Surat Jalan)
+        const sqlActivePOs = `
+            SELECT id, nama_po 
+            FROM po_utama u
+            WHERE u.tenant_id = $1 
+            AND (
+                u.status = 'Produksi' 
+                OR 
+                (u.status = 'CMT' AND EXISTS (
+                    SELECT 1 FROM po_detail d 
+                    WHERE d.po_id = u.id 
+                    AND NOT EXISTS (
+                        SELECT 1 FROM cmt_surat_jalan_detail sjd WHERE sjd.po_detail_id = d.id
+                    )
+                ))
+            )
+            ORDER BY u.tanggal DESC
+        `;
+        
+        // Sesuaikan dengan driver database Anda (db.all atau db.query)
+        const active_pos = await db.all(sqlActivePOs, [tId]);
 
         // 2. Ambil Daftar Mesin
-        const daftarMesin = await db.all(
-            "SELECT id, nama_mesin FROM mesin WHERE tenant_id = $1 ORDER BY id ASC", 
-            [tId]
-        );
+        const daftarMesin = await db.all("SELECT id, nama_mesin FROM mesin WHERE tenant_id = $1 ORDER BY id ASC", [tId]);
 
         // 3. Ambil Daftar User ber-role Operator
-        const daftarOperator = await db.all(
-            "SELECT id, nama_lengkap FROM users WHERE tenant_id = $1 AND role = 'operator' ORDER BY nama_lengkap ASC", 
-            [tId]
-        );
+        const daftarOperator = await db.all("SELECT id, nama_lengkap FROM users WHERE tenant_id = $1 AND role = 'operator' ORDER BY nama_lengkap ASC", [tId]);
 
         // 4. Ambil Setting Toko
         const config = await db.get("SELECT * FROM settings WHERE tenant_id = $1", [tId]);
 
-        // Kirim semua data ke EJS
         res.render('input-kerja-admin', {
             active_pos: active_pos || [],
             daftarMesin: daftarMesin || [],
             daftarOperator: daftarOperator || [], 
             config: config || { nama_perusahaan: "Tatriz" },
-            kurangnya: 0, // Admin tidak menghitung target bonus personal
+            kurangnya: 0, 
             user: req.session
         });
 
