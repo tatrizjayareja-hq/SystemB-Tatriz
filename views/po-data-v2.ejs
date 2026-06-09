@@ -554,6 +554,113 @@
         if (shl !== null) document.getElementById('checkLunas').checked = (shl === 'true');
         jalankanFilter();
     };
+    <div class="modal fade" id="modalDistribusiCMT" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-lg modal-dialog-centered">
+        <div class="modal-content shadow-lg border-0">
+            <div class="modal-header bg-dark text-white py-2">
+                <h6 class="modal-title fw-bold"><i class="bi bi-truck"></i> Distribusi Vendor CMT</h6>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+            </div>
+            <form id="formSimpanCMT" action="/simpan-distribusi-cmt" method="POST">
+                <div class="modal-body bg-light">
+                    <p class="small text-muted mb-2">Pilih part bordir yang akan dilempar ke vendor luar untuk PO: <strong id="cmt_nama_po" class="text-dark"></strong></p>
+                    
+                    <input type="hidden" name="po_id" id="cmt_po_id" />
+                    
+                    <div id="container_rincian_cmt">
+                        </div>
+                </div>
+                <div class="modal-footer p-2 border-0 bg-white">
+                    <button type="submit" class="btn btn-primary w-100 fw-bold shadow-sm">SIMPAN DATA CMT</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+</script>
+<div class="modal fade" id="modalDistribusiCMT" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-lg modal-dialog-centered">
+        <div class="modal-content shadow-lg border-0">
+            <div class="modal-header bg-dark text-white py-2">
+                <h6 class="modal-title fw-bold"><i class="bi bi-truck"></i> Distribusi Vendor CMT</h6>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+            </div>
+            <form id="formSimpanCMT" action="/simpan-distribusi-cmt" method="POST">
+                <div class="modal-body bg-light">
+                    <p class="small text-muted mb-2">Pilih part bordir yang dilempar ke vendor luar untuk PO: <strong id="cmt_nama_po" class="text-dark"></strong></p>
+                    
+                    <input type="hidden" name="po_id" id="cmt_po_id" />
+                    <div id="container_rincian_cmt"></div>
+                </div>
+                <div class="modal-footer p-2 border-0 bg-white">
+                    <button type="submit" class="btn btn-primary w-100 fw-bold shadow-sm">SIMPAN DATA CMT</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<script id="data-details" type="application/json">
+    <%- JSON.stringify(details) %>
+</script>
+<script id="data-vendors" type="application/json">
+    <%- JSON.stringify(vendors) %>
+</script>
+
+<script>
+    // Ambil data dengan aman dari penampung di atas
+    const rawDetails = JSON.parse(document.getElementById('data-details').textContent);
+    const rawVendors = JSON.parse(document.getElementById('data-vendors').textContent);
+
+    function cekStatusCMT(event, formElement, poId, namaPo) {
+        const statusTerpilih = formElement.querySelector('select[name="status_baru"]').value;
+        if (statusTerpilih === 'CMT') {
+            event.preventDefault(); // Tahan form agar tidak langsung loading
+            bukaModalCMT(poId, namaPo); // Buka pop-up
+        }
+    }
+
+    function bukaModalCMT(poId, namaPo) {
+        document.getElementById('cmt_nama_po').innerText = namaPo;
+        document.getElementById('cmt_po_id').value = poId;
+        
+        const container = document.getElementById('container_rincian_cmt');
+        let html = '';
+        
+        const poDetails = rawDetails.filter(d => Number(d.po_id) === Number(poId));
+        
+        let opsiVendor = '<option value="">-- Dikerjakan Sendiri (Internal) --</option>';
+        rawVendors.forEach(v => {
+            opsiVendor += `<option value="${v.id}">${v.nama_vendor}</option>`;
+        });
+
+        poDetails.forEach(d => {
+            html += `
+            <div class="card mb-2 border-0 shadow-sm">
+                <div class="card-body p-2 d-flex flex-column flex-md-row align-items-md-center gap-2">
+                    <div class="flex-grow-1">
+                        <strong class="d-block" style="font-size: 13px;">${d.nama_desain}</strong>
+                        <small class="text-muted" style="font-size: 11px;">${d.jenis_bordir} (${d.jumlah} Pcs)</small>
+                        <input type="hidden" name="detail_id[]" value="${d.id}" />
+                    </div>
+                    
+                    <div style="width: 200px;">
+                        <select name="vendor_id[]" class="form-select form-select-sm" style="font-size: 11px;">
+                            ${opsiVendor}
+                        </select>
+                    </div>
+                    
+                    <div class="input-group input-group-sm" style="width: 150px;">
+                        <span class="input-group-text bg-light" style="font-size: 11px;">Rp</span>
+                        <input type="number" name="harga_cmt[]" class="form-control text-end" placeholder="Harga Modal" style="font-size: 11px;" />
+                    </div>
+                </div>
+            </div>`;
+        });
+        
+        container.innerHTML = html;
+        new bootstrap.Modal(document.getElementById('modalDistribusiCMT')).show();
+    }
 </script>
 </body>
 </html>

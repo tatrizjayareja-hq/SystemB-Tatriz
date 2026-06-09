@@ -1237,9 +1237,14 @@ app.get('/po-data-v2', isAdmin, async (req, res) => {
         `;
         const details = await db.query(sqlDetails, [tId]);
 
+        // 🌟 TAMBAHAN BARU: Query Daftar Vendor CMT
+        const sqlVendors = `SELECT id, nama_vendor FROM vendor_cmt WHERE tenant_id = $1 ORDER BY nama_vendor ASC`;
+        const vendors = await db.query(sqlVendors, [tId]);
+
         res.render('po-data-v2', { 
             orders: orders.rows, 
             details: details.rows,
+            vendors: vendors.rows, // 🌟 Kirim data vendor ke EJS
             user: req.session,
             isPro: isPro,      // WAJIB: Agar tombol Nota Gabungan tidak error
             isInternal: isInternal // Agar filter tampilan CMT di EJS jalan
