@@ -1256,28 +1256,28 @@ app.get('/po-data-v2', isAdmin, async (req, res) => {
     }
 });
 
-// RUTE UNTUK MENYIMPAN DAN OTOMATIS KIRIM KE CMT DARI POP-UP PO-DATA
 app.post('/simpan-distribusi-cmt', isAdmin, async (req, res) => {
     const tId = req.session.tenantId;
-    const { po_id, detail_id, nama_vendor } = req.body; 
+    const { po_id, detail_id, nama_vendor } = req.body;
 
     if (!po_id) return res.status(400).send("ID PO tidak valid.");
 
     try {
-        await db.query('BEGIN'); // Mulai transaksi
+        await db.query('BEGIN');
 
         // 1. Ubah status PO Utama menjadi CMT
         await db.query("UPDATE po_utama SET status = 'CMT' WHERE id = $1 AND tenant_id = $2", [po_id, tId]);
 
-        // 2. Loop rincian pesanan. Jika kolom nama_vendor diisi, otomatis buatkan Surat Jalan
+        // 2. Loop rincian pesanan
         if (detail_id && Array.isArray(detail_id)) {
             for (let i = 0; i < detail_id.length; i++) {
                 const vendor = nama_vendor[i].trim();
                 
                 if (vendor !== '') {
-                    // Ambil jumlah pcs dari detail ini
-                    const detRes = await db.query("SELECT jumlah FROM po_detail WHERE id = $1", [detail_id[i]]);
+                    // Ambil jumlah dan harga dari po_detail
+                    const detRes = await db.query("SELECT jumlah, harga_cmt FROM po_detail WHERE id = $1", [detail_id[i]]);
                     const qtyFull = detRes.rows[0].jumlah;
+                    const hargaCmt = detRes.rows[0].harga_cmt || 0; // Mengambil harga dari PO
 
                     // Buat Surat Jalan Baru
                     const sjRes = await db.query(`
@@ -1287,22 +1287,22 @@ app.post('/simpan-distribusi-cmt', isAdmin, async (req, res) => {
                     
                     const sjId = sjRes.rows[0].id;
 
-                    // Masukkan ke Surat Jalan Detail (Kirim Full)
+                    // Masukkan ke Surat Jalan Detail (QTY dan HARGA wajib diisi)
                     await db.query(`
-                        INSERT INTO cmt_surat_jalan_detail (sj_id, po_detail_id, qty_dikirim)
-                        VALUES ($1, $2, $3)
-                    `, [sjId, detail_id[i], qtyFull]);
+                        INSERT INTO cmt_surat_jalan_detail (sj_id, po_detail_id, qty_dikirim, harga_cmt_saat_ini)
+                        VALUES ($1, $2, $3, $4)
+                    `, [sjId, detail_id[i], qtyFull, hargaCmt]);
                 }
             }
         }
 
-        await db.query('COMMIT'); // Simpan permanen
+        await db.query('COMMIT');
         res.redirect('/po-data-v2');
 
     } catch (err) {
         await db.query('ROLLBACK'); 
         console.error("🔥 Error Auto-CMT:", err.message);
-        res.status(500).send("Gagal memproses data CMT.");
+        res.status(500).send("Gagal proses CMT: " + err.message);
     }
 });
 
