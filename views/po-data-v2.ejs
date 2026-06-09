@@ -227,7 +227,7 @@
                             </td>
                             <td class="text-end fw-bold text-success"><%= (po.total_harga_customer || 0).toLocaleString('id-ID') %></td>
                             <td onclick="event.stopPropagation()">
-                                <form action="/update-status/<%= po.id %>" method="POST" class="d-flex gap-1">
+                                <form action="/update-status/<%= po.id %>" method="POST" class="d-flex gap-1" onsubmit="cekStatusCMT(event, this, '<%= po.id %>', '<%= po.nama_po %>')">
                                     <select name="status_baru" class="form-select form-select-sm py-0" style="font-size: 11px;">
                                         <option value="Design" <%= po.status === 'Design' ? 'selected' : '' %>>Design</option>
                                         <option value="Produksi" <%= po.status === 'Produksi' ? 'selected' : '' %>>Produksi</option>
