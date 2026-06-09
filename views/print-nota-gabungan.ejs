@@ -2,107 +2,88 @@
 <html lang="id">
 <head>
     <meta charset="UTF-8">
-    <title>Nota Transaksi - <%= orders[0].customer %></title>
+    <title>Nota Transaksi</title>
+    
     <style>
-       /* Standar untuk Kertas A5 Portrait */
-        @media print {
-            @page { 
-                size: A5 portrait; 
-                margin: 0.5cm; /* Biarkan browser yang mengatur jarak aman printer */
-            }
-            body { 
-                padding: 0 !important; 
-                margin: 0 !important; 
-                background: white !important; 
-                -webkit-print-color-adjust: exact; 
-                print-color-adjust: exact; 
-            }
-            .nota-box { 
-                border: none !important; 
-                margin: 0 !important; 
-                width: 100% !important; 
-                max-width: 100% !important; 
-                min-height: auto !important; 
-                padding: 0 !important; /* Hapus padding box agar margin @page yang bekerja */
-                box-shadow: none !important;
-            }
-            /* Mengecilkan font secara global saat diprint agar tidak terlihat membesar */
-            * {
-                font-size: 9.5px !important;
-            }
-            .no-print { display: none; }
+        body { 
+            font-family: 'Segoe UI', Helvetica, sans-serif; 
+            margin: 0; 
+            background-color: #f4f7f6; 
+            color: #333; 
         }
-        
-        body { font-family: 'Segoe UI', Helvetica, sans-serif; margin: 0; padding: 20px; background-color: #f4f7f6; color: #333; }
-        
         .nota-box {
-            width: 100%; 
-            max-width: 148mm; /* Ukuran A5 di layar */
-            min-height: 210mm; 
-            position: relative; padding: 8mm;
-            box-sizing: border-box; display: flex; flex-direction: column;
-            border: 1px solid #ddd; margin: auto; background: #fff; box-shadow: 0 4px 10px rgba(0,0,0,0.1);
+            position: relative; 
+            box-sizing: border-box; 
+            display: flex; 
+            flex-direction: column;
+            border: 1px solid #ddd; 
+            margin: auto; 
+            background: #fff; 
+            box-shadow: 0 4px 10px rgba(0,0,0,0.1);
         }
-
-        /* HEADER */
+        .content-area { position: relative; z-index: 1; flex-grow: 1; }
+        .footer-nota { margin-top: auto; padding-top: 10px; page-break-inside: avoid; } 
         .header-container { display: flex; align-items: center; border-bottom: 2px solid #2c3e50; padding-bottom: 5px; margin-bottom: 8px; }
         .logo-header { width: 45px; height: 45px; object-fit: contain; margin-right: 10px; }
         .company-info { flex-grow: 1; }
         .company-info h2 { margin: 0; font-size: 13px; color: #2c3e50; text-transform: uppercase; font-weight: 800; }
         .company-info p { margin: 1px 0; font-size: 9px; line-height: 1.2; color: #555; }
-        
         .label-nota { text-align: right; }
         .label-nota h3 { margin: 0; color: #e67e22; font-size: 15px; letter-spacing: 1px; text-transform: uppercase; }
         .label-nota p { margin: 1px 0; font-size: 9px; }
-
-        /* AREA KONTEN */
-        .content-area { position: relative; z-index: 1; flex-grow: 1; }
-        
-        /* TABEL - PERBAIKAN UTAMA DI SINI */
-        table { 
-            width: 100%; 
-            table-layout: fixed; /* KUNCI: Mencegah kolom meluber melewati batas kertas */
-            border-collapse: collapse; 
-            margin-top: 2px; 
-            font-size: 9.5px; 
-            line-height: 1.2; 
-        }
-        th { background: #2c3e50; color: white; border: 1px solid #2c3e50; padding: 4px; text-align: left; font-weight: 600; }
-        td { padding: 4px 2px; vertical-align: middle; border-bottom: 1px dashed #ddd; word-wrap: break-word; }
-        
+        table { width: 100%; border-collapse: collapse; margin-top: 2px; line-height: 1.3; }
+        th { background: #2c3e50; color: white; border: 1px solid #2c3e50; padding: 5px 4px; text-align: left; font-weight: 600; }
+        td { padding: 5px 3px; vertical-align: top; border-bottom: 1px dashed #ddd; word-wrap: break-word; }
         tr { page-break-inside: avoid; } 
-        
-        .master-row td { background: #f8f9fa; font-weight: bold; border-top: 1px solid #ccc; border-bottom: 1px solid #ccc; font-size: 10.5px; padding: 4px 2px; }
-        .detail-row td { color: #444; }
-        .subtotal-po td { font-style: italic; background: #fff; border-bottom: 1px solid #eee; padding: 2px; }
-
-        /* FOOTER & TTD */
-        .footer-nota { margin-top: auto; padding-top: 5px; page-break-inside: avoid; } 
+        .master-row td { background: #f8f9fa; font-weight: bold; border-top: 1px solid #ccc; border-bottom: 1px solid #ccc; }
+        .detail-row td { color: #444; padding: 3px 3px; }
+        .subtotal-po td { font-style: italic; background: #fff; border-bottom: 1px solid #eee; padding: 4px 3px; }
         .total-box { width: 100%; border-top: 2px solid #2c3e50; padding-top: 5px; margin-bottom: 10px; }
-        .total-row { display: flex; justify-content: flex-end; margin-bottom: 2px; font-size: 11px; }
+        .total-row { display: flex; justify-content: flex-end; margin-bottom: 2px; }
         .total-row span:first-child { width: 150px; text-align: right; margin-right: 15px; color: #555; }
         .total-row span:last-child { width: 100px; text-align: right; font-weight: bold; padding-right: 2px; }
-        
-        .sisa-row { font-size: 13px; font-weight: 800; color: #d63031; border-top: 1px solid #ccc; padding-top: 3px; margin-top: 3px; }
-        .lunas-row { font-size: 13px; font-weight: 800; color: #27ae60; border-top: 1px solid #ccc; padding-top: 3px; margin-top: 3px; }
-
-        .ttd-section { display: flex; justify-content: space-between; margin-top: 5px; font-size: 9px; text-align: center; }
+        .sisa-row { font-weight: 800; color: #d63031; border-top: 1px solid #ccc; padding-top: 3px; margin-top: 3px; }
+        .lunas-row { font-weight: 800; color: #27ae60; border-top: 1px solid #ccc; padding-top: 3px; margin-top: 3px; }
+        .ttd-section { display: flex; justify-content: space-between; margin-top: 5px; text-align: center; }
         .ttd-box { width: 40%; }
         .ttd-space { height: 40px; }
-        
-        .watermark { position: absolute; top: 30%; left: 50%; transform: translate(-50%, -50%) rotate(-30deg); opacity: 0.04; width: 280px; z-index: 0; pointer-events: none; }
-        
+        .watermark { position: absolute; top: 40%; left: 50%; transform: translate(-50%, -50%) rotate(-30deg); opacity: 0.04; width: 250px; z-index: 0; pointer-events: none; }
         .text-end { text-align: right !important; }
         .text-center { text-align: center !important; }
-
-        @media screen and (max-width: 600px) {
-            body { padding: 10px; }
-            .nota-box { min-height: auto; padding: 4mm; }
-        }
     </style>
 
-    <% if (mode === 'thermal') { %>
-        <link rel="stylesheet" href="/css/thermal-style.css">
+    <% if (mode === 'simple') { %>
+        <style>
+            /* MODE SIMPLE - KERTAS A6 PORTRAIT */
+            @media print {
+                @page { size: 105mm 148mm; margin: 0; }
+                body { padding: 0 !important; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+                .nota-box { width: 105mm; min-height: 98vh; padding: 5mm; border: none !important; box-shadow: none !important; }
+                * { font-size: 10px !important; }
+                .company-info h2 { font-size: 11px !important; }
+                .total-row { font-size: 11px !important; }
+                .sisa-row, .lunas-row { font-size: 12px !important; }
+                .ttd-section { font-size: 9px !important; }
+            }
+            @media screen { .nota-box { max-width: 105mm; min-height: 148mm; padding: 5mm; } * { font-size: 10px; } }
+            table { table-layout: auto; }
+        </style>
+    <% } else { %>
+        <style>
+            /* MODE RINCI - KERTAS A5 LANDSCAPE */
+            @media print {
+                @page { size: A5 landscape; margin: 0.5cm; }
+                body { padding: 0 !important; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+                .nota-box { width: 100%; min-height: 98vh; padding: 8mm; border: none !important; box-shadow: none !important; }
+                * { font-size: 11px !important; }
+                .company-info h2 { font-size: 14px !important; }
+                .total-row { font-size: 12px !important; }
+                .sisa-row, .lunas-row { font-size: 14px !important; }
+                .ttd-section { font-size: 10px !important; }
+            }
+            @media screen { .nota-box { max-width: 210mm; min-height: 148mm; padding: 8mm; } * { font-size: 11px; } }
+            table { table-layout: fixed; }
+        </style>
     <% } %>
 </head>
 
@@ -118,9 +99,9 @@
                 <p><strong>WA: <%= config.no_hp %></strong></p>
             </div>
             <div class="label-nota">
-                <h3><%= mode === 'thermal' ? 'STRUK TAGIHAN' : 'NOTA RESMI' %></h3>
+                <h3>NOTA RESMI</h3>
                 <p>Tgl: <strong><%= new Date().toLocaleDateString('id-ID', { day:'2-digit', month:'short', year:'numeric' }) %></strong></p>
-                <p>Cust: <strong style="font-size: 13px; color: #2c3e50;"><%= orders[0].customer %></strong></p>
+                <p>Cust: <strong style="font-size: 12px; color: #2c3e50;"><%= orders[0].customer %></strong></p>
             </div>
         </div>
 
@@ -128,11 +109,19 @@
             <table>
                 <thead>
                     <tr>
-                        <th class="text-center" style="width: 5%;">No</th>
-                        <th style="width: 45%;">Deskripsi & Rincian Pesanan</th>
-                        <th class="text-center" style="width: 10%;">Qty</th>
-                        <th class="text-end" style="width: 20%;">Harga/Titik</th>
-                        <th class="text-end" style="width: 20%;">Total</th>
+                        <% if (mode === 'simple') { %>
+                            <th class="text-center" style="width: 8%;">No</th>
+                            <th style="width: 45%;">Deskripsi Pesanan</th>
+                            <th class="text-center" style="width: 15%;">Qty</th>
+                            <th class="text-end" style="width: 15%;">Harga</th>
+                            <th class="text-end" style="width: 17%;">Total</th>
+                        <% } else { %>
+                            <th class="text-center" style="width: 5%;">No</th>
+                            <th style="width: 45%;">Deskripsi & Rincian Pesanan</th>
+                            <th class="text-center" style="width: 10%;">Qty</th>
+                            <th class="text-end" style="width: 20%;">Harga/Titik</th>
+                            <th class="text-end" style="width: 20%;">Total</th>
+                        <% } %>
                     </tr>
                 </thead>
                 <tbody>
@@ -148,38 +137,58 @@
                             grandTotalBayar += totalBayarPO;
 
                             let poDetails = details.filter(d => Number(d.po_id) === Number(po.id));
-                            
-                            // Hitung Harga 1 Set Baju (Menjumlahkan harga satuan dari tiap titik bordir)
-                            let hargaPerSet = poDetails.reduce((sum, d) => sum + (d.harga_customer || 0), 0);
                     %>
-                    
-                    <tr class="master-row">
-                        <td class="text-center"><%= index + 1 %></td>
-                        <td colspan="2" style="color: #2c3e50;">PO: <%= po.nama_po %></td>
-                        <td colspan="2" class="text-end" style="color: #e67e22; font-size: 10px;">
-                            Harga 1 Set = <strong><%= hargaPerSet.toLocaleString('id-ID') %></strong>
-                        </td>
-                    </tr>
 
-                    <% poDetails.forEach(d => { 
-                        let subtotalDetail = (d.jumlah || 0) * (d.harga_customer || 0);
+                    <% if (mode === 'simple') { 
+                        // Logika Qty Konsisten (Anti-Error)
+                        let qtys = poDetails.map(d => Number(d.jumlah));
+                        let maxQty = qtys.length > 0 ? Math.max(...qtys) : 0;
+                        let isKonsisten = qtys.every(q => q === maxQty);
+
+                        let teksQty = isKonsisten ? `${maxQty} pcs` : `${maxQty} pcs*`;
+                        let teksHargaSatuan = (isKonsisten && maxQty > 0) 
+                            ? Math.round(totalHargaPO / maxQty).toLocaleString('id-ID') 
+                            : "-";
                     %>
-                    <tr class="detail-row">
-                        <td></td>
-                        <td>↳ <%= d.jenis_bordir %></td>
-                        <td class="text-center"><%= d.jumlah %> <small>pcs</small></td>
-                        <td class="text-end"><%= (d.harga_customer || 0).toLocaleString('id-ID') %></td>
-                        <td class="text-end"><%= subtotalDetail.toLocaleString('id-ID') %></td>
-                    </tr>
-                    <% }) %>
+                        <tr>
+                            <td class="text-center"><%= index + 1 %></td>
+                            <td style="font-weight: bold; color: #2c3e50;"><%= po.nama_po %>
+                                <% if (!isKonsisten) { %><br><small style="font-weight:normal; color:#888;">*Qty bordir variatif</small><% } %>
+                            </td>
+                            <td class="text-center"><%= teksQty %></td>
+                            <td class="text-end"><%= teksHargaSatuan %></td>
+                            <td class="text-end" style="font-weight: bold;"><%= totalHargaPO.toLocaleString('id-ID') %></td>
+                        </tr>
 
-                    <tr class="subtotal-po">
-                        <td colspan="3"></td>
-                        <td class="text-end">Subtotal PO:</td>
-                        <td class="text-end" style="font-weight: bold; color: #2c3e50;">
-                            <%= totalHargaPO.toLocaleString('id-ID') %>
-                        </td>
-                    </tr>
+                    <% } else { 
+                        let hargaPerSet = poDetails.reduce((sum, d) => sum + (d.harga_customer || 0), 0);
+                    %>
+                        <tr class="master-row">
+                            <td class="text-center"><%= index + 1 %></td>
+                            <td colspan="2" style="color: #2c3e50;">PO: <%= po.nama_po %></td>
+                            <td colspan="2" class="text-end" style="color: #e67e22; font-size: 10px;">
+                                Harga 1 Set = <strong><%= hargaPerSet.toLocaleString('id-ID') %></strong>
+                            </td>
+                        </tr>
+
+                        <% poDetails.forEach(d => { 
+                            let subtotalDetail = (d.jumlah || 0) * (d.harga_customer || 0);
+                        %>
+                        <tr class="detail-row">
+                            <td></td>
+                            <td>↳ <%= d.jenis_bordir %></td>
+                            <td class="text-center"><%= d.jumlah %> <small>pcs</small></td>
+                            <td class="text-end"><%= (d.harga_customer || 0).toLocaleString('id-ID') %></td>
+                            <td class="text-end"><%= subtotalDetail.toLocaleString('id-ID') %></td>
+                        </tr>
+                        <% }) %>
+
+                        <tr class="subtotal-po">
+                            <td colspan="3"></td>
+                            <td class="text-end">Subtotal PO:</td>
+                            <td class="text-end" style="font-weight: bold; color: #2c3e50;"><%= totalHargaPO.toLocaleString('id-ID') %></td>
+                        </tr>
+                    <% } %>
 
                     <% }) %>
                 </tbody>
@@ -213,12 +222,12 @@
 
             <div class="ttd-section">
                 <div class="ttd-box">
-                    Penerima / Customer,
+                    Penerima / Customer,<br>
                     <div class="ttd-space"></div>
                     ( ............................ )
                 </div>
                 <div class="ttd-box">
-                    Hormat Kami,
+                    Hormat Kami,<br>
                     <div class="ttd-space"></div>
                     <strong><%= config.nama_perusahaan %></strong>
                 </div>
@@ -228,7 +237,16 @@
 
     <script>
         window.onload = function() {
-            // Otomatis Print Dialog saat halaman selesai dimuat
+            // Bersihkan nama customer dari karakter aneh dan ganti spasi dengan strip (-)
+            const namaCust = "<%= orders[0].customer %>".replace(/[^a-zA-Z0-9 ]/g, "").replace(/\s+/g, '-');
+            
+            // Format tanggal (contoh: 09-06-2026)
+            const tgl = new Date().toLocaleDateString('id-ID').replace(/\//g, '-');
+            
+            // Set judul dokumen (akan menjadi default nama file saat di-save ke PDF)
+            document.title = "Nota-" + namaCust + "-" + tgl;
+            
+            // Otomatis Print Dialog
             setTimeout(() => { window.print(); }, 800);
         };
     </script>

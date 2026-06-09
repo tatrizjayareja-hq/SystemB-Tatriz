@@ -94,15 +94,20 @@
         </div>
     </div>
 
-    <div id="bulkActionArea" class="alert alert-info border-info d-flex justify-content-between align-items-center shadow-lg position-relative py-2 px-3">
+   <div id="bulkActionArea" class="alert alert-info border-info d-flex justify-content-between align-items-center shadow-lg position-relative py-2 px-3">
         <div>
             <i class="bi bi-check-all fs-5"></i>
             <strong id="countSelected" class="ms-1">0 PO Terpilih</strong>
         </div>
         <% if (isPro) { %>
-            <button onclick="prosesNotaGabungan()" class="btn btn-dark btn-sm fw-bold shadow-sm">
-                <i class="bi bi-file-earmark-pdf"></i> BUAT NOTA PDF
-            </button>
+            <div class="d-flex gap-2">
+                <button onclick="prosesNotaGabungan('simple')" class="btn btn-dark btn-sm fw-bold shadow-sm">
+                    <i class="bi bi-receipt"></i> SIMPLE (A6)
+                </button>
+                <button onclick="prosesNotaGabungan('rinci')" class="btn btn-outline-dark bg-white btn-sm fw-bold shadow-sm">
+                    <i class="bi bi-file-earmark-text"></i> RINCI (A5)
+                </button>
+            </div>
         <% } else { %>
             <button onclick="ajakUpgrade('Nota Gabungan')" class="btn btn-dark btn-sm fw-bold shadow-sm">
                 <i class="bi bi-lock-fill text-warning"></i> BUAT NOTA PDF
@@ -150,8 +155,13 @@
                         <div class="col-6">
                             <a href="https://wa.me/?text=Halo%20<%= po.customer.replace(' ', '%20') %>,%20Berikut%20kami%20lampirkan%20tagihan%20untuk%20PO%20<%= po.nama_po %>" target="_blank" class="btn btn-success btn-sm w-100 fw-bold"><i class="bi bi-whatsapp"></i> Tagih WA</a>
                         </div>
-                        <div class="col-12">
-                            <a href="/cetak-nota-gabungan?ids=<%= po.id %>" target="_blank" class="btn btn-dark btn-sm w-100 fw-bold"><i class="bi bi-printer"></i> Buka PDF Nota</a>
+                        <div class="btn-group">
+                            <a href="/cetak-nota-gabungan?ids=<%= po.id %>&mode=simple" target="_blank" class="btn btn-primary">
+                                🖨️ Cetak Nota Simple (A6)
+                            </a>
+                            <a href="/cetak-nota-gabungan?ids=<%= po.id %>&mode=rinci" target="_blank" class="btn btn-secondary">
+                                📑 Cetak Nota Rinci (A5 Landscape)
+                            </a>
                         </div>
                         <div class="col-12">
                             <button onclick="konfirmasiRepeat('<%= po.id %>', '<%= po.nama_po %>')" class="btn btn-outline-success btn-sm w-100 fw-bold"><i class="bi bi-arrow-repeat"></i> Repeat Order</button>
@@ -440,12 +450,15 @@
         }
     }
 
-    function prosesNotaGabungan() {
+    function prosesNotaGabungan(mode = 'rinci') {
         const checked = document.querySelectorAll('.po-checkbox:checked');
         let ids = Array.from(checked).map(cb => cb.value);
         let customers = new Set(Array.from(checked).map(cb => cb.getAttribute('data-customer')));
+        
         if (customers.size > 1) return alert("❌ Nota Gabungan hanya untuk 1 Customer yang sama.");
-        window.open(`/cetak-nota-gabungan?ids=${ids.join(',')}`, '_blank');
+        
+        // Sisipkan variabel mode ke bagian akhir URL
+        window.open(`/cetak-nota-gabungan?ids=${ids.join(',')}&mode=${mode}`, '_blank');
     }
 
     function sinkronLunas(cb) {
