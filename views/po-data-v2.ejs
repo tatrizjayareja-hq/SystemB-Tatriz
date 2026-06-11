@@ -657,23 +657,20 @@
     };
 </script>
 <script>
-    // Begitu seluruh data halaman selesai dimuat 100% oleh browser
-    window.addEventListener('load', function() {
-        const loader = document.getElementById('loaderSistem');
-        if (loader) {
-            // Beri kelas hilangkan loader secara halus
-            loader.classList.add('loader-hilang');
-        }
-    });
-
-    // Antisipasi cadangan: Jika dalam 4 detik halaman belum selesai muat (karena internet lemot), 
-    // paksa loader hilang agar user tidak terjebak di layar hijau terus-menerus.
-    setTimeout(function() {
-        const loader = document.getElementById('loaderSistem');
-        if (loader && !loader.classList.contains('loader-hilang')) {
-            loader.classList.add('loader-hilang');
-        }
-    }, 4000);
-</script>
+        document.addEventListener('DOMContentLoaded', function() {
+            const loader = document.getElementById('loaderSistem');
+            if (loader) {
+                setTimeout(function() {
+                    loader.classList.add('loader-hilang');
+                }, 200);
+            }
+        });
+        setTimeout(function() {
+            const loader = document.getElementById('loaderSistem');
+            if (loader && !loader.classList.contains('loader-hilang')) {
+                loader.classList.add('loader-hilang');
+            }
+        }, 4000);
+    </script>
 </body>
 </html>

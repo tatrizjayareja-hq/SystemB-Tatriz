@@ -70,6 +70,42 @@
     </style>
 </head>
 <body>
+    <div id="loaderSistem" style="
+    position: fixed;
+    top: 0; left: 0;
+    width: 100%; height: 100%;
+    background: #195e0b; /* Warna hijau gelap khas Tatriz */
+    z-index: 99999; /* Dipastikan paling atas menutupi semua menu */
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    transition: opacity 0.3s ease, visibility 0.3s ease;
+">
+    <div class="spinner-tatriz"></div>
+    <p style="color: white; margin-top: 18px; font-weight: bold; font-size: 14px; letter-spacing: 1px; font-family: sans-serif; text-align: center;">
+        MEMUAT SISTEM TATRIZ...
+    </p>
+</div>
+
+<style>
+    .spinner-tatriz {
+        width: 50px; height: 50px;
+        border: 5px solid rgba(255,255,255,0.2);
+        border-top: 5px solid #59cf77; /* Warna hijau muda aksen */
+        border-radius: 50%;
+        animation: putarLoaderTatriz 1s linear infinite;
+    }
+    @keyframes putarLoaderTatriz {
+        0% { transform: rotate(0deg); }
+        100% { transform: rotate(360deg); }
+    }
+    /* Kelas untuk menghilangkan loader dengan halus */
+    .loader-hilang {
+        opacity: 0 !important;
+        visibility: hidden !important;
+    }
+</style>
 
     <nav class="top-nav">
         <div style="display: flex; align-items: center; gap: 10px;">
@@ -269,6 +305,22 @@
                 }
             });
         }
+    </script>
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            const loader = document.getElementById('loaderSistem');
+            if (loader) {
+                setTimeout(function() {
+                    loader.classList.add('loader-hilang');
+                }, 200);
+            }
+        });
+        setTimeout(function() {
+            const loader = document.getElementById('loaderSistem');
+            if (loader && !loader.classList.contains('loader-hilang')) {
+                loader.classList.add('loader-hilang');
+            }
+        }, 4000);
     </script>
 </body>
 </html>

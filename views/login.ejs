@@ -370,14 +370,20 @@ window.addEventListener('appinstalled', () => {
 });
     </script>
     <script>
-    // Begitu seluruh elemen halaman (gambar, css, text) selesai dimuat 100%
-    window.addEventListener('load', function() {
-        const loader = document.getElementById('loaderSistem');
-        if (loader) {
-            // Tambahkan kelas untuk efek memudar (fade out) selama 0.4 detik
-            loader.classList.add('loader-hilang');
-        }
-    });
-</script>
+        document.addEventListener('DOMContentLoaded', function() {
+            const loader = document.getElementById('loaderSistem');
+            if (loader) {
+                setTimeout(function() {
+                    loader.classList.add('loader-hilang');
+                }, 200);
+            }
+        });
+        setTimeout(function() {
+            const loader = document.getElementById('loaderSistem');
+            if (loader && !loader.classList.contains('loader-hilang')) {
+                loader.classList.add('loader-hilang');
+            }
+        }, 4000);
+    </script>
 </body>
 </html>
