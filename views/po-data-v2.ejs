@@ -113,6 +113,7 @@
                     <select id="filterStatus" class="form-select form-select-sm" onchange="jalankanFilter()">
                         <option value="ALL">- Semua Status -</option>
                         <option value="Design">Design</option>
+                        <option value="Antri">Antri</option>
                         <option value="Produksi">Produksi</option>
                         <option value="CMT">CMT (Luar)</option>
                         <option value="QC">QC</option>
@@ -213,7 +214,7 @@
                         %>
                             <div class="d-flex justify-content-between small border-bottom mb-1 pb-1">
                                 <span><%= sub.nama_desain %></span>
-                                <span class="<%= totalOp < target ? 'text-danger' : 'text-success' %> fw-bold"><%= totalOp %> / <%= target %></span>
+                                <span class="<%= totalOp < target ? 'text-danger' : 'text-success'fw-bold %>"><%= totalOp %> / <%= target %></span>
                             </div>
                         <% }); %>
                         <button class="btn btn-sm btn-outline-success w-100 mt-2" onclick="bukaPanelQC('<%= po.id %>', '<%= po.nama_po %>')"><i class="bi bi-shield-check"></i> Update Hasil QC</button>
@@ -267,6 +268,7 @@
                                 <form action="/update-status/<%= po.id %>" method="POST" class="d-flex gap-1" onsubmit="cekStatusCMT(event, this, '<%= po.id %>', '<%= po.nama_po %>')">
                                     <select name="status_baru" class="form-select form-select-sm py-0" style="font-size: 11px;">
                                         <option value="Design" <%= po.status === 'Design' ? 'selected' : '' %>>Design</option>
+                                        <option value="Antri" <%= po.status === 'Antri' ? 'selected' : '' %>>Antri</option>
                                         <option value="Produksi" <%= po.status === 'Produksi' ? 'selected' : '' %>>Produksi</option>
                                         <option value="CMT" <%= po.status === 'CMT' ? 'selected' : '' %>>CMT</option>
                                         <option value="QC" <%= po.status === 'QC' ? 'selected' : '' %>>QC</option>
@@ -469,7 +471,7 @@
         Swal.fire({
             title: 'Update Status PO',
             input: 'select',
-            inputOptions: { 'Design': 'Design', 'Produksi': 'Produksi', 'CMT': 'CMT', 'QC': 'QC', 'Clear': 'Clear', 'DP/Cicil': 'DP/Cicil', 'Lunas': 'Lunas' },
+            inputOptions: { 'Design': 'Design', 'Antri': 'Antri', 'Produksi': 'Produksi', 'CMT': 'CMT', 'QC': 'QC', 'Clear': 'Clear', 'DP/Cicil': 'DP/Cicil', 'Lunas': 'Lunas' },
             inputValue: currentStatus,
             showCancelButton: true,
             confirmButtonText: 'Simpan Perubahan',

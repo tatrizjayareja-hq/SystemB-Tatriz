@@ -67,7 +67,6 @@
     </div>
 
     <form action="/update-po/<%= po.id %>" method="POST" target="_parent">
-        <!-- Input Hidden untuk menampung ID yang dihapus -->
         <input type="hidden" name="deleted_ids" id="deleted_ids" value="">
 
         <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px;">
@@ -76,6 +75,7 @@
                 <label>Status Produksi/Bayar</label>
                 <select name="status">
                     <option value="Design" <%= po.status === 'Design' ? 'selected' : '' %>>Design</option>
+                    <option value="Antri" <%= po.status === 'Antri' ? 'selected' : '' %>>Antri</option>
                     <option value="Produksi" <%= po.status === 'Produksi' ? 'selected' : '' %>>Produksi</option>
                     <option value="CMT" <%= po.status === 'CMT' ? 'selected' : '' %>>CMT (Luar)</option>
                     <option value="QC" <%= po.status === 'QC' ? 'selected' : '' %>>QC</option>
@@ -134,18 +134,15 @@
 
 <script>
     function hapusBaris(btn, id) {
-        // Jika baris yang dihapus memiliki ID (data lama dari DB)
         if (id && id !== '' && id !== 'undefined') {
             const inputDeleted = document.getElementById('deleted_ids');
             let currentIds = inputDeleted.value ? inputDeleted.value.split(',') : [];
             currentIds.push(id);
             inputDeleted.value = currentIds.join(',');
         }
-        // Hapus elemen baris dari tabel
         btn.parentElement.remove();
     }
 
-    // Fungsi untuk menyalin nilai dari input Harga CMT ke hidden input Harga Operator
     function sinkronOperator(el) {
         const row = el.closest('tr');
         const hiddenOp = row.querySelector('.hidden-op');

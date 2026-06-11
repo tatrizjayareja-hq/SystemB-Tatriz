@@ -490,16 +490,16 @@ app.get('/dashboard', async (req, res) => {
     const tId = req.session.tenantId;
 
     try {
-        // 1. Statistik Status PO
+        // 1. Statistik Status PO (DP/Cicil Dibuang, Diganti Antri)
         const stats = await db.get(`
             SELECT 
                 COUNT(CASE WHEN status = 'Design' THEN 1 END) as jml_design,
+                COUNT(CASE WHEN status = 'Antri' THEN 1 END) as jml_antri,
                 COUNT(CASE WHEN status = 'Produksi' THEN 1 END) as jml_produksi,
-                COUNT(CASE WHEN status = 'Clear' THEN 1 END) as jml_invoice,
-                COUNT(CASE WHEN status = 'DP/Cicil' THEN 1 END) as jml_cicil
+                COUNT(CASE WHEN status = 'Clear' THEN 1 END) as jml_invoice
             FROM po_utama WHERE tenant_id = $1`, [tId]);
 
-        // 2. Hitung Total Piutang
+        // 2. Hitung Total Piutang (Status 'Antri' Ikut Serta Dikecualikan)
         const piutangRes = await db.get(`
             SELECT SUM(sisa_per_po) as total_piutang
             FROM (
@@ -512,10 +512,11 @@ app.get('/dashboard', async (req, res) => {
                     WHERE kategori IN ('PEMBAYARAN BORDIR', 'PELUNASAN', 'DP/CICILAN') 
                     GROUP BY po_id
                 ) bayar ON p.id = bayar.po_id
-                WHERE p.status NOT IN ('Lunas', 'Design') 
+                WHERE p.status NOT IN ('Lunas', 'Design', 'Antri') 
                 AND p.tenant_id = $1
             ) subquery 
             WHERE sisa_per_po > 0`, [tId]);
+
         // 3. Cek Masalah Produksi
         const masalahRes = await db.get(`
             SELECT COUNT(*) as total FROM (
@@ -527,12 +528,11 @@ app.get('/dashboard', async (req, res) => {
                 HAVING SUM(h.jumlah_setor) > d.jumlah
             ) as subquery`, [tId]);
 
-        // --- INI PERUBAHANNYA ---
+        // --- PENGIRIMAN DATA KE EJS ---
         res.render('dashboard', {
-            stats: stats || { jml_design: 0, jml_produksi: 0, jml_invoice: 0, jml_cicil: 0 },
+            stats: stats || { jml_design: 0, jml_antri: 0, jml_produksi: 0, jml_invoice: 0 },
             totalPiutangSemua: parseFloat(piutangRes?.total_piutang || 0),
             jumlahMasalah: parseInt(masalahRes?.total || 0),
-            // Tambahkan baris di bawah ini agar data dari Middleware terkirim ke EJS:
             uangKunci: res.locals.uangKunci 
         });
 
@@ -541,7 +541,6 @@ app.get('/dashboard', async (req, res) => {
         res.status(500).send("Gagal memuat dashboard: " + err.message);
     }
 });
-
 
 app.post('/save-settings-all', upload.single('logo'), async (req, res) => {
     const tId = req.session.tenantId;
@@ -1211,13 +1210,14 @@ app.get('/po-data-v2', isAdmin, async (req, res) => {
             ORDER BY 
                 CASE u.status 
                     WHEN 'Design' THEN 1
-                    WHEN 'Produksi' THEN 2
-                    WHEN 'QC' THEN 3
-                    WHEN 'CMT' THEN 4
-                    WHEN 'Clear' THEN 5
-                    WHEN 'DP/Cicil' THEN 6
-                    WHEN 'Lunas' THEN 7
-                    ELSE 8
+                    WHEN 'Antri' THEN 2
+                    WHEN 'Produksi' THEN 3
+                    WHEN 'QC' THEN 4
+                    WHEN 'CMT' THEN 5
+                    WHEN 'Clear' THEN 6
+                    WHEN 'DP/Cicil' THEN 7
+                    WHEN 'Lunas' THEN 8
+                    ELSE 9
                 END ASC,
                 u.tanggal DESC, 
                 u.id DESC

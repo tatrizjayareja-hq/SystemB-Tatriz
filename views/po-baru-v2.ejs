@@ -51,6 +51,7 @@
                 <label>Status</label>
                 <select name="status">
                     <option value="Design">Design</option>
+                    <option value="Antri">Antri</option>
                     <option value="Produksi">Produksi</option>
                     <option value="CMT">CMT (Luar)</option>
                     <option value="QC">QC</option>
@@ -123,14 +124,13 @@
      * Harga Operator otomatis menyalin nilai dari Harga CMT
      */
     function copyKeOperator(el) {
-    const row = el.closest('.grid-sub');
-    const hiddenOp = row.querySelector('.hidden-op');
-    const hiddenCmt = row.querySelector('.hidden-cmt'); // Tambahkan ini jika ada
-    
+        const row = el.closest('.grid-sub');
+        const hiddenOp = row.querySelector('.hidden-op');
+        const hiddenCmt = row.querySelector('.hidden-cmt');
+        
         if (hiddenOp) {
             hiddenOp.value = el.value; 
         }
-        // Jika ada elemen hidden-cmt di baris yang sama, isi juga
         if (hiddenCmt) {
             hiddenCmt.value = el.value;
         }
@@ -163,7 +163,6 @@
         
         const gridClass = isInternal ? 'grid-pro' : 'grid-standard';
         
-        // Template kolom CMT berdasarkan akses
         const kolomCmt = isInternal ? 
             `<div><label>Harga CMT (Makloon)</label><input type="number" name="harga_cmt[]" placeholder="Biaya luar" oninput="copyKeOperator(this)"></div>` : 
             `<input type="hidden" name="harga_cmt[]" class="hidden-cmt">`;

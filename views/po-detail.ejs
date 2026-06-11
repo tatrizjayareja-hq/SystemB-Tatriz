@@ -63,6 +63,7 @@
         <form action="/update-status/<%= po.id %>" method="POST">
             <select name="status_baru">
                 <option value="Design" <%= po.status === 'Design' ? 'selected' : '' %>>Design</option>
+                <option value="Antri" <%= po.status === 'Antri' ? 'selected' : '' %>>Antri</option>
                 <option value="Produksi" <%= po.status === 'Produksi' ? 'selected' : '' %>>Produksi</option>
                 <option value="CMT" <%= po.status === 'CMT' ? 'selected' : '' %>>CMT</option>
                 <option value="QC" <%= po.status === 'QC' ? 'selected' : '' %>>QC</option>
