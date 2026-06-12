@@ -2652,7 +2652,6 @@ app.get('/input-gaji', isAdmin, async (req, res) => {
     const isInternal = (tId === 1 || tId === 100); 
 
     try {
-        // 1. Ambil konfigurasi tenant aktif dari PostgreSQL
         const configRes = await db.query("SELECT * FROM settings WHERE tenant_id = $1", [tId]);
         const activeConfig = configRes.rows[0] || { target_bonus: 0, jam_kerja_reguler: 8, pembagi_lembur: 4 };
         
@@ -2662,20 +2661,20 @@ app.get('/input-gaji', isAdmin, async (req, res) => {
             return res.render('admin/pilih-tanggal-gaji', { config: activeConfig, user: req.session });
         }
 
-        // 2. Query data mengambil akumulasi jam_reguler, jam_lembur, serta kalkulasi upah borongan harian
+        // Query dibersihkan dengan GROUP BY agar tidak duplikat per tanggal
         const sql = `
             SELECT 
                 u.id, u.nama_lengkap, u.gaji_pokok, u.role, 
-                h.tanggal, 
-                COALESCE(h.jam_reguler, 0) as jam_reguler, 
-                COALESCE(h.jam_lembur, 0) as jam_lembur,
-                h.jumlah_setor, 
-                d.harga_operator
+                h.tanggal,
+                SUM((CAST(h.jumlah_setor AS INT) * CAST(d.harga_operator AS NUMERIC))) as total_borongan_hari_ini,
+                MAX(COALESCE(h.jam_reguler, 0)) as jam_reguler,
+                MAX(COALESCE(h.jam_lembur, 0)) as jam_lembur
             FROM users u
             LEFT JOIN hasil_kerja h ON u.id = h.operator_id AND h.tanggal BETWEEN $1 AND $2
             LEFT JOIN po_detail d ON h.detail_id = d.id
             WHERE u.tenant_id = $3 AND u.role IN ('operator', 'qc')
-            ORDER BY u.nama_lengkap ASC
+            GROUP BY u.id, u.nama_lengkap, u.gaji_pokok, u.role, h.tanggal
+            ORDER BY u.nama_lengkap ASC, h.tanggal ASC
         `;
 
         const rowsRes = await db.query(sql, [tgl_awal, tgl_akhir, tId]);
@@ -2685,39 +2684,53 @@ app.get('/input-gaji', isAdmin, async (req, res) => {
         rows.forEach(row => {
             if (!rekap[row.id]) {
                 rekap[row.id] = { 
-                    id: row.id, 
-                    nama: row.nama_lengkap, 
-                    role: row.role, 
-                    gp: parseFloat(row.gaji_pokok || 0), 
-                    borongan: 0, 
-                    bonus: 0, 
-                    total_jam_reguler: 0, 
-                    total_jam_lembur: 0, 
-                    harian: {} 
+                    id: row.id, nama: row.nama_lengkap, role: row.role, 
+                    gp: parseFloat(row.gaji_pokok || 0), borongan: 0, bonus: 0, 
+                    total_jam_reguler_biasa: 0, total_jam_lembur_biasa: 0, 
+                    total_hari_lembur_minggu: 0, harian: {} 
                 };
             }
 
             if (row.tanggal) {
-                // A. Akumulasi jam kerja & lembur untuk total mingguan
-                rekap[row.id].total_jam_reguler += parseFloat(row.jam_reguler);
-                rekap[row.id].total_jam_lembur += parseFloat(row.jam_lembur);
+                const tanggalObj = new Date(row.tanggal);
+                const apakahHariMinggu = tanggalObj.getDay() === 0;
 
-                // B. Hitung borongan harian (untuk filter pencapaian target bonus internal)
-                const sub = (parseInt(row.jumlah_setor) || 0) * (parseFloat(row.harga_operator) || 0);
+                const jamReg = parseFloat(row.jam_reguler || 0);
+                const jamLem = parseFloat(row.jam_lembur || 0);
+
+                if (apakahHariMinggu) {
+                    // HARI MINGGU: Jika ada total jam kerja masuk, dihitung sebagai 1 hari lembur utuh
+                    if (jamReg > 0 || jamLem > 0) {
+                        rekap[row.id].total_hari_lembur_minggu += 1; 
+                    }
+                } else {
+                    // HARI BIASA: Senin - Sabtu
+                    rekap[row.id].total_jam_reguler_biasa += jamReg;
+                    rekap[row.id].total_jam_lembur_biasa += jamLem;
+                }
+
+                // Hitung borongan harian untuk bonus
+                const sub = parseFloat(row.total_borongan_hari_ini || 0);
                 rekap[row.id].borongan += sub;
-                rekap[row.id].harian[row.tanggal] = (rekap[row.id].harian[row.tanggal] || 0) + sub;
+                rekap[row.id].harian[row.tanggal] = sub;
             }
         });
 
-        // 3. Konversi akumulasi total jam reguler menjadi format string desimal "Hari.Jam"
+        // FORMAT DATA UNTUK KIRIM KE VIEW EJS
         Object.values(rekap).forEach(op => {
-            const hariUtuh = Math.floor(op.total_jam_reguler / JAM_REGULER_SISTEM);
-            const sisaJam = op.total_jam_reguler % JAM_REGULER_SISTEM;
+            // A. Gabungkan jam reguler + lembur hari biasa untuk Hari Kerja
+            const totalJamHariBiasa = op.total_jam_reguler_biasa + op.total_jam_lembur_biasa;
             
-            // Output format string, contoh: jika 5 hari dan 4 jam -> "5.4"
-            op.format_hari_kerja = `${hariUtuh}.${sisaJam}`;
+            const hariUtuh = Math.floor(totalJamHariBiasa / JAM_REGULER_SISTEM);
+            const sisaJam = totalJamHariBiasa % JAM_REGULER_SISTEM;
 
-            // 4. LOGIKA BONUS OTOMATIS (KHUSUS INTERNAL)
+            // Masukkan ke format Hari.Jam (Contoh: 6.2 jika sisa 2 jam)
+            op.format_hari_kerja = sisaJam > 0 ? `${hariUtuh}.${sisaJam}` : `${hariUtuh}.0`;
+
+            // B. Kolom Lembur otomatis terisi jumlah HARI MINGGU yang masuk kerja
+            op.total_lembur_tampil = op.total_hari_lembur_minggu;
+
+            // Logika Bonus Internal Tetap
             if (isInternal) {
                 Object.values(op.harian).forEach(totalHari => {
                     if (totalHari >= parseFloat(activeConfig.target_bonus)) {
@@ -2731,16 +2744,11 @@ app.get('/input-gaji', isAdmin, async (req, res) => {
         });
 
         res.render('admin/input-gaji', { 
-            rekap, 
-            tgl_awal, 
-            tgl_akhir, 
-            config: activeConfig, 
-            user: req.session,
-            isInternal: isInternal 
+            rekap, tgl_awal, tgl_akhir, config: activeConfig, user: req.session, isInternal 
         });
 
     } catch (err) {
-        console.error("🔥 Error Input Gaji:", err.message);
+        console.error("🔥 Error Input Gaji Dinamis:", err.message);
         res.status(500).send("Gagal memuat data gaji.");
     }
 });

@@ -117,14 +117,18 @@ document.addEventListener('DOMContentLoaded', function() {
         const gp = parseFloat(row.querySelector('.input-gp').value) || 0;
         const hkValue = row.querySelector('.input-hk').value.toString();
         const hkRaw = hkValue.replace(',', '.');
-        const lembur = parseFloat(row.querySelector('.input-lembur').value) || 0;
+        
+        // Input lembur sekarang mendeteksi SATUAN HARI (Contoh: 1, 2, dst)
+        const lemburHari = parseFloat(row.querySelector('.input-lembur').value) || 0;
+        
         const bonusTarget = parseFloat(row.querySelector('.input-bonus-target').value) || 0;
-        const adjManual = parseFloat(row.querySelector('.input-adj').value) || 0; // Ambil nilai Adj
+        const adjManual = parseFloat(row.querySelector('.input-adj').value) || 0; 
         const kasbon = parseFloat(row.querySelector('.input-kasbon').value) || 0;
 
         let hariFull = 0;
         let jamSisa = 0;
 
+        // Pecah format Hari.Jam (Contoh: 6.2)
         if (hkRaw.includes('.')) {
             const parts = hkRaw.split('.');
             hariFull = parseInt(parts[0]) || 0;
@@ -133,10 +137,13 @@ document.addEventListener('DOMContentLoaded', function() {
             hariFull = parseInt(hkRaw) || 0;
         }
 
-        // Rumus Fleksibel + Adjustment Manual
+        // 1. Nominal Hari Kerja Biasa (Hari utuh + kelebihan jam proporsional)
         const nominalHK = (hariFull * gp) + ((gp / JAM_REGULER) * jamSisa);
-        const nominalLembur = (gp / PEMBAGI_LEMBUR) * lembur; 
         
+        // 🔴 2. PERBAIKAN RUMUS LEMBUR HARI MINGGU (1 Hari Masuk = 1.25 * Gaji Pokok)
+        const nominalLembur = lemburHari * (1.25 * gp); 
+        
+        // Total Akhir Terima Bersih Karyawan
         const total = nominalHK + nominalLembur + bonusTarget + adjManual - kasbon;
 
         row.querySelector('.total-tampil').innerText = formatRupiah(total);
