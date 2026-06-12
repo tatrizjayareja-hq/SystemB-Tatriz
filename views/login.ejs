@@ -332,41 +332,70 @@
             }
         });
     }
-    let pemicuInstal;
+   let pemicuInstal;
 const areaInstal = document.getElementById('areaInstalPWA');
 const btnInstal = document.getElementById('btnInstalPWA');
 
-// Browser mendeteksi bahwa web ini bisa diinstal sebagai PWA
+// 1. Deteksi apakah aplikasi sudah berjalan dalam mode standalone (sudah terinstal)
+const isAppInstalled = window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone;
+
+// Jika belum terinstal, tampilkan tombol secara default (untuk desktop/browser yang mendukung)
+if (!isAppInstalled) {
+    areaInstal.style.display = 'block';
+}
+
+// 2. Browser mendeteksi bahwa web ini memenuhi syarat PWA
 window.addEventListener('beforeinstallprompt', (e) => {
-    // Cegah browser menampilkan banner bawaannya yang kecil di bawah
+    // Cegah banner bawaan browser muncul
     e.preventDefault();
-    // Simpan kejadian ini ke variabel
+    // Simpan event ke variabel
     pemicuInstal = e;
     
-    // TAMPILKAN tombol buatan kita ke pengguna awam
+    // Pastikan area tombol tampil di mobile maupun desktop
     areaInstal.style.display = 'block';
 });
 
-// Ketika tombol buatan kita diklik oleh user
+// 3. Ketika tombol instalasi diklik
 btnInstal.addEventListener('click', async () => {
-    if (!pemicuInstal) return;
-    
-    // Munculkan perintah instalasi resmi dari sistem HP
-    pemicuInstal.prompt();
-    
-    // Tunggu jawaban dari user (Apakah mereka klik 'Setuju' atau 'Batal')
-    const { outcome } = await pemicuInstal.userChoice;
-    console.log(`Pilihan user: ${outcome}`);
-    
-    // Bersihkan pemicu, tombol kita sembunyikan lagi karena proses sudah selesai
-    pemicuInstal = null;
-    areaInstal.style.style.display = 'none';
+    // Jika browser mendukung pemicu native prompt
+    if (pemicuInstal) {
+        pemicuInstal.prompt();
+        
+        const { outcome } = await pemicuInstal.userChoice;
+        console.log(`Pilihan user: ${outcome}`);
+        
+        if (outcome === 'accepted') {
+            console.log('User menginstal PWA');
+            // Jika mau tombol TETAP ADA setelah instal, jangan sembunyikan kodenya.
+            // Tapi idealnya, jika sudah sukses diinstal, tombol disembunyikan agar rapi:
+            // areaInstal.style.display = 'none'; 
+        }
+        
+        // Pemicu dibersihkan agar tidak error di klik berikutnya
+        pemicuInstal = null; 
+    } else {
+        // Fallback untuk desktop (Chrome/Edge) jika prompt sudah kedaluwarsa atau di iOS Safari
+        Swal.fire({
+            title: 'Cara Instal Aplikasi',
+            html: `
+                <div style="text-align: left; font-size: 14px;">
+                    <b>Untuk Desktop (Chrome/Edge):</b><br>
+                    Klik ikon <i class="fas fa-download"></i> atau komputer kecil di pojok kanan atas kolom alamat URL browser Anda.<br><br>
+                    <b>Untuk iPhone/iOS (Safari):</b><br>
+                    Klik tombol <b>Bagikan (Share)</b> <i class="fas fa-share-square"></i> lalu pilih <b>"Tambahkan ke Layar Utama" (Add to Home Screen)</b>.
+                </div>
+            `,
+            icon: 'info',
+            confirmButtonColor: '#195e0b'
+        });
+    }
 });
 
-// Jika aplikasi ternyata sudah terinstal di HP mereka, otomatis sembunyikan tombol
+// 4. Jika aplikasi benar-benar sukses terinstal, Anda bisa memilih menyembunyikannya atau membiarkannya
 window.addEventListener('appinstalled', () => {
-    areaInstal.style.display = 'none';
-    pemicuInstal = null;
+    console.log('PWA berhasil terpasang di sistem.');
+    // Hapus baris di bawah ini jika Anda ingin tombol TETAP muncul bahkan setelah aplikasi terinstal
+    areaInstal.style.display = 'none'; 
 });
     </script>
     <script>
