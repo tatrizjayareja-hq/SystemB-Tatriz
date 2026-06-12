@@ -1960,11 +1960,12 @@ app.get('/operator', async (req, res) => {
     
     const userId = req.session.userId;
     const tId = req.session.tenantId;
+    
+    // Format tanggal versi ISO (YYYY-MM-DD) yang aman untuk tipe data DATE di PostgreSQL
     const tglHariIni = new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Jakarta' }).format(new Date());
 
     try {
-        // PERBAIKAN FILTER QUERY
-        // Tampilkan PO Produksi, ATAU PO CMT yang masih punya detail tanpa Surat Jalan Vendor
+        // 1. Ambil PO Aktif (Penyesuaian db.query untuk PostgreSQL)
         const sqlPO = `
             SELECT p.id, p.nama_po 
             FROM po_utama p
@@ -1982,31 +1983,40 @@ app.get('/operator', async (req, res) => {
             )
             ORDER BY p.tanggal DESC, p.id DESC
         `;
-        const active_pos = await db.all(sqlPO, [tId]);
-        const daftarMesin = await db.all("SELECT id, nama_mesin FROM mesin WHERE tenant_id = $1 ORDER BY nama_mesin ASC", [tId]);
+        const activePosRes = await db.query(sqlPO, [tId]);
+        const active_pos = activePosRes.rows;
 
-        // Tetap hitung pencapaian untuk fallback logic
-        const config = await db.get("SELECT target_bonus FROM settings WHERE tenant_id = $1", [tId]);
-        const targetBonus = parseFloat(config?.target_bonus || 500000);
+        // 2. Ambil Daftar Mesin
+        const mesinRes = await db.query("SELECT id, nama_mesin FROM mesin WHERE tenant_id = $1 ORDER BY nama_mesin ASC", [tId]);
+        const daftarMesin = mesinRes.rows;
 
+        // 3. Ambil Pengaturan Global Perusahaan (Termasuk Target Bonus & Jam Kerja Reguler)
+        const configRes = await db.query("SELECT target_bonus, jam_kerja_reguler FROM settings WHERE tenant_id = $1", [tId]);
+        const config = configRes.rows[0] || { target_bonus: 500000, jam_kerja_reguler: 8 };
+        const targetBonus = parseFloat(config.target_bonus || 500000);
+
+        // 4. Hitung Realisasi Upah Hari Ini untuk Logika Sisa Target Bonus
         const sqlCekHasil = `
             SELECT SUM(h.jumlah_setor * d.harga_operator) as total_upah
             FROM hasil_kerja h
             JOIN po_detail d ON h.detail_id = d.id
             WHERE h.operator_id = $1 AND h.tanggal = $2
         `;
-        const row = await db.get(sqlCekHasil, [userId, tglHariIni]);
+        const cekHasilRes = await db.query(sqlCekHasil, [userId, tglHariIni]);
+        const row = cekHasilRes.rows[0];
         const totalHariIni = parseFloat(row?.total_upah || 0);
         const kurangnya = Math.max(0, targetBonus - totalHariIni);
 
+        // 5. Kirim data ke file EJS (Ditambahkan objek config agar input jam kerja dinamis)
         res.render('operator', { 
             user: { nama: req.session.nama_lengkap },
-            active_pos,
-            daftarMesin,
-            kurangnya,
-            // access sudah dikirim otomatis oleh middleware res.locals
+            active_pos: active_pos,
+            daftarMesin: daftarMesin,
+            kurangnya: kurangnya,
+            config: config // 🔴 PENTING: Dikirim agar form operator tahu batasan jam reguler (misal: 8 atau 7 jam)
         });
     } catch (err) {
+        console.error("🔥 Error Load Operator Page:", err.message);
         res.status(500).send("Server Error");
     }
 });
@@ -2223,7 +2233,8 @@ app.get('/api/po-details/:id', async (req, res) => {
 app.post('/simpan-kerja', async (req, res) => {
     if (!req.session.userId) return res.redirect('/');
     
-    const { tanggal, shift, po_id, detail_id, jumlah_setor, mesin_id } = req.body;
+    // Tangkap data jam_reguler dan jam_lembur baru dari body request
+    const { tanggal, shift, po_id, detail_id, jumlah_setor, mesin_id, jam_reguler, jam_lembur } = req.body;
     const userId = req.session.userId;
     const tId = req.session.tenantId;
 
@@ -2233,29 +2244,43 @@ app.post('/simpan-kerja', async (req, res) => {
     }
 
     try {
-        // 1. Simpan Hasil Kerja (Tanpa membatasi jumlah, sesuai fakta lapangan operator)
+        // 1. Simpan Hasil Kerja + Data Jam Absensi Terintegrasi
         const sqlInsert = `
-            INSERT INTO hasil_kerja (tenant_id, operator_id, po_id, detail_id, mesin_id, tanggal, shift, jumlah_setor) 
-            VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+            INSERT INTO hasil_kerja (tenant_id, operator_id, po_id, detail_id, mesin_id, tanggal, shift, jumlah_setor, jam_reguler, jam_lembur) 
+            VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
         `;
-        await db.query(sqlInsert, [tId, userId, po_id, detail_id, mesin_id, tanggal, shift, parseInt(jumlah_setor)]);
+        
+        // Konversi string ke float desimal agar mendukung pecahan jam kerja (misal 7.5 jam)
+        const parsedJamReguler = parseFloat(jam_reguler) || 0;
+        const parsedJamLembur = parseFloat(jam_lembur) || 0;
 
-        // 2. LOGIKA MONITORING & AUTO-QC
-        // Kita hitung total target vs total realisasi untuk PO ini secara keseluruhan
+        await db.query(sqlInsert, [
+            tId, 
+            userId, 
+            po_id, 
+            detail_id, 
+            mesin_id, 
+            tanggal, 
+            shift, 
+            parseInt(jumlah_setor), 
+            parsedJamReguler, 
+            parsedJamLembur
+        ]);
+
+        // 2. LOGIKA MONITORING & AUTO-QC (Menggunakan standar db.query untuk PostgreSQL)
         const sqlCheck = `
             SELECT 
                 (SELECT SUM(jumlah) FROM po_detail WHERE po_id = $1) as target_total,
                 (SELECT SUM(jumlah_setor) FROM hasil_kerja WHERE po_id = $1) as realisasi_total
         `;
-        const check = await db.get(sqlCheck, [po_id]);
+        const checkResult = await db.query(sqlCheck, [po_id]);
+        const check = checkResult.rows[0];
         
-        // Fitur Auto-QC: Jika realisasi sudah mencapai atau MELEBIHI target, status naik ke QC
-        // Admin nanti akan melihat badge "TIDAK SINKRON" di laporan-produksi jika ada kelebihan
         if (check && parseFloat(check.realisasi_total) >= parseFloat(check.target_total)) {
             await db.query("UPDATE po_utama SET status = 'QC' WHERE id = $1 AND tenant_id = $2", [po_id, tId]);
         }
 
-        res.send("<script>alert('Data berhasil disimpan! Status PO akan diperbarui jika target tercapai.'); window.location='/operator';</script>");
+        res.send("<script>alert('Data hasil kerja & durasi absen berhasil disimpan!'); window.location='/operator';</script>");
     } catch (err) {
         console.error("🔥 Error Simpan Kerja:", err.message);
         res.status(500).send("Gagal menyimpan data. Pastikan semua field terisi dengan benar.");
@@ -2624,19 +2649,28 @@ app.get('/admin/hapus-produksi/:id', isAdmin, async (req, res) => {
 app.get('/input-gaji', isAdmin, async (req, res) => {
     const tId = req.session.tenantId;
     const { tgl_awal, tgl_akhir } = req.query;
-    const isInternal = (tId === 1 || tId === 100); // Cek status Internal
+    const isInternal = (tId === 1 || tId === 100); 
 
     try {
-        const config = await db.get("SELECT * FROM settings WHERE tenant_id = $1", [tId]);
-        const activeConfig = config || { target_bonus: 0 };
+        // 1. Ambil konfigurasi tenant aktif dari PostgreSQL
+        const configRes = await db.query("SELECT * FROM settings WHERE tenant_id = $1", [tId]);
+        const activeConfig = configRes.rows[0] || { target_bonus: 0, jam_kerja_reguler: 8, pembagi_lembur: 4 };
+        
+        const JAM_REGULER_SISTEM = parseFloat(activeConfig.jam_kerja_reguler || 8);
 
         if (!tgl_awal || !tgl_akhir) {
             return res.render('admin/pilih-tanggal-gaji', { config: activeConfig, user: req.session });
         }
 
+        // 2. Query data mengambil akumulasi jam_reguler, jam_lembur, serta kalkulasi upah borongan harian
         const sql = `
-            SELECT u.id, u.nama_lengkap, u.gaji_pokok, u.role, 
-                   h.tanggal, h.jumlah_setor, d.harga_operator
+            SELECT 
+                u.id, u.nama_lengkap, u.gaji_pokok, u.role, 
+                h.tanggal, 
+                COALESCE(h.jam_reguler, 0) as jam_reguler, 
+                COALESCE(h.jam_lembur, 0) as jam_lembur,
+                h.jumlah_setor, 
+                d.harga_operator
             FROM users u
             LEFT JOIN hasil_kerja h ON u.id = h.operator_id AND h.tanggal BETWEEN $1 AND $2
             LEFT JOIN po_detail d ON h.detail_id = d.id
@@ -2644,26 +2678,47 @@ app.get('/input-gaji', isAdmin, async (req, res) => {
             ORDER BY u.nama_lengkap ASC
         `;
 
-        const rows = await db.all(sql, [tgl_awal, tgl_akhir, tId]);
+        const rowsRes = await db.query(sql, [tgl_awal, tgl_akhir, tId]);
+        const rows = rowsRes.rows || [];
         const rekap = {};
 
         rows.forEach(row => {
             if (!rekap[row.id]) {
                 rekap[row.id] = { 
-                    id: row.id, nama: row.nama_lengkap, role: row.role, 
-                    gp: parseFloat(row.gaji_pokok || 0), borongan: 0, bonus: 0, harian: {} 
+                    id: row.id, 
+                    nama: row.nama_lengkap, 
+                    role: row.role, 
+                    gp: parseFloat(row.gaji_pokok || 0), 
+                    borongan: 0, 
+                    bonus: 0, 
+                    total_jam_reguler: 0, 
+                    total_jam_lembur: 0, 
+                    harian: {} 
                 };
             }
-            if (row.tanggal && row.role === 'operator') {
+
+            if (row.tanggal) {
+                // A. Akumulasi jam kerja & lembur untuk total mingguan
+                rekap[row.id].total_jam_reguler += parseFloat(row.jam_reguler);
+                rekap[row.id].total_jam_lembur += parseFloat(row.jam_lembur);
+
+                // B. Hitung borongan harian (untuk filter pencapaian target bonus internal)
                 const sub = (parseInt(row.jumlah_setor) || 0) * (parseFloat(row.harga_operator) || 0);
                 rekap[row.id].borongan += sub;
                 rekap[row.id].harian[row.tanggal] = (rekap[row.id].harian[row.tanggal] || 0) + sub;
             }
         });
 
-        // LOGIKA BONUS HANYA UNTUK INTERNAL
-        if (isInternal) {
-            Object.values(rekap).forEach(op => {
+        // 3. Konversi akumulasi total jam reguler menjadi format string desimal "Hari.Jam"
+        Object.values(rekap).forEach(op => {
+            const hariUtuh = Math.floor(op.total_jam_reguler / JAM_REGULER_SISTEM);
+            const sisaJam = op.total_jam_reguler % JAM_REGULER_SISTEM;
+            
+            // Output format string, contoh: jika 5 hari dan 4 jam -> "5.4"
+            op.format_hari_kerja = `${hariUtuh}.${sisaJam}`;
+
+            // 4. LOGIKA BONUS OTOMATIS (KHUSUS INTERNAL)
+            if (isInternal) {
                 Object.values(op.harian).forEach(totalHari => {
                     if (totalHari >= parseFloat(activeConfig.target_bonus)) {
                         let kelipatan = parseFloat(activeConfig.kelipatan_bonus) || 100000;
@@ -2672,8 +2727,8 @@ app.get('/input-gaji', isAdmin, async (req, res) => {
                         op.bonus += (bonusDasar + bonusLipat);
                     }
                 });
-            });
-        }
+            }
+        });
 
         res.render('admin/input-gaji', { 
             rekap, 
@@ -2681,7 +2736,7 @@ app.get('/input-gaji', isAdmin, async (req, res) => {
             tgl_akhir, 
             config: activeConfig, 
             user: req.session,
-            isInternal: isInternal // Kirim flag ke EJS
+            isInternal: isInternal 
         });
 
     } catch (err) {

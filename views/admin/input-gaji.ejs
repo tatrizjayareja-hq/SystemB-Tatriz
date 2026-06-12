@@ -47,11 +47,13 @@
                                         <input type="number" name="gp" value="<%= op.gp %>" class="form-control input-gp bg-light" readonly>
                                     </div>
                                 </td>
+                                
                                 <td>
-                                    <input type="number" step="0.1" name="hari_kerja" value="6.0" class="form-control form-control-sm text-center fw-bold input-hk">
+                                    <input type="text" name="hari_kerja" value="<%= op.format_hari_kerja %>" class="form-control form-control-sm text-center fw-bold input-hk">
                                 </td>
+                                
                                 <td>
-                                    <input type="number" name="lembur" value="0" class="form-control form-control-sm text-center input-lembur">
+                                    <input type="number" name="lembur" value="<%= op.total_jam_lembur %>" class="form-control form-control-sm text-center input-lembur">
                                 </td>
                                 
                                 <% if (isInternal) { %>
