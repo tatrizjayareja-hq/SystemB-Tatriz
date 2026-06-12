@@ -1377,7 +1377,7 @@ app.get('/jadwal-produksi', isAdmin, async (req, res) => {
                 (SELECT SUM(jumlah) FROM po_detail WHERE po_id = u.id) as total_qty
             FROM po_utama u 
             WHERE u.tenant_id = $1 
-              AND u.status IN ('Produksi', 'Design')
+              AND u.status IN ('Produksi', 'Antri')
             ORDER BY 
                 CASE WHEN u.status = 'Produksi' THEN 1 ELSE 2 END, 
                 u.tanggal ASC
