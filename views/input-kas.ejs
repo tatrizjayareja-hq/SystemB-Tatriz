@@ -95,7 +95,7 @@
                     if (po.status !== 'Lunas') { 
                     %>
                         <option value="<%= po.id %>">
-                            <%= po.customer %> - <%= po.nama_po %> (Tagihan: Rp <%= (po.total_harga_customer || 0).toLocaleString('id-ID') %>)
+                            <%= po.customer %> - <%= po.nama_po %> - <%= po.status %> (Tagihan: Rp <%= (po.total_harga_customer || 0).toLocaleString('id-ID') %>)
                         </option>
                     <% } %>
                 <% }) %>
