@@ -285,9 +285,15 @@
                         <i class="fas fa-shield-alt"></i>
                         <input type="text" name="activation_code" placeholder="Minta kode ke Admin" required>
                     </div>
-                    <p style="text-align: left; font-size: 11px; margin-top: 6px; color: #e67e22; font-weight: 600; margin-bottom: 0;">
-                        *Kode ini diperlukan untuk memvalidasi pendaftaran baru.
-                    </p>
+                    
+                    <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-top: 6px; gap: 10px;">
+                        <p style="text-align: left; font-size: 11px; color: #e67e22; font-weight: 600; margin-bottom: 0; flex: 1; line-height: 1.3;">
+                            *Kode ini diperlukan untuk memvalidasi pendaftaran baru.
+                        </p>
+                        <a href="#" onclick="mintaKodeAktivasi(event)" style="font-size: 11px; color: #25D366; font-weight: 700; text-decoration: none; white-space: nowrap; display: flex; align-items: center; gap: 4px; background: rgba(37, 211, 102, 0.1); padding: 4px 8px; border-radius: 6px; transition: 0.2s;">
+                            <i class="fab fa-whatsapp"></i> Minta Kode
+                        </a>
+                    </div>
                 </div>
 
                 <button type="submit" class="btn-register">Daftar Sekarang</button>
@@ -299,6 +305,24 @@
         </div>
     </div>
 <script>
+        function mintaKodeAktivasi(event) {
+    // Mencegah link me-refresh halaman atau melompat ke atas
+    event.preventDefault(); 
+    
+    // Mengambil nama toko/perusahaan secara dinamis jika user sudah mengetiknya
+    const namaTokoInput = document.querySelector('input[name="nama_toko"]');
+    const namaToko = namaTokoInput && namaTokoInput.value.trim() ? namaTokoInput.value.trim() : 'Nama Perusahaan Belum Diisi';
+    
+    // Nomor WhatsApp Developer Tatriz (menggunakan nomor yang sama dari menu login Anda)
+    const noWA = '6281315290003';
+    
+    // Template pesan otomatis
+    const pesan = `Halo Developer Tatriz, saya ingin meminta *Kode Aktivasi* untuk pendaftaran unit usaha baru.\n\nNama Perusahaan: *${namaToko}*\n\nMohon bantuannya untuk verifikasi sistem, terima kasih.`;
+    
+    // Membuka tab baru menuju WhatsApp
+    window.open(`https://api.whatsapp.com/send/?phone=${noWA}&text=${encodeURIComponent(pesan)}`, '_blank');
+}
+
         document.addEventListener('DOMContentLoaded', function() {
             const loader = document.getElementById('loaderSistem');
             if (loader) {
