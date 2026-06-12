@@ -118,12 +118,20 @@ document.addEventListener('DOMContentLoaded', function() {
         const hkValue = row.querySelector('.input-hk').value.toString();
         const hkRaw = hkValue.replace(',', '.');
         
-        // Input lembur sekarang mendeteksi SATUAN HARI (Contoh: 1, 2, dst)
+        // Input jumlah hari lembur Minggu (Contoh: 1 hari, 2 hari)
         const lemburHari = parseFloat(row.querySelector('.input-lembur').value) || 0;
         
         const bonusTarget = parseFloat(row.querySelector('.input-bonus-target').value) || 0;
         const adjManual = parseFloat(row.querySelector('.input-adj').value) || 0; 
         const kasbon = parseFloat(row.querySelector('.input-kasbon').value) || 0;
+
+        // 🔴 MEMBACA ATURAN DARI SETUP SECARA DINAMIS
+        // PEMBAGI_LEMBUR diambil dari variabel global EJS yang sudah Anda definisikan di atas (default: 4)
+        const faktorPembagi = Number(PEMBAGI_LEMBUR) || 4; 
+        
+        // 🔴 RUMUS DIUBAH: Mengikuti formula 1 + (1 / pembagi_lembur)
+        // Jika faktorPembagi = 4 -> 1.25 | Jika 2 -> 1.5 | Jika 1 -> 2.0
+        const pengaliHariMinggu = 1 + (1 / faktorPembagi);
 
         let hariFull = 0;
         let jamSisa = 0;
@@ -140,8 +148,8 @@ document.addEventListener('DOMContentLoaded', function() {
         // 1. Nominal Hari Kerja Biasa (Hari utuh + kelebihan jam proporsional)
         const nominalHK = (hariFull * gp) + ((gp / JAM_REGULER) * jamSisa);
         
-        // 🔴 2. PERBAIKAN RUMUS LEMBUR HARI MINGGU (1 Hari Masuk = 1.25 * Gaji Pokok)
-        const nominalLembur = lemburHari * (1.25 * gp); 
+        // 🔴 2. NOMINAL LEMBUR HARI MINGGU SEKARANG 100% DINAMIS!
+        const nominalLembur = lemburHari * (pengaliHariMinggu * gp); 
         
         // Total Akhir Terima Bersih Karyawan
         const total = nominalHK + nominalLembur + bonusTarget + adjManual - kasbon;
