@@ -1680,21 +1680,25 @@ app.get('/hapus-kas/:id', isAdmin, async (req, res) => {
     }
 });
 
-app.get('/input-kas', async (req, res) => { // 1. Tambahkan async
+app.get('/input-kas', async (req, res) => {
     if (!req.session.userId) return res.redirect('/');
     
     const tId = req.session.tenantId;
 
-    // 2. Ubah ? menjadi $1
-    const sqlPO = `SELECT id, nama_po, customer, total_harga_customer 
-                   FROM po_utama 
-                   WHERE status NOT IN ('Lunas', 'Design', 'CMT') AND tenant_id = $1
-                   ORDER BY tanggal DESC`; // Tambahkan ORDER BY agar PO terbaru di atas
+    // 🔴 PERBAIKAN: Status 'CMT' sekarang diizinkan masuk (dihapus dari NOT IN)
+    const sqlPO = `
+        SELECT id, nama_po, customer, total_harga_customer, status 
+        FROM po_utama 
+        WHERE status NOT IN ('Lunas', 'Design') AND tenant_id = $1
+        ORDER BY tanggal DESC, id DESC
+    `; 
     
     try {
-        // 3. Gunakan await (tanpa callback err, pos)
-        const pos = await db.all(sqlPO, [tId]);
-        res.render('input-kas', { pos: pos || [] });
+        // Menggunakan db.query dan .rows untuk kecocokan arsitektur PostgreSQL Anda
+        const posResult = await db.query(sqlPO, [tId]);
+        const pos = posResult.rows || [];
+        
+        res.render('input-kas', { pos: pos });
     } catch (err) {
         console.error("🔥 Error Load Input Kas:", err.message);
         res.status(500).send("Gagal memuat daftar PO.");
@@ -1703,27 +1707,30 @@ app.get('/input-kas', async (req, res) => { // 1. Tambahkan async
 
 async function updateStatusPO(poId) {
     try {
-        // 1. Hitung total tagihan vs total bayar
-        const data = await db.get(`
-            SELECT 
-                p.total_harga_customer,
-                COALESCE(SUM(ak.jumlah), 0) as total_masuk
-            FROM po_utama p
-            LEFT JOIN arus_kas ak ON p.id = ak.po_id
-            WHERE p.id = $1
-            GROUP BY p.id`, [poId]);
+        // 1. Ambil status lama dan kalkulasi nilai bayar
+        const checkPO = await db.query("SELECT status, total_harga_customer FROM po_utama WHERE id = $1", [poId]);
+        const poLama = checkPO.rows[0];
+        if (!poLama) return;
 
-        if (data) {
-            // 2. Jika bayar >= tagihan, set Lunas. Jika ada bayar tapi kurang, set DP/Cicil.
-            let statusBaru = 'Produksi'; // Default
-            if (data.total_masuk >= data.total_harga_customer) {
-                statusBaru = 'Lunas';
-            } else if (data.total_masuk > 0) {
+        const dataRes = await db.query(`
+            SELECT COALESCE(SUM(jumlah), 0) as total_masuk
+            FROM arus_kas 
+            WHERE po_id = $1`, [poId]);
+        const totalMasuk = parseFloat(dataRes.rows[0]?.total_masuk || 0);
+
+        // 2. Tentukan status baru secara logis
+        let statusBaru = poLama.status; // Pertahankan status awal jika tidak lunas
+
+        if (totalMasuk >= parseFloat(poLama.total_harga_customer)) {
+            statusBaru = 'Lunas';
+        } else if (totalMasuk > 0) {
+            // Jika masuk uang cicilan dan status sebelumnya bukan CMT/Produksi, set ke DP/Cicil
+            if (poLama.status !== 'CMT' && poLama.status !== 'Produksi') {
                 statusBaru = 'DP/Cicil';
             }
-            
-            await db.query("UPDATE po_utama SET status = $1 WHERE id = $2", [statusBaru, poId]);
         }
+        
+        await db.query("UPDATE po_utama SET status = $1 WHERE id = $2", [statusBaru, poId]);
     } catch (err) {
         console.error("🔥 Error Update Status PO:", err.message);
     }
