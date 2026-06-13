@@ -3250,7 +3250,7 @@ app.post('/admin/kirim-ke-vendor', isAdmin, async (req, res) => {
         );
 
         await db.query("COMMIT");
-        res.redirect('/po-data-v2');
+        res.redirect('/admin/data-cmt');
     } catch (err) {
         if (db) await db.query("ROLLBACK");
         console.error("🔥 Error Kirim CMT:", err.message);
@@ -3469,7 +3469,7 @@ app.post('/admin/kirim-ke-vendor-parsial', isAdmin, async (req, res) => {
 
             // A. Buat Header Surat Jalan Baru (Status default: PROSES, Pembayaran: BELUM LUNAS)
             const sjRes = await db.query(
-                `INSERT INTO cmt_surat_jalan (tenant_id, nama_vendor, total_biaya_vendor, status, status_pembayaran, tanggal_kirim) 
+                `INSERT INTO cmt_surat_jalan (tenant_id, nama_vendor, total_biaya_vendor, status, status_pembayaran, tanggal) 
                  VALUES ($1, $2, $3, 'PROSES', 'BELUM LUNAS', CURRENT_DATE) RETURNING id`,
                 [tId, currentVendor, totalBiayaVendor]
             );
@@ -3490,7 +3490,8 @@ app.post('/admin/kirim-ke-vendor-parsial', isAdmin, async (req, res) => {
         await db.query("COMMIT");
         
         // Response sukses berupa alert javascript dan merefresh halaman PO Data
-        res.send("<script>alert('Logistik CMT berhasil diproses! Surat Jalan telah dibuat.'); window.location.history.back();</script>");
+        res.redirect('/po-data'); // <-- Sesuaikan dengan alamat rute halaman utama PO Anda (misal: /po-data atau /admin/po)
+
     } catch (err) {
         if (db) await db.query("ROLLBACK");
         console.error("🔥 Error Simpan Parsial CMT:", err.message);
