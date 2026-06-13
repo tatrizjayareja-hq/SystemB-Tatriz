@@ -3316,6 +3316,121 @@ app.post('/admin/edit-qty-vendor', isAdmin, async (req, res) => {
     }
 });
 
+// 1. API UNTUK DETEKSI STATUS KIRIMAN PO (DIPANGGIL OLEH POPUP FRONTEND)
+app.get('/api/po-cmt-status/:po_id', isAdmin, async (req, res) => {
+    const { po_id } = req.params;
+    const tId = req.session.tenantId;
+
+    try {
+        const sql = `
+            SELECT 
+                p.id as po_id,
+                p.nama_po,
+                p.customer,
+                d.id as po_detail_id,
+                d.nama_desain,
+                d.harga_cmt,
+                d.jumlah as total_order,
+                -- Hitung total yang sudah dikirim ke vendor selama ini
+                COALESCE((
+                    SELECT SUM(sjd.qty_dikirim) 
+                    FROM cmt_surat_jalan_detail sjd
+                    JOIN cmt_surat_jalan sj ON sjd.sj_id = sj.id
+                    WHERE sjd.po_detail_id = d.id AND sj.tenant_id = $1
+                ), 0) as total_terkirim
+            FROM po_utama p
+            JOIN po_detail d ON d.po_id = p.id
+            WHERE p.id = $2 AND p.tenant_id = $1
+        `;
+        
+        const result = await db.query(sql, [tId, po_id]);
+        
+        if (result.rows.length === 0) {
+            return res.status(404).json({ error: "Data PO tidak ditemukan" });
+        }
+
+        // Susun data agar mudah dibaca oleh JavaScript Popup di frontend
+        const data = result.rows.map(row => {
+            const sisaGudang = row.total_order - row.total_terkirim;
+            return {
+                po_id: row.po_id,
+                nama_po: row.nama_po,
+                customer: row.customer,
+                po_detail_id: row.po_detail_id,
+                nama_desain: row.nama_desain,
+                harga_cmt: parseFloat(row.harga_cmt || 0),
+                total_order: parseInt(row.total_order),
+                total_terkirim: parseInt(row.total_terkirim),
+                sisa_gudang: sisaGugang < 0 ? 0 : sisaGudang // Pengaman agar tidak minus
+            };
+        });
+
+        res.json(data);
+    } catch (err) {
+        console.error("🔥 Error API PO CMT Status:", err.message);
+        res.status(500).json({ error: err.message });
+    }
+});
+
+// 2. HANDLER BARU: SIMPAN KIRIMAN PARSIAL / SUSULAN DARI HALAMAN DEPAN
+app.post('/admin/kirim-ke-vendor-parsial', isAdmin, async (req, res) => {
+    const tId = req.session.tenantId;
+    // Menerima array dari form popup dinamis
+    const { po_id, po_detail_ids, nama_vendors, qty_kirims, harga_cmts } = req.body;
+
+    try {
+        await db.query("BEGIN");
+
+        // Normalisasi data menjadi array (jika user hanya input 1 vendor, data dari bodi form berbentuk string biasa)
+        const detailIds = Array.isArray(po_detail_ids) ? po_detail_ids : [po_detail_ids];
+        const vendors = Array.isArray(nama_vendors) ? nama_vendors : [nama_vendors];
+        const qtys = Array.isArray(qty_kirims) ? qty_kirims : [qty_kirims];
+        const hargas = Array.isArray(harga_cmts) ? harga_cmts : [harga_cmts];
+
+        // Looping untuk memproses setiap pengiriman vendor yang diisi di popup
+        for (let i = 0; i < vendors.length; i++) {
+            const currentVendor = vendors[i]?.trim();
+            const currentQty = parseInt(qtys[i]) || 0;
+            const currentDetailId = detailIds[i];
+            const currentHarga = parseFloat(hargas[i]) || 0;
+
+            // Lewati jika nama vendor kosong atau qty 0 (mencegah row kosong tersimpan)
+            if (!currentVendor || currentQty <= 0) continue;
+
+            // Hitung total biaya untuk Surat Jalan ini
+            const totalBiayaVendor = currentQty * currentHarga;
+
+            // A. Buat Header Surat Jalan Baru (Status default: PROSES, Pembayaran: BELUM LUNAS)
+            const sjRes = await db.query(
+                `INSERT INTO cmt_surat_jalan (tenant_id, nama_vendor, total_biaya_vendor, status, status_pembayaran, tanggal) 
+                 VALUES ($1, $2, $3, 'PROSES', 'BELUM LUNAS', CURRENT_DATE) RETURNING id`,
+                [tId, currentVendor, totalBiayaVendor]
+            );
+            const newSjId = sjRes.rows[0].id;
+
+            // B. Masukkan ke Detail Surat Jalan
+            await db.query(
+                `INSERT INTO cmt_surat_jalan_detail (sj_id, po_detail_id, qty_dikirim, harga_cmt_saat_ini) 
+                 VALUES ($1, $2, $3, $4)`,
+                [newSjId, currentDetailId, currentQty, currentHarga]
+            );
+        }
+
+        // C. UPDATE STATUS PO UTAMA MENJADI 'CMT'
+        // Langkah ini otomatis mengunci PO di halaman depan dan merubah fungsi tombolnya menjadi "Susulan"
+        await db.query("UPDATE po_utama SET status = 'CMT' WHERE id = $1 AND tenant_id = $2", [po_id, tId]);
+
+        await db.query("COMMIT");
+        
+        // Response sukses berupa alert javascript dan merefresh halaman PO Data
+        res.send("<script>alert('Logistik CMT berhasil diproses! Surat Jalan telah dibuat.'); window.location.history.back();</script>");
+    } catch (err) {
+        if (db) await db.query("ROLLBACK");
+        console.error("🔥 Error Simpan Parsial CMT:", err.message);
+        res.status(500).send("Gagal memproses pengiriman vendor: " + err.message);
+    }
+});
+
 app.get('/cek-balance', isAdmin, async (req, res) => {
     const tId = req.session.tenantId;
     const bulanIni = req.query.bulan || new Date().toISOString().slice(0, 7);
