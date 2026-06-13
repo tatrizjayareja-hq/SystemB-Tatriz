@@ -3418,19 +3418,19 @@ app.get('/api/po-cmt-status/:po_id', isAdmin, async (req, res) => {
 
         // Susun data agar mudah dibaca oleh JavaScript Popup di frontend
         const data = result.rows.map(row => {
-            const sisaGudang = row.total_order - row.total_terkirim;
-            return {
-                po_id: row.po_id,
-                nama_po: row.nama_po,
-                customer: row.customer,
-                po_detail_id: row.po_detail_id,
-                nama_desain: row.nama_desain,
-                harga_cmt: parseFloat(row.harga_cmt || 0),
-                total_order: parseInt(row.total_order),
-                total_terkirim: parseInt(row.total_terkirim),
-                sisa_gudang: sisaGugang < 0 ? 0 : sisaGudang // Pengaman agar tidak minus
-            };
-        });
+        const sisaGudang = row.total_order - row.total_terkirim;
+        return {
+            po_id: row.po_id,
+            nama_po: row.nama_po,
+            customer: row.customer,
+            po_detail_id: row.po_detail_id,
+            nama_desain: row.nama_desain,
+            harga_cmt: parseFloat(row.harga_cmt || 0),
+            total_order: parseInt(row.total_order),
+            total_terkirim: parseInt(row.total_terkirim),
+            sisa_gudang: sisaGudang < 0 ? 0 : sisaGudang // ➔ Di sini sudah aman menggunakan d!
+        };
+    });
 
         res.json(data);
     } catch (err) {
