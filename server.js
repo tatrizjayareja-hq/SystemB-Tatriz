@@ -1532,6 +1532,36 @@ app.get('/api/piutang-detail/:customer', isAdmin, async (req, res) => {
     }
 });
 
+// TAMBAHKAN KODE INI DI BACKEND (server.js) Anda:
+app.get('/api/customer-piutang', isAdmin, async (req, res) => {
+    const tId = req.session.tenantId;
+
+    // Query cerdas Anda untuk mengambil nama customer yang memang masih punya piutang aktif
+    const sql = `
+        SELECT p.customer 
+        FROM po_utama p
+        LEFT JOIN (
+            SELECT po_id, SUM(jumlah) as total 
+            FROM arus_kas 
+            WHERE kategori IN ('PEMBAYARAN BORDIR', 'PELUNASAN', 'DP/CICILAN') 
+            GROUP BY po_id
+        ) bayar ON p.id = bayar.po_id
+        WHERE p.status NOT IN ('Lunas', 'Design') AND p.tenant_id = $1
+        GROUP BY p.customer 
+        HAVING SUM(p.total_harga_customer - COALESCE(bayar.total, 0)) > 0
+        ORDER BY p.customer ASC
+    `;
+
+    try {
+        // Gunakan db.query standar PostgreSQL Anda
+        const result = await db.query(sql, [tId]);
+        res.json(result.rows || []); // Mengembalikan data mentah array untuk dibaca dropdown
+    } catch (err) {
+        console.error("🔥 Error API Customer Piutang:", err.message);
+        res.status(500).json([]);
+    }
+});
+
 app.get('/laporan-kas', isAdmin, async (req, res) => {
     const tId = req.session.tenantId;
     const isPro = (tId === 1 || tId === 100 || req.session.tenantLevel >= 2);
