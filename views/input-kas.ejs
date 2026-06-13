@@ -4,6 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Input Kas - Tatriz</title>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.0/font/bootstrap-icons.css">
     <style>
         body { font-family: 'Segoe UI', sans-serif; background: #f4f7f6; padding: 15px; margin: 0; }
         .card { background: white; padding: 20px; border-radius: 15px; box-shadow: 0 4px 10px rgba(0,0,0,0.05); max-width: 500px; margin: auto; }
@@ -15,45 +16,27 @@
         .btn-batal { background: #95a5a6; color: white; border: none; padding: 10px; width: 100%; border-radius: 10px; margin-top: 5px; cursor: pointer; transition: 0.3s; }
         .btn-batal:hover { background: #7f8c8d; }
         .header { text-align: center; margin-bottom: 20px; }
+        
+        /* Gaya tambahan khusus untuk Checkbox List agar rapi di HP */
+        .checkbox-container { max-height: 220px; overflow-y: auto; font-size: 13px; background: white; padding: 10px; border: 1px solid #ddd; border-radius: 8px; }
+        .check-row { display: flex; align-items: start; gap: 10px; margin-bottom: 10px; cursor: pointer; }
+        .check-row input { width: auto; transform: scale(1.2); margin-top: 3px; }
+        .check-row label { font-weight: normal; font-size: 13px; cursor: pointer; width: 100%; line-height: 1.3; }
+        hr.divider { margin: 8px 0; border: 0; border-top: 1px dashed #ddd; }
     </style>
 </head>
 <body>
-<div id="loaderSistem" style="
-    position: fixed;
-    top: 0; left: 0;
-    width: 100%; height: 100%;
-    background: #195e0b; /* Warna hijau gelap khas Tatriz */
-    z-index: 99999; /* Dipastikan paling atas menutupi semua menu */
-    display: flex;
-    flex-direction: column;
-    justify-content: center;
-    align-items: center;
-    transition: opacity 0.3s ease, visibility 0.3s ease;
-">
+<div id="loaderSistem" style="position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: #195e0b; z-index: 99999; display: flex; flex-direction: column; justify-content: center; align-items: center; transition: opacity 0.3s ease, visibility 0.3s ease;">
     <div class="spinner-tatriz"></div>
-    <p style="color: white; margin-top: 18px; font-weight: bold; font-size: 14px; letter-spacing: 1px; font-family: sans-serif; text-align: center;">
-        MEMUAT SISTEM TATRIZ...
-    </p>
+    <p style="color: white; margin-top: 18px; font-weight: bold; font-size: 14px; letter-spacing: 1px; font-family: sans-serif; text-align: center;">MEMUAT SISTEM TATRIZ...</p>
 </div>
 
 <style>
-    .spinner-tatriz {
-        width: 50px; height: 50px;
-        border: 5px solid rgba(255,255,255,0.2);
-        border-top: 5px solid #59cf77; /* Warna hijau muda aksen */
-        border-radius: 50%;
-        animation: putarLoaderTatriz 1s linear infinite;
-    }
-    @keyframes putarLoaderTatriz {
-        0% { transform: rotate(0deg); }
-        100% { transform: rotate(360deg); }
-    }
-    /* Kelas untuk menghilangkan loader dengan halus */
-    .loader-hilang {
-        opacity: 0 !important;
-        visibility: hidden !important;
-    }
+    .spinner-tatriz { width: 50px; height: 50px; border: 5px solid rgba(255,255,255,0.2); border-top: 5px solid #59cf77; border-radius: 50%; animation: putarLoaderTatriz 1s linear infinite; }
+    @keyframes putarLoaderTatriz { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+    .loader-hilang { opacity: 0 !important; visibility: hidden !important; }
 </style>
+
 <div class="header">
     <a href="/laporan-kas" style="text-decoration: none; color: #666; float: left;">← Back</a>
     <strong style="font-size: 18px;">💰 Input Arus Kas</strong>
@@ -86,40 +69,28 @@
         </div>
 
         <div class="form-group" id="group_po" style="display: none; background: #e8f4fd; padding: 15px; border-radius: 12px; border: 1px solid #bee3f8;">
-            <label style="color: #2b6cb0; font-size: 13px; font-weight: 700; margin-bottom: 8px; display: block; text-transform: uppercase; letter-spacing: 0.5px;">
-                <i class="bi bi-search"></i> Cari / Pilih Pesanan (PO)
-            </label>
-            
-            <input type="text" name="po_tampilan" id="input_po_cari" list="datalist_po" placeholder="🔍 Ketik Nama Customer / PO..." onchange="sinkronkanIdPO(this)" style="font-size: 14px; padding: 12px; border-radius: 8px; border: 1px solid #cbd5e0; background: #ffffff;">
-            
-            <input type="hidden" name="po_id" id="select_po">
+            <label style="color: #2b6cb0;"><i class="bi bi-person-fill"></i> Pilih Nama Customer</label>
+            <select id="select_customer_nama" class="form-control mb-3" onchange="muatDaftarPOCustomer(this.value)">
+                <option value="">-- Pilih Nama Customer --</option>
+            </select>
 
-            <datalist id="datalist_po">
-                <% pos.forEach(po => { %>
-                    <option data-id="<%= po.id %>" value="<%= po.customer %> • <%= po.nama_po %> • [<%= po.status.toUpperCase() %>]">
-                        Sisa Tagihan: Rp <%= (po.total_harga_customer || 0).toLocaleString('id-ID') %>
-                    </option>
-                <% }) %>
-            </datalist>
-            
-            <small style="color: #4a5568; font-size: 11px; margin-top: 8px; display: block; line-height: 1.4; font-style: italic;">
-                * Jalur pintas HP: Ketik potongan nama, lalu ketuk opsi yang muncul di atas keyboard.
-            </small>
+            <label style="color: #2b6cb0; font-size: 12px; margin-bottom: 5px;">Centang PO yang Ingin Dilunasi:</label>
+            <div id="container_checkbox_po" class="checkbox-container">
+                <span class="text-muted fst-italic">Silakan pilih nama customer terlebih dahulu...</span>
+            </div>
         </div>
-        <script>
-        function sinkronkanIdPO(input) {
-            const options = document.querySelectorAll('#datalist_po option');
-            const hiddenInput = document.getElementById('select_po');
-            hiddenInput.value = ""; // Reset jika tidak cocok
-            
-            for (let option of options) {
-                if (option.value === input.value) {
-                    hiddenInput.value = option.getAttribute('data-id');
-                    break;
-                }
-            }
-        }
-        </script>
+
+        <div class="form-group" id="group_vendor_cmt" style="display: none; background: #fff5f5; padding: 15px; border-radius: 12px; border: 1px solid #feb2b2;">
+            <label style="color: #c53030;"><i class="bi bi-person-badge-fill"></i> Pilih Vendor CMT / Maklon</label>
+            <select id="select_vendor_nama" class="form-control mb-3" onchange="muatDaftarSuratJalan(this.value)">
+                <option value="">-- Pilih Vendor --</option>
+            </select>
+
+            <label style="color: #c53030; font-size: 12px; margin-bottom: 5px;">Pilih Surat Jalan yang Ingin Dilunasi:</label>
+            <div id="container_checkbox_sj" class="checkbox-container">
+                <span class="text-muted fst-italic">Silakan pilih nama vendor terlebih dahulu...</span>
+            </div>
+        </div>
 
         <div class="form-group">
             <label>Jumlah (Rp)</label>
@@ -144,7 +115,7 @@
     const kategoriData = {
         "PEMASUKAN": ["PEMBAYARAN BORDIR", "MODAL", "HUTANG", "SARUTANGAN", "PEMASUKKAN LAIN"],
         "PENGELUARAN": [
-            "BAYAR HUTANG", "BAYAR SEWA MESIN", "BELANJA PRODUKSI", "BENSIN", 
+            "BAYAR CMT / VENDOR", "BAYAR HUTANG", "BAYAR SEWA MESIN", "BELANJA PRODUKSI", "BENSIN", 
             "BERAS", "BIAYA KONTRAKAN", "GAJI OPERATOR", "GAJI PENGURUS", 
             "GALON", "GAS", "JATAH PROFIT OWNER", "LAIN - LAIN", "LISTRIK", 
             "MAKAN/ SAYUR", "MIE, KOPI, GULA", "PIUTANG", "WIFI"
@@ -165,20 +136,168 @@
                 selectKategori.appendChild(opt);
             });
         }
-        cekKategoriPO();
+        cekKategoriPO(); 
     }
 
-    // 3. Tampilkan/Sembunyikan PO
+    // 3. Pengecekan Kategori untuk Menampilkan Form Dinamis Massal
     function cekKategoriPO() {
         const kategori = document.getElementById('select_kategori').value;
         const groupPO = document.getElementById('group_po');
-        groupPO.style.display = (kategori === "PEMBAYARAN BORDIR") ? 'block' : 'none';
+        const groupVendor = document.getElementById('group_vendor_cmt');
+        
+        groupPO.style.display = 'none';
+        groupVendor.style.display = 'none';
+        
+        if (kategori === "PEMBAYARAN BORDIR") {
+            groupPO.style.display = 'block';
+            ambilDaftarCustomerPiutang(); 
+        } else if (kategori === "BAYAR CMT / VENDOR") {
+            groupVendor.style.display = 'block';
+            ambilDaftarVendorHutang(); 
+        }
     }
 
-    // 4. Fungsi Batal Edit (MEMBERSIHKAN SEMUANYA)
+    // ==========================================
+    // 🔵 LOGIKA INTERAKSI SISI CUSTOMER (PIUTANG)
+    // ==========================================
+    async function ambilDaftarCustomerPiutang() {
+        const res = await fetch('/api/customer-piutang');
+        const customers = await res.json();
+        const select = document.getElementById('select_customer_nama');
+        select.innerHTML = '<option value="">-- Pilih Nama Customer --</option>';
+        customers.forEach(c => {
+            select.innerHTML += `<option value="${c.customer}">${c.customer.toUpperCase()}</option>`;
+        });
+    }
+
+    async function muatDaftarPOCustomer(namaCustomer) {
+        const container = document.getElementById('container_checkbox_po');
+        if (!namaCustomer) { 
+            container.innerHTML = '<span class="text-muted fst-italic">Silakan pilih nama customer...</span>'; 
+            return; 
+        }
+        
+        container.innerHTML = '<div class="text-center py-2"><div class="spinner-border spinner-border-sm text-primary"></div></div>';
+        
+        // Menembak langsung ke API piutang-detail asli milik Anda
+        const res = await fetch(`/api/piutang-detail/${encodeURIComponent(namaCustomer)}`);
+        const listPO = await res.json();
+        
+        if(listPO.length === 0) { 
+            container.innerHTML = '<span class="text-success fw-bold">🎉 Semua PO customer ini sudah Lunas.</span>'; 
+            return; 
+        }
+        
+        let html = `
+            <div class="check-row" style="margin-bottom: 12px; font-weight: bold; color: #198754;">
+                <input type="checkbox" id="check_all_po" onchange="toggleSemuaPO(this)">
+                <label for="check_all_po">👉 PILIH SEBUAH PIUTANG (SELECT ALL)</label>
+            </div><hr class="divider">
+        `;
+                    
+        listPO.forEach(po => {
+            const totalTagihan = parseFloat(po.total_harga_customer || 0);
+            const telahBayar = parseFloat(po.telah_bayar || 0);
+            const sisaPiutang = totalTagihan - telahBayar;
+
+            html += `
+            <div class="check-row">
+                <input type="checkbox" name="bulk_po_ids" class="cb-po-item" value="${po.id}" data-tagihan="${sisaPiutang}" id="po_${po.id}" onchange="hitungTotalKasMasuk()">
+                <label for="po_${po.id}">
+                    <span class="fw-bold text-dark">${po.nama_po}</span><br>
+                    <small class="text-muted">Nota: Rp ${totalTagihan.toLocaleString('id-ID')} | Masuk: Rp ${telahBayar.toLocaleString('id-ID')}</small><br>
+                    <small class="text-danger fw-bold">Sisa Piutang: Rp ${sisaPiutang.toLocaleString('id-ID')}</small>
+                </label>
+            </div><hr class="divider">`;
+        });
+        
+        container.innerHTML = html;
+        hitungTotalKasMasuk();
+    }
+
+    function toggleSemuaPO(master) {
+        document.querySelectorAll('.cb-po-item').forEach(cb => { cb.checked = master.checked; });
+        hitungTotalKasMasuk();
+    }
+
+    function hitungTotalKasMasuk() {
+        let total = 0;
+        document.querySelectorAll('.cb-po-item:checked').forEach(cb => {
+            total += parseFloat(cb.getAttribute('data-tagihan') || 0);
+        });
+        document.getElementById('input_jumlah').value = total;
+    }
+
+
+    // ==========================================
+    // 🔴 LOGIKA INTERAKSI SISI VENDOR (CMT)
+    // ==========================================
+    async function ambilDaftarVendorHutang() {
+        const res = await fetch('/api/vendor-hutang');
+        const vendors = await res.json();
+        const select = document.getElementById('select_vendor_nama');
+        select.innerHTML = '<option value="">-- Pilih Vendor --</option>';
+        vendors.forEach(v => {
+            select.innerHTML += `<option value="${v.nama_vendor}">${v.nama_vendor.toUpperCase()}</option>`;
+        });
+    }
+
+    async function muatDaftarSuratJalan(namaVendor) {
+        const container = document.getElementById('container_checkbox_sj');
+        if (!namaVendor) { 
+            container.innerHTML = '<span class="text-muted fst-italic">Silakan pilih nama vendor...</span>'; 
+            return; 
+        }
+        
+        container.innerHTML = '<div class="text-center py-2"><div class="spinner-border spinner-border-sm text-danger"></div></div>';
+        
+        const res = await fetch(`/api/vendor-sj-list?nama_vendor=${encodeURIComponent(namaVendor)}`);
+        const listSJ = await res.json();
+        
+        if(listSJ.length === 0) { 
+            container.innerHTML = '<span class="text-success fw-bold">🎉 Semua tagihan vendor ini sudah lunas!</span>'; 
+            return; 
+        }
+        
+        let html = `
+            <div class="check-row" style="margin-bottom: 12px; font-weight: bold; color: #0d6efd;">
+                <input type="checkbox" id="check_all_sj" onchange="toggleSemuaSJ(this)">
+                <label for="check_all_sj">👉 PILIH SEMUA SURAT JALAN</label>
+            </div><hr class="divider">
+        `;
+                    
+        listSJ.forEach(sj => {
+            html += `
+            <div class="check-row">
+                <input type="checkbox" name="sj_ids" class="cb-sj-item" value="${sj.sj_id}" data-biaya="${sj.total_biaya_vendor}" id="sj_${sj.sj_id}" onchange="hitungTotalKasKeluar()">
+                <label for="sj_${sj.sj_id}">
+                    <span class="fw-bold text-dark">${sj.customer}</span> — ${sj.nama_po}<br>
+                    <small class="text-muted">Item: ${sj.nama_desain} • Qty: ${sj.qty_dikirim} Pcs</small><br>
+                    <small class="text-danger fw-bold">Tagihan: Rp ${Number(sj.total_biaya_vendor).toLocaleString('id-ID')}</small>
+                </label>
+            </div><hr class="divider">`;
+        });
+        
+        container.innerHTML = html;
+        hitungTotalKasKeluar();
+    }
+
+    function toggleSemuaSJ(master) {
+        document.querySelectorAll('.cb-sj-item').forEach(cb => { cb.checked = master.checked; });
+        hitungTotalKasKeluar();
+    }
+
+    function hitungTotalKasKeluar() {
+        let total = 0;
+        document.querySelectorAll('.cb-sj-item:checked').forEach(cb => {
+            total += parseFloat(cb.getAttribute('data-biaya') || 0);
+        });
+        document.getElementById('input_jumlah').value = total;
+    }
+
     function batalEdit() {
-        sessionStorage.removeItem('editDataKas'); // Hapus memori edit
-        window.location.href = '/input-kas';    // Reload halaman agar bersih total
+        sessionStorage.removeItem('editDataKas');
+        window.location.href = '/input-kas';
     }
 
     // 5. Logic saat halaman dimuat
@@ -187,50 +306,113 @@
         
         if (editData) {
             const d = JSON.parse(editData);
-            
-            // Isi Form secara detail
-           document.getElementById('input_jumlah').value = d.jml;
+            document.getElementById('input_jumlah').value = d.jml;
             document.getElementById('input_keterangan').value = d.ket;
 
-            // 🔴 PERBAIKAN PENANGANAN PO ID UNTUK MODE COMBINATION DATALIST
-            if(d.poId && d.poId !== 'null' && d.poId !== '') {
-                document.getElementById('group_po').style.display = 'block';
-                document.getElementById('select_po').value = d.poId;
-                
-                // Cari teks yang sesuai di dalam datalist untuk ditampilkan ke kolom input pencarian
-                const opsiDatalist = document.querySelector(`#datalist_po option[data-id="${d.poId}"]`);
-                if (opsiDatalist) {
-                    document.getElementById('input_po_cari').value = opsiDatalist.value;
-                }
-            }
-
-            // Ubah UI menjadi Mode Update
+            // Tombol edit bawaan Anda
             const btnSubmit = document.getElementById('btn-submit-kas');
             btnSubmit.innerText = "UPDATE TRANSAKSI SEKARANG";
             btnSubmit.style.background = "#3498db"; 
-            
             document.getElementById('btn-batal-kas').style.display = 'block';
         } else {
-            // Jika bukan mode edit, set tanggal hari ini
             document.getElementById('tgl_skrg').valueAsDate = new Date();
         }
     }
-</script>
-<script>
-        document.addEventListener('DOMContentLoaded', function() {
-            const loader = document.getElementById('loaderSistem');
-            if (loader) {
-                setTimeout(function() {
-                    loader.classList.add('loader-hilang');
-                }, 200);
-            }
+
+    async function prosesSimpanKasDanCetak(event) {
+    event.preventDefault(); // Cegah halaman reload sepihak
+
+    const form = document.getElementById('form-kas');
+    const formData = new FormData(form);
+    
+    // Susun data form menjadi JSON Object biasa
+    const dataKirim = {};
+    formData.forEach((value, key) => {
+        if (key === 'sj_ids' || key === 'bulk_po_ids') {
+            if (!dataKirim[key]) dataKirim[key] = [];
+            dataKirim[key].push(value);
+        } else {
+            dataKirim[key] = value;
+        }
+    });
+
+    // Ambil daftar ID Surat Jalan yang dicentang sebelum form di-reset
+    const checkedSJ = document.querySelectorAll('.cb-sj-item:checked');
+    const listIdSJ = Array.from(checkedSJ).map(cb => cb.value);
+    
+    // Ambil nama vendor yang sedang dipilih
+    const selectVendor = document.getElementById('select_vendor_nama');
+    const namaVendor = selectVendor ? selectVendor.value : '';
+
+    try {
+        // Tampilkan loader sistem Tatriz
+        document.getElementById('loaderSistem').classList.remove('loader-hilang');
+
+        // 1. Simpan Transaksi Kas ke Backend
+        const response = await fetch('/save-kas', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(dataKirim)
         });
-        setTimeout(function() {
-            const loader = document.getElementById('loaderSistem');
-            if (loader && !loader.classList.contains('loader-hilang')) {
-                loader.classList.add('loader-hilang');
+
+        if (response.ok) {
+            sessionStorage.removeItem('editDataKas');
+            
+            // 🔴 LOGIKA OTOMATISASI WHATSAPP UNTUK CMT VENDOR
+            if (dataKirim['kategori'] === "BAYAR CMT / VENDOR" && listIdSJ.length > 0) {
+                
+                // 2. Tarik nomor WA perusahaan dari Setup/Settings secara real-time via API
+                const resWa = await fetch('/api/get-wa-perusahaan');
+                const dataWa = await resWa.json();
+                const noWaPerusahaan = dataWa.phone || ''; // Mengambil nomor wa dari database settings
+
+                if (noWaPerusahaan !== '') {
+                    // 3. Susun Teks Rekap Cantik untuk Grup / No Perusahaan
+                    const domainApp = window.location.origin; // Otomatis mendeteksi domain localhost atau hosting Anda
+                    const linkNotaAsli = `${domainApp}/cetak-nota-pilihan-vendor?ids=${listIdSJ.join(',')}`;
+                    
+                    const teksWA = `*💰 NOTIFIKASI PEMBAYARAN CMT VENDOR*\n\n` +
+                                   `Bendahara baru saja menginput pengeluaran Kas.\n` +
+                                   `• *Vendor:* ${namaVendor.toUpperCase()}\n` +
+                                   `• *Total Bayar:* Rp ${Number(dataKirim['jumlah']).toLocaleString('id-ID')}\n` +
+                                   `• *Catatan:* ${dataKirim['keterangan'] || '-'}\n\n` +
+                                   `*Silakan Admin Produksi klik link di bawah ini untuk mencetak nota pilihan resmi:*\n` +
+                                   `${linkNotaAsli}`;
+
+                    // URL WhatsApp resmi untuk mobile maupun desktop web
+                    const urlWhatsApp = `https://api.whatsapp.com/send?phone=${noWaPerusahaan}&text=${encodeURIComponent(teksWA)}`;
+                    
+                    // Buka WhatsApp di tab baru
+                    window.open(urlWhatsApp, '_blank');
+                }
             }
-        }, 4000);
-    </script>
+
+            alert('Transaksi Kas Berhasil Disimpan & Link Nota dikirim ke WhatsApp!');
+            window.location.href = '/laporan-kas'; 
+        } else {
+            alert('Gagal menyimpan transaksi kas.');
+            document.getElementById('loaderSistem').classList.add('loader-hilang');
+        }
+    } catch (err) {
+        console.error(err);
+        alert('Terjadi kesalahan sistem.');
+        document.getElementById('loaderSistem').classList.add('loader-hilang');
+    }
+}
+</script>
+
+
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        const loader = document.getElementById('loaderSistem');
+        if (loader) {
+            setTimeout(function() { loader.classList.add('loader-hilang'); }, 200);
+        }
+    });
+    setTimeout(function() {
+        const loader = document.getElementById('loaderSistem');
+        if (loader && !loader.classList.contains('loader-hilang')) { loader.classList.add('loader-hilang'); }
+    }, 4000);
+</script>
 </body>
 </html>

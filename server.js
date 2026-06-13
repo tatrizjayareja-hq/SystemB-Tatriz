@@ -1507,6 +1507,7 @@ app.get('/api/piutang-detail/:customer', isAdmin, async (req, res) => {
     const tId = req.session.tenantId;
     const customerName = req.params.customer;
 
+    // Query luar biasa Anda, dipertahankan 100% untuk akurasi sisa uang piutang
     const sql = `
         SELECT 
             p.id, p.nama_po, p.tanggal, p.total_harga_customer,
@@ -1520,8 +1521,11 @@ app.get('/api/piutang-detail/:customer', isAdmin, async (req, res) => {
     `;
 
     try {
-        const rows = await db.all(sql, [customerName, tId]);
-        res.json(rows);
+        // 🔴 PERBAIKAN: Gunakan db.query (PostgreSQL) menggantikan db.all (SQLite)
+        const result = await db.query(sql, [customerName, tId]);
+        
+        // Kirimkan datanya dalam bentuk array JSON .rows
+        res.json(result.rows || []);
     } catch (err) {
         console.error("🔥 Error Piutang Detail API:", err.message);
         res.status(500).json([]);
@@ -1633,30 +1637,93 @@ app.get('/laporan-kas', isAdmin, async (req, res) => {
 
 app.post('/save-kas', isAdmin, async (req, res) => {
     const tId = req.session.tenantId;
-    const { kas_id, tanggal, jenis, kategori, jumlah, keterangan, po_id } = req.body;
+    // 🔴 Ditambahkan 'bulk_po_ids' untuk menangkap checkbox banyak PO dari Customer
+    const { kas_id, tanggal, jenis, kategori, jumlah, keterangan, po_id, sj_ids, bulk_po_ids } = req.body;
     
-    // Pastikan po_id null jika tidak dipilih
     const isPayment = ["PEMBAYARAN BORDIR", "PELUNASAN", "DP/CICILAN"].includes(kategori);
     const ref_po = (isPayment && po_id && po_id !== "") ? parseInt(po_id) : null;
 
     try {
+        await db.query("BEGIN"); 
+
+        let currentKasId = kas_id;
+
         if (kas_id) {
+            // 1. Mode Update Transaksi yang Sudah Ada
             await db.query(`
                 UPDATE arus_kas SET tanggal=$1, jenis=$2, kategori=$3, jumlah=$4, keterangan=$5, po_id=$6 
                 WHERE id=$7 AND tenant_id=$8`,
                 [tanggal, jenis, kategori, jumlah, keterangan, ref_po, kas_id, tId]
             );
         } else {
-            await db.query(`
-                INSERT INTO arus_kas (tenant_id, tanggal, jenis, kategori, jumlah, keterangan, po_id) 
-                VALUES ($1, $2, $3, $4, $5, $6, $7)`,
-                [tId, tanggal, jenis, kategori, jumlah, keterangan, ref_po]
-            );
+            // 2. Mode Tambah Transaksi Baru (Hanya jika BUKAN Pembayaran Massal Customer)
+            // Karena jika massal customer, baris kas akan di-insert otomatis di bawah per masing-masing PO
+            if (kategori !== "PEMBAYARAN BORDIR" || !bulk_po_ids) {
+                const insertRes = await db.query(`
+                    INSERT INTO arus_kas (tenant_id, tanggal, jenis, kategori, jumlah, keterangan, po_id) 
+                    VALUES ($1, $2, $3, $4, $5, $6, $7) RETURNING id`,
+                    [tId, tanggal, jenis, kategori, jumlah, keterangan, ref_po]
+                );
+                currentKasId = insertRes.rows[0].id;
+            }
         }
 
-        if (ref_po) updateStatusPO(ref_po); // Panggil fungsi helper status
+        // 🔴 JALUR 1: JIKA KATEGORI ADALAH PEMBAYARAN BORDIR MASSAL CUSTOMER
+        if (kategori === "PEMBAYARAN BORDIR" && bulk_po_ids) {
+            const arrayPO = Array.isArray(bulk_po_ids) ? bulk_po_ids : [bulk_po_ids];
+            
+            for (let idPO of arrayPO) {
+                // A. Hitung Sisa Piutang Riil menggunakan logika query API piutang Anda kemarin
+                const sqlCekSisa = `
+                    SELECT (p.total_harga_customer - COALESCE(SUM(ak.jumlah), 0)) as sisa_piutang
+                    FROM po_utama p
+                    LEFT JOIN arus_kas ak ON p.id = ak.po_id 
+                         AND ak.kategori IN ('PEMBAYARAN BORDIR', 'PELUNASAN', 'DP/CICILAN')
+                    WHERE p.id = $1 AND p.tenant_id = $2
+                    GROUP BY p.id, p.total_harga_customer
+                `;
+                const sisaRes = await db.query(sqlCekSisa, [parseInt(idPO), tId]);
+                const sisaPiutangRiil = parseFloat(sisaRes.rows[0]?.sisa_piutang || 0);
+
+                // Pengaman: Jika piutang ternyata sudah habis, lewati PO ini
+                if (sisaPiutangRiil <= 0) continue;
+
+                // B. Simpan baris Kas Baru murni sebesar sisa uang yang belum dibayar pada PO ini
+                await db.query(`
+                    INSERT INTO arus_kas (tenant_id, tanggal, jenis, kategori, po_id, jumlah, keterangan)
+                    VALUES ($1, $2, $3, $4, $5, $6, $7)`,
+                    [tId, tanggal, jenis, kategori, parseInt(idPO), sisaPiutangRiil, `[PELUNASAN MASSAL] ${keterangan}`]
+                );
+
+                // C. Tembak status PO menjadi Lunas karena sisa piutangnya sudah dibayar penuh
+                await db.query(`
+                    UPDATE po_utama 
+                    SET status = 'Lunas' 
+                    WHERE id = $1 AND tenant_id = $2`,
+                    [parseInt(idPO), tId]
+                );
+            }
+        }
+
+        // 🔴 JALUR 2: JIKA KATEGORI ADALAH BAYAR CMT / VENDOR (Kode tahap 1 kemarin)
+        if (kategori === "BAYAR CMT / VENDOR" && sj_ids) {
+            const arraySJ = Array.isArray(sj_ids) ? sj_ids : [sj_ids];
+            for (let idSJ of arraySJ) {
+                await db.query("UPDATE cmt_surat_jalan SET status_pembayaran = 'LUNAS' WHERE id = $1 AND tenant_id = $2", [parseInt(idSJ), tId]);
+                await db.query("UPDATE arus_kas SET cmt_sj_id = $1 WHERE id = $2 AND tenant_id = $3", [parseInt(idSJ), currentKasId, tId]);
+            }
+        }
+
+        // Jalankan fungsi update helper status bawaan Anda jika input manual 1 PO seperti dulu
+        if (ref_po && (kategori !== "PEMBAYARAN BORDIR" || !bulk_po_ids)) {
+            updateStatusPO(ref_po); 
+        }
+        
+        await db.query("COMMIT"); 
         res.redirect('/laporan-kas');
+
     } catch (err) {
+        if (db) await db.query("ROLLBACK"); 
         console.error("🔥 Save Kas Error:", err.message);
         res.status(500).send("Gagal menyimpan transaksi.");
     }
@@ -3428,6 +3495,121 @@ app.post('/admin/kirim-ke-vendor-parsial', isAdmin, async (req, res) => {
         if (db) await db.query("ROLLBACK");
         console.error("🔥 Error Simpan Parsial CMT:", err.message);
         res.status(500).send("Gagal memproses pengiriman vendor: " + err.message);
+    }
+});
+
+// 1. API: AMBIL DAFTAR VENDOR YANG PUNYA HUTANG (STATUS SELESAI & BELUM LUNAS)
+app.get('/api/vendor-hutang', isAdmin, async (req, res) => {
+    const tId = req.session.tenantId;
+    try {
+        const sql = `
+            SELECT DISTINCT nama_vendor 
+            FROM cmt_surat_jalan 
+            WHERE tenant_id = $1 AND status = 'SELESAI' AND status_pembayaran = 'BELUM LUNAS'
+            ORDER BY nama_vendor ASC
+        `;
+        const result = await db.query(sql, [tId]);
+        res.json(result.rows);
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
+});
+
+// 2. API: AMBIL DAFTAR SURAT JALAN BELUM LUNAS BERDASARKAN NAMA VENDOR
+app.get('/api/vendor-sj-list', isAdmin, async (req, res) => {
+    const tId = req.session.tenantId;
+    const { nama_vendor } = req.query;
+    try {
+        const sql = `
+            SELECT 
+                sj.id as sj_id,
+                sj.total_biaya_vendor,
+                p.nama_po,
+                p.customer,
+                d.nama_desain,
+                sjd.qty_dikirim
+            FROM cmt_surat_jalan sj
+            JOIN cmt_surat_jalan_detail sjd ON sj.id = sjd.sj_id
+            JOIN po_detail d ON sjd.po_detail_id = d.id
+            JOIN po_utama p ON d.po_id = p.id
+            WHERE sj.tenant_id = $1 
+              AND sj.nama_vendor = $2 
+              AND sj.status = 'SELESAI' 
+              AND sj.status_pembayaran = 'BELUM LUNAS'
+            ORDER BY sj.id ASC
+        `;
+        const result = await db.query(sql, [tId, nama_vendor]);
+        res.json(result.rows);
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
+});
+
+// 3. HANDLER UTAMA: SIMPAN KAS & PELUNASAN MASSAL VENDOR CMT
+app.post('/save-kas', isAdmin, async (req, res) => {
+    const tId = req.session.tenantId;
+    // sj_ids akan dikirim berupa array checkbox dari frontend
+    const { kas_id, tanggal, jenis, kategori, po_id, jumlah, keterangan, sj_ids } = req.body;
+
+    try {
+        await db.query("BEGIN");
+
+        // A. Simpan data transaksi ke arus_kas utama
+        const sqlInsertKas = `
+            INSERT INTO arus_kas (tenant_id, tanggal, jenis, kategori, po_id, jumlah, keterangan)
+            VALUES ($1, $2, $3, $4, $5, $6, $7) RETURNING id
+        `;
+        const kasRes = await db.query(sqlInsertKas, [
+            tId, tanggal, jenis, kategori, 
+            po_id && po_id !== '' ? po_id : null, 
+            parseFloat(jumlah), keterangan
+        ]);
+        const newKasId = kasRes.rows[0].id;
+
+        // B. Jika yang dipilih adalah kategori Bayar CMT, jalankan fungsi Domino Pelunasan
+        if (kategori === "BAYAR CMT / VENDOR" && sj_ids) {
+            const arraySJ = Array.isArray(sj_ids) ? sj_ids : [sj_ids];
+            
+            for (let idSJ of arraySJ) {
+                // 1. Ubah status Surat Jalan di database produksi CMT menjadi LUNAS
+                await db.query(
+                    "UPDATE cmt_surat_jalan SET status_pembayaran = 'LUNAS' WHERE id = $1 AND tenant_id = $2",
+                    [parseInt(idSJ), tId]
+                );
+
+                // 2. Ikat ID Surat Jalan ke dalam detail kas (opsional, tapi bagus untuk audit)
+                // Jika Anda sudah menambahkan kolom cmt_sj_id via ALTER TABLE kemarin:
+                await db.query(
+                    "UPDATE arus_kas SET cmt_sj_id = $1 WHERE id = $2",
+                    [parseInt(idSJ), newKasId]
+                );
+            }
+        }
+
+        await db.query("COMMIT");
+        res.send("<script>alert('Transaksi Kas Berhasil Disimpan! Status pembayaran Vendor otomatis sinkron Lunas.'); window.location='/laporan-kas';</script>");
+    } catch (err) {
+        if (db) await db.query("ROLLBACK");
+        console.error("🔥 Error Simpan Kas Terintegrasi:", err.message);
+        res.status(500).send("Gagal menyimpan transaksi kas: " + err.message);
+    }
+});
+
+// API UNTUK MEMBACA NOMOR WHATSAPP DARI CONFIG SETUP/SETTINGS
+app.get('/api/get-wa-perusahaan', isAdmin, async (req, res) => {
+    const tId = req.session.tenantId;
+    try {
+        // Sesuaikan nama tabel 'settings' atau 'tenant_config' sesuai database Anda
+        const configRes = await db.query("SELECT phone FROM settings WHERE tenant_id = $1", [tId]);
+        
+        if (configRes.rows.length > 0) {
+            res.json({ phone: configRes.rows[0].phone });
+        } else {
+            res.json({ phone: '' });
+        }
+    } catch (err) {
+        console.error("🔥 Error API Get WA Perusahaan:", err.message);
+        res.json({ phone: '' }); // Tetap return string kosong agar frontend tidak crash
     }
 });
 
