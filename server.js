@@ -3490,7 +3490,7 @@ app.post('/admin/kirim-ke-vendor-parsial', isAdmin, async (req, res) => {
         await db.query("COMMIT");
         
         // Response sukses berupa alert javascript dan merefresh halaman PO Data
-        res.redirect('/po-data'); // <-- Sesuaikan dengan alamat rute halaman utama PO Anda (misal: /po-data atau /admin/po)
+        res.redirect('/po-data-v2'); // <-- Sesuaikan dengan alamat rute halaman utama PO Anda (misal: /po-data atau /admin/po)
 
     } catch (err) {
         if (db) await db.query("ROLLBACK");
