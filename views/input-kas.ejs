@@ -44,7 +44,7 @@
 </div>
 
 <div class="card">
-    <form id="form-kas" action="/save-kas" method="POST" onsubmit="sessionStorage.removeItem('editDataKas')">
+    <form id="form-kas" onsubmit="prosesSimpanKasDanCetak(event)">
         <input type="hidden" name="kas_id" id="kas_id">
         
         <div class="form-group">
@@ -111,7 +111,6 @@
 </div>
 
 <script>
-    // 1. Data Kategori
     const kategoriData = {
         "PEMASUKAN": ["PEMBAYARAN BORDIR", "MODAL", "HUTANG", "SARUTANGAN", "PEMASUKKAN LAIN"],
         "PENGELUARAN": [
@@ -122,7 +121,6 @@
         ]
     };
 
-    // 2. Fungsi Update Kategori
     function updateKategori() {
         const jenis = document.getElementById('select_jenis').value;
         const selectKategori = document.getElementById('select_kategori');
@@ -139,7 +137,6 @@
         cekKategoriPO(); 
     }
 
-    // 3. Pengecekan Kategori untuk Menampilkan Form Dinamis Massal
     function cekKategoriPO() {
         const kategori = document.getElementById('select_kategori').value;
         const groupPO = document.getElementById('group_po');
@@ -179,7 +176,6 @@
         
         container.innerHTML = '<div class="text-center py-2"><div class="spinner-border spinner-border-sm text-primary"></div></div>';
         
-        // Menembak langsung ke API piutang-detail asli milik Anda
         const res = await fetch(`/api/piutang-detail/${encodeURIComponent(namaCustomer)}`);
         const listPO = await res.json();
         
@@ -227,7 +223,6 @@
         });
         document.getElementById('input_jumlah').value = total;
     }
-
 
     // ==========================================
     // 🔴 LOGIKA INTERAKSI SISI VENDOR (CMT)
@@ -300,16 +295,13 @@
         window.location.href = '/input-kas';
     }
 
-    // 5. Logic saat halaman dimuat
     window.onload = function() {
         const editData = sessionStorage.getItem('editDataKas');
-        
         if (editData) {
             const d = JSON.parse(editData);
             document.getElementById('input_jumlah').value = d.jml;
             document.getElementById('input_keterangan').value = d.ket;
 
-            // Tombol edit bawaan Anda
             const btnSubmit = document.getElementById('btn-submit-kas');
             btnSubmit.innerText = "UPDATE TRANSAKSI SEKARANG";
             btnSubmit.style.background = "#3498db"; 
@@ -320,87 +312,74 @@
     }
 
     async function prosesSimpanKasDanCetak(event) {
-    event.preventDefault(); // Cegah halaman reload sepihak
+        event.preventDefault(); 
 
-    const form = document.getElementById('form-kas');
-    const formData = new FormData(form);
-    
-    // Susun data form menjadi JSON Object biasa
-    const dataKirim = {};
-    formData.forEach((value, key) => {
-        if (key === 'sj_ids' || key === 'bulk_po_ids') {
-            if (!dataKirim[key]) dataKirim[key] = [];
-            dataKirim[key].push(value);
-        } else {
-            dataKirim[key] = value;
-        }
-    });
-
-    // Ambil daftar ID Surat Jalan yang dicentang sebelum form di-reset
-    const checkedSJ = document.querySelectorAll('.cb-sj-item:checked');
-    const listIdSJ = Array.from(checkedSJ).map(cb => cb.value);
-    
-    // Ambil nama vendor yang sedang dipilih
-    const selectVendor = document.getElementById('select_vendor_nama');
-    const namaVendor = selectVendor ? selectVendor.value : '';
-
-    try {
-        // Tampilkan loader sistem Tatriz
-        document.getElementById('loaderSistem').classList.remove('loader-hilang');
-
-        // 1. Simpan Transaksi Kas ke Backend
-        const response = await fetch('/save-kas', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(dataKirim)
+        const form = document.getElementById('form-kas');
+        const formData = new FormData(form);
+        
+        const dataKirim = {};
+        formData.forEach((value, key) => {
+            if (key === 'sj_ids' || key === 'bulk_po_ids') {
+                if (!dataKirim[key]) dataKirim[key] = [];
+                dataKirim[key].push(value);
+            } else {
+                dataKirim[key] = value;
+            }
         });
 
-        if (response.ok) {
-            sessionStorage.removeItem('editDataKas');
-            
-            // 🔴 LOGIKA OTOMATISASI WHATSAPP UNTUK CMT VENDOR
-            if (dataKirim['kategori'] === "BAYAR CMT / VENDOR" && listIdSJ.length > 0) {
+        const checkedSJ = document.querySelectorAll('.cb-sj-item:checked');
+        const listIdSJ = Array.from(checkedSJ).map(cb => cb.value);
+        
+        const selectVendor = document.getElementById('select_vendor_nama');
+        const namaVendor = selectVendor ? selectVendor.value : '';
+
+        try {
+            document.getElementById('loaderSistem').classList.remove('loader-hilang');
+
+            const response = await fetch('/save-kas', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(dataKirim)
+            });
+
+            if (response.ok) {
+                sessionStorage.removeItem('editDataKas');
                 
-                // 2. Tarik nomor WA perusahaan dari Setup/Settings secara real-time via API
-                const resWa = await fetch('/api/get-wa-perusahaan');
-                const dataWa = await resWa.json();
-                const noWaPerusahaan = dataWa.phone || ''; // Mengambil nomor wa dari database settings
+                if (dataKirim['kategori'] === "BAYAR CMT / VENDOR" && listIdSJ.length > 0) {
+                    const resWa = await fetch('/api/get-wa-perusahaan');
+                    const dataWa = await resWa.json();
+                    const noWaPerusahaan = dataWa.phone || ''; 
 
-                if (noWaPerusahaan !== '') {
-                    // 3. Susun Teks Rekap Cantik untuk Grup / No Perusahaan
-                    const domainApp = window.location.origin; // Otomatis mendeteksi domain localhost atau hosting Anda
-                    const linkNotaAsli = `${domainApp}/cetak-nota-pilihan-vendor?ids=${listIdSJ.join(',')}`;
-                    
-                    const teksWA = `*💰 NOTIFIKASI PEMBAYARAN CMT VENDOR*\n\n` +
-                                   `Bendahara baru saja menginput pengeluaran Kas.\n` +
-                                   `• *Vendor:* ${namaVendor.toUpperCase()}\n` +
-                                   `• *Total Bayar:* Rp ${Number(dataKirim['jumlah']).toLocaleString('id-ID')}\n` +
-                                   `• *Catatan:* ${dataKirim['keterangan'] || '-'}\n\n` +
-                                   `*Silakan Admin Produksi klik link di bawah ini untuk mencetak nota pilihan resmi:*\n` +
-                                   `${linkNotaAsli}`;
+                    if (noWaPerusahaan !== '') {
+                        const domainApp = window.location.origin; 
+                        const linkNotaAsli = `${domainApp}/cetak-nota-pilihan-vendor?ids=${listIdSJ.join(',')}`;
+                        
+                        const teksWA = `*💰 NOTIFIKASI PEMBAYARAN CMT VENDOR*\n\n` +
+                                       `Bendahara baru saja menginput pengeluaran Kas.\n` +
+                                       `• *Vendor:* ${namaVendor.toUpperCase()}\n` +
+                                       `• *Total Bayar:* Rp ${Number(dataKirim['jumlah']).toLocaleString('id-ID')}\n` +
+                                       `• *Catatan:* ${dataKirim['keterangan'] || '-'}\n\n` +
+                                       `*Silakan Admin Produksi klik link di bawah ini untuk mencetak nota pilihan resmi:*\n` +
+                                       `${linkNotaAsli}`;
 
-                    // URL WhatsApp resmi untuk mobile maupun desktop web
-                    const urlWhatsApp = `https://api.whatsapp.com/send?phone=${noWaPerusahaan}&text=${encodeURIComponent(teksWA)}`;
-                    
-                    // Buka WhatsApp di tab baru
-                    window.open(urlWhatsApp, '_blank');
+                        const urlWhatsApp = `https://api.whatsapp.com/send?phone=${noWaPerusahaan}&text=${encodeURIComponent(teksWA)}`;
+                        window.open(urlWhatsApp, '_blank');
+                    }
                 }
-            }
 
-            alert('Transaksi Kas Berhasil Disimpan & Link Nota dikirim ke WhatsApp!');
-            window.location.href = '/laporan-kas'; 
-        } else {
-            alert('Gagal menyimpan transaksi kas.');
+                alert('Transaksi Kas Berhasil Disimpan!');
+                window.location.href = '/laporan-kas'; 
+            } else {
+                alert('Gagal menyimpan transaksi kas.');
+                document.getElementById('loaderSistem').classList.add('loader-hilang');
+            }
+        } catch (err) {
+            console.error(err);
+            alert('Terjadi kesalahan sistem.');
             document.getElementById('loaderSistem').classList.add('loader-hilang');
         }
-    } catch (err) {
-        console.error(err);
-        alert('Terjadi kesalahan sistem.');
-        document.getElementById('loaderSistem').classList.add('loader-hilang');
     }
-}
 </script>
-
 
 <script>
     document.addEventListener('DOMContentLoaded', function() {
@@ -409,10 +388,6 @@
             setTimeout(function() { loader.classList.add('loader-hilang'); }, 200);
         }
     });
-    setTimeout(function() {
-        const loader = document.getElementById('loaderSistem');
-        if (loader && !loader.classList.contains('loader-hilang')) { loader.classList.add('loader-hilang'); }
-    }, 4000);
 </script>
 </body>
 </html>
