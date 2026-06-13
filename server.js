@@ -3250,7 +3250,7 @@ app.post('/admin/kirim-ke-vendor', isAdmin, async (req, res) => {
         );
 
         await db.query("COMMIT");
-        res.redirect('/admin/data-cmt');
+        res.redirect('/po-data-v2');
     } catch (err) {
         if (db) await db.query("ROLLBACK");
         console.error("🔥 Error Kirim CMT:", err.message);
