@@ -92,7 +92,19 @@ const isAdmin = (req, res, next) => {
 
 // 3. Cek Role QC atau Admin
 const isQC = (req, res, next) => {
-    if (req.session.userId && (req.session.role === 'qc' || req.session.role === 'admin')) return next();
+    // Pastikan user sudah login
+    if (!req.session.userId) {
+        return res.status(401).send("Akses Ditolak: Silakan login terlebih dahulu!");
+    }
+
+    // Paksa role dari session menjadi huruf kecil semua agar aman
+    const userRole = (req.session.role || '').toLowerCase();
+
+    // Sekarang "QC" atau "qc", "ADMIN" atau "admin" semuanya pasti lolos
+    if (userRole === 'qc' || userRole === 'admin') {
+        return next();
+    }
+
     res.status(403).send("Akses Ditolak: Fitur Khusus QC!");
 };
 
@@ -2131,14 +2143,15 @@ app.get('/operator', async (req, res) => {
 app.get('/qc-input', isQC, async (req, res) => {
     const tId = req.session.tenantId;
     try {
-        const active_pos = await db.all(
+        // PERBAIKAN 1: Mengubah db.all menjadi db.query yang kompatibel dengan PostgreSQL/Supabase
+        const result = await db.query(
             "SELECT id, nama_po FROM po_utama WHERE tenant_id = $1 AND status IN ('Produksi', 'QC', 'CMT')", 
             [tId]
         );
 
-        // DI SINI baru kita panggil folder 'admin/' karena Express mencari di dalam folder views
+        // Kirim hasil query lewat result.rows
         res.render('admin/qc-input', { 
-            active_pos: active_pos || [],
+            active_pos: result.rows || [], // PERBAIKAN 2: Mengambil array data dari .rows
             user: req.session 
         });
     } catch (err) {
@@ -2163,13 +2176,13 @@ app.post('/simpan-qc', isQC, async (req, res) => {
             [tId, po_id, detail_id, uId, parseInt(jumlah_qc)]
         );
 
-        res.send("<script>window.location='admin/qc-input';</script>");
+        // PERBAIKAN 3: Mengubah lokasi window.location ke URL route yang benar
+        res.send("<script>alert('Data QC berhasil disimpan!'); window.location='/qc-input';</script>");
     } catch (err) {
         console.error("🔥 Simpan QC Error:", err.message);
         res.status(500).send("Gagal menyimpan data QC. Pastikan tabel 'hasil_qc' sudah dibuat di Supabase.");
     }
 });
-
 
 
 app.get('/qc-monitor', isAdmin, async (req, res) => {
