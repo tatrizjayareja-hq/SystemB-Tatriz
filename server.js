@@ -253,7 +253,7 @@ app.post('/login', async (req, res) => {
             }
                 
             console.log(`Log: Login sukses, redirect ke role: ${loggedInUser.role}`);
-            
+            const userRole = (loggedInUser.role || '').toLowerCase();
             if (loggedInUser.role === 'admin') {
                 // Sekarang pengecekan ini akan berjalan dengan akurat 100%
                 if (settings && settings.is_setup_complete === false) {
