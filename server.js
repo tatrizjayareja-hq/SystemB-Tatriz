@@ -2488,30 +2488,22 @@ app.get('/hasil-saya', isAuth, async (req, res) => {
         ORDER BY h.tanggal DESC, h.id DESC
     `;
 
-    try {
-        // 3. AMBIL DATA SETORAN DARI DATABASE
-        const result = await db.query(sql, [userId, tId, bulanDipilih]);
-        const rows = result.rows || [];
+    // Ganti bagian ini di app.get('/hasil-saya') jika menggunakan driver db custom/SQLite-style:
+try {
+    // Gunakan db.all kembali jika itu driver bawaan proyekmu
+    const rows = await db.all(sql, [userId, tId, bulanDipilih]); 
+    const configRes = await db.all("SELECT * FROM settings WHERE tenant_id = $1", [tId]);
+    const activeConfig = configRes[0] || { target_bonus: 0, nominal_bonus_dasar: 0, kelipatan_bonus: 100000, nominal_bonus_lipat: 0 };
 
-        // 4. AMBIL CONFIG SETTINGS (Dibutuhkan EJS untuk menghitung target_bonus)
-        const configRes = await db.query("SELECT * FROM settings WHERE tenant_id = $1", [tId]);
-        const activeConfig = configRes.rows[0] || { target_bonus: 0, nominal_bonus_dasar: 0, kelipatan_bonus: 100000, nominal_bonus_lipat: 0 };
-
-        // 5. RENDER KE VIEW DENGAN DATA LENGKAP
-        res.render('hasil-kerja-operator', { 
-            rows: rows, 
-            filterBulan: bulanDipilih, // Dikirim agar dropdown bulan tetap me-retain bulan yang dipilih
-            userName: userName,
-            config: activeConfig,
-            user: req.session,
-            access: { isInternal: (tId === 1 || tId === 100) } // Menentukan flag internal / external tenant
-        });
-
-    } catch (err) {
-        console.error("🔥 Gagal memuat rekap operator:", err.message);
-        res.status(500).send("Terjadi kesalahan saat memuat rekap kerja.");
-    }
-});
+    res.render('hasil-kerja-operator', { 
+        rows: rows || [], // Langsung array tanpa .rows
+        filterBulan: bulanDipilih,
+        userName: userName,
+        config: activeConfig,
+        user: req.session,
+        access: { isInternal: (tId === 1 || tId === 100) }
+    });
+}
 
 app.get('/input-kerja-admin', isAdmin, async (req, res) => {
     const tId = req.session.tenantId;
