@@ -1,13 +1,46 @@
 <%- include('../partials/header') %>
 <div class="container-fluid mt-4">
-    <div class="card shadow-sm border-0 p-3">
-        <h5 class="fw-bold"><i class="bi bi-shield-check"></i> Input Hasil QC</h5>
-        <p class="text-muted small">Input jumlah barang yang sudah selesai diperiksa.</p>
+    <div class="card shadow-sm border-0 p-4" style="border-radius: 15px;">
+        <h5 class="fw-bold text-dark"><i class="bi bi-shield-check text-primary"></i> Input Hasil & Jam Kerja QC</h5>
+        <p class="text-muted small">Input data kerja harian dan jumlah barang yang lolos pemeriksaan.</p>
+        <hr class="text-muted opacity-25">
 
         <form action="/simpan-qc" method="POST">
+            
             <div class="mb-3">
-                <label class="form-label small fw-bold">Pilih PO</label>
-                <select name="po_id" class="form-select" onchange="muatDetail(this.value)" required>
+                <label class="form-label small fw-bold text-secondary">Tanggal & Shift Kerja</label>
+                <div class="row g-2">
+                    <div class="col-8">
+                        <input type="date" name="tanggal" id="tgl_kerja" class="form-control" required>
+                    </div>
+                    <div class="col-4">
+                        <select name="shift" class="form-select">
+                            <option value="Pagi">Pagi</option>
+                            <option value="Sore">Sore</option>
+                            <option value="Malam">Malam</option>
+                        </select>
+                    </div>
+                </div>
+                <script>document.getElementById('tgl_kerja').valueAsDate = new Date();</script>
+            </div>
+
+            <div class="mb-3 p-3" style="background: #f8f9fa; border-radius: 8px; border: 1px dashed #ced4da;">
+                <label class="form-label small fw-bold text-success"><i class="bi bi-clock-history"></i> Durasi Jam Kerja QC</label>
+                <div class="row g-2">
+                    <div class="col-6">
+                        <small class="text-muted d-block mb-1" style="font-size: 11px;">Jam Kerja Reguler</small>
+                        <input type="number" name="jam_reguler" value="8" min="0" max="24" step="0.5" class="form-control form-control-sm" required>
+                    </div>
+                    <div class="col-6">
+                        <small class="text-muted d-block mb-1" style="font-size: 11px;">Jam Lembur</small>
+                        <input type="number" name="jam_lembur" value="0" min="0" max="24" step="0.5" class="form-control form-control-sm" required>
+                    </div>
+                </div>
+            </div>
+
+            <div class="mb-3">
+                <label class="form-label small fw-bold text-secondary">Pilih Pesanan (PO)</label>
+                <select name="po_id" id="select_po" class="form-select" onchange="muatDaftarDesain(this.value)" required>
                     <option value="">-- Pilih PO --</option>
                     <% active_pos.forEach(po => { %>
                         <option value="<%= po.id %>"><%= po.nama_po %></option>
@@ -16,36 +49,67 @@
             </div>
 
             <div class="mb-3">
-                <label class="form-label small fw-bold">Pilih Desain</label>
-                <select name="detail_id" id="select_detail" class="form-select" required disabled>
-                    <option value="">-- Pilih Desain --</option>
+                <label class="form-label small fw-bold text-secondary">Pilih Jenis Bordir</label>
+                <select name="detail_id" id="select_jenis" class="form-select" onchange="pilihOtomatisDesain(this)" required disabled>
+                    <option value="">-- Pilih Jenis --</option>
                 </select>
             </div>
 
-            <div class="mb-3">
-                <label class="form-label small fw-bold">Jumlah Lulus QC (Pcs)</label>
-                <input type="number" name="jumlah_qc" class="form-control form-control-lg" placeholder="0" required>
+            <div id="info_bordir" class="p-3 mb-3" style="background: #e8f4fd; border-radius: 10px; border-left: 5px solid #0984e3; display: none;">
+                <div class="mb-3">
+                    <small class="text-muted d-block">Nama Desain:</small>
+                    <strong id="display_nama_desain" class="fs-6 text-dark"></strong>
+                </div>
+                
+                <div class="mb-2">
+                    <label class="form-label small fw-bold text-dark">Jumlah Lulus QC (Pcs)</label>
+                    <input type="number" name="jumlah_qc" id="input_qc" class="form-control form-control-lg" placeholder="0" min="1" required>
+                </div>
             </div>
 
-            <button type="submit" class="btn btn-primary w-100 py-3 fw-bold">SIMPAN HASIL QC</button>
+            <button type="submit" class="btn btn-primary w-100 py-3 fw-bold shadow-sm" style="border-radius: 10px;">
+                SIMPAN HASIL & JAM QC
+            </button>
         </form>
     </div>
 </div>
 
 <script>
-async function muatDetail(poId) {
-    const sel = document.getElementById('select_detail');
-    if(!poId) { sel.disabled = true; return; }
-    
-    const res = await fetch(`/api/po-details/${poId}`);
-    const data = await res.json();
-    
-    let html = '<option value="">-- Pilih Desain --</option>';
-    data.forEach(d => {
-        html += `<option value="${d.id}">${d.nama_desain} (${d.jenis_bordir})</option>`;
-    });
-    sel.innerHTML = html;
-    sel.disabled = false;
+let dataSimpanan = []; 
+
+async function muatDaftarDesain(poId) {
+    const selectJenis = document.getElementById('select_jenis');
+    const infoDiv = document.getElementById('info_bordir');
+    infoDiv.style.display = 'none';
+    if(!poId) { selectJenis.disabled = true; return; }
+
+    try {
+        const res = await fetch(`/api/po-details/${poId}`);
+        dataSimpanan = await res.json(); 
+        
+        let html = '<option value="">-- Pilih Jenis Bordir --</option>';
+        dataSimpanan.forEach(d => {
+            const sisaTarget = d.sisa !== undefined ? d.sisa : d.jumlah;
+            html += `<option value="${d.id}" data-nama="${d.nama_desain}" data-sisa="${sisaTarget}">${d.jenis_bordir} (Sisa: ${sisaTarget} Pcs)</option>`;
+        });
+        selectJenis.innerHTML = html;
+        selectJenis.disabled = false;
+    } catch (err) {
+        console.error("🔥 Gagal mengambil detail PO:", err);
+    }
+}
+
+function pilihOtomatisDesain(el) {
+    const infoDiv = document.getElementById('info_bordir');
+    const selected = el.options[el.selectedIndex];
+    if(el.value) {
+        document.getElementById('display_nama_desain').innerText = selected.getAttribute('data-nama');
+        const inputQc = document.getElementById('input_qc');
+        inputQc.placeholder = "Sisa Target QC: " + selected.getAttribute('data-sisa');
+        infoDiv.style.display = 'block';
+    } else {
+        infoDiv.style.display = 'none';
+    }
 }
 </script>
 <%- include('../partials/footer') %>

@@ -2162,25 +2162,38 @@ app.get('/qc-input', isQC, async (req, res) => {
 
 // Route untuk memproses input dari form QC
 app.post('/simpan-qc', isQC, async (req, res) => {
-    const { po_id, detail_id, jumlah_qc } = req.body;
+    // Tangkap data tambahan (tanggal, shift, jam_reguler, jam_lembur) dari body form
+    const { po_id, detail_id, jumlah_qc, tanggal, shift, jam_reguler, jam_lembur } = req.body;
     const tId = req.session.tenantId;
     const uId = req.session.userId;
 
     try {
-        if (!detail_id || !jumlah_qc) {
+        if (!detail_id || !jumlah_qc || !tanggal || !shift) {
             return res.send("<script>alert('Data tidak lengkap!'); window.history.back();</script>");
         }
 
+        // PASTIKAN: Kolom tanggal, shift, jam_reguler, dan jam_lembur sudah ada di tabel 'hasil_qc' Supabase Anda
         await db.query(
-            "INSERT INTO hasil_qc (tenant_id, po_id, detail_id, user_id, jumlah_qc) VALUES ($1, $2, $3, $4, $5)",
-            [tId, po_id, detail_id, uId, parseInt(jumlah_qc)]
+            `INSERT INTO hasil_qc 
+            (tenant_id, po_id, detail_id, user_id, jumlah_qc, tanggal, shift, jam_reguler, jam_lembur) 
+            VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)`,
+            [
+                tId, 
+                po_id, 
+                detail_id, 
+                uId, 
+                parseInt(jumlah_qc), 
+                tanggal, 
+                shift, 
+                parseFloat(jam_reguler || 0), 
+                parseFloat(jam_lembur || 0)
+            ]
         );
 
-        // PERBAIKAN 3: Mengubah lokasi window.location ke URL route yang benar
-        res.send("<script>alert('Data QC berhasil disimpan!'); window.location='/qc-input';</script>");
+        res.send("<script>alert('Data QC dan Jam Kerja berhasil disimpan!'); window.location='/qc-input';</script>");
     } catch (err) {
         console.error("🔥 Simpan QC Error:", err.message);
-        res.status(500).send("Gagal menyimpan data QC. Pastikan tabel 'hasil_qc' sudah dibuat di Supabase.");
+        res.status(500).send("Gagal menyimpan data QC. Pastikan kolom tanggal, shift, jam_reguler, jam_lembur sudah dibuat di tabel hasil_qc Supabase.");
     }
 });
 
@@ -2780,20 +2793,46 @@ app.get('/input-gaji', isAdmin, async (req, res) => {
             return res.render('admin/pilih-tanggal-gaji', { config: activeConfig, user: req.session });
         }
 
-        // Query dibersihkan dengan GROUP BY agar tidak duplikat per tanggal
+        // PERBAIKAN UTAMA: Menggunakan UNION ALL untuk menyatukan data Operator dan QC secara realtime
         const sql = `
             SELECT 
                 u.id, u.nama_lengkap, u.gaji_pokok, u.role, 
-                h.tanggal,
-                SUM((CAST(h.jumlah_setor AS INT) * CAST(d.harga_operator AS NUMERIC))) as total_borongan_hari_ini,
-                MAX(COALESCE(h.jam_reguler, 0)) as jam_reguler,
-                MAX(COALESCE(h.jam_lembur, 0)) as jam_lembur
+                gabung.tanggal,
+                SUM(gabung.nominal_borongan) as total_borongan_hari_ini,
+                MAX(COALESCE(gabung.jam_reguler, 0)) as jam_reguler,
+                MAX(COALESCE(gabung.jam_lembur, 0)) as jam_lembur
             FROM users u
-            LEFT JOIN hasil_kerja h ON u.id = h.operator_id AND h.tanggal BETWEEN $1 AND $2
-            LEFT JOIN po_detail d ON h.detail_id = d.id
-            WHERE u.tenant_id = $3 AND u.role IN ('operator', 'qc')
-            GROUP BY u.id, u.nama_lengkap, u.gaji_pokok, u.role, h.tanggal
-            ORDER BY u.nama_lengkap ASC, h.tanggal ASC
+            LEFT JOIN (
+                -- Sumber A: Mengambil data dari laporan Operator
+                SELECT 
+                    operator_id as user_id, 
+                    tanggal, 
+                    jam_reguler, 
+                    jam_lembur,
+                    (CAST(jumlah_setor AS INT) * CAST(detail_harga AS NUMERIC)) as nominal_borongan
+                FROM (
+                    SELECT h.*, d.harga_operator as detail_harga 
+                    FROM hasil_kerja h
+                    LEFT JOIN po_detail d ON h.detail_id = d.id
+                ) data_op
+                WHERE tanggal BETWEEN $1 AND $2
+
+                UNION ALL
+
+                -- Sumber B: Mengambil data dari laporan QC
+                SELECT 
+                    user_id, 
+                    tanggal, 
+                    jam_reguler, 
+                    jam_lembur,
+                    0 as nominal_borongan -- Set 0 jika QC digaji harian/bukan borongan, atau sesuaikan rumusnya
+                FROM hasil_qc
+                WHERE tanggal BETWEEN $1 AND $2
+            ) gabung ON u.id = gabung.user_id
+            -- PERBAIKAN: Menggunakan LOWER() agar 'QC' maupun 'qc' tetap ikut terhitung gajinya
+            WHERE u.tenant_id = $3 AND LOWER(u.role) IN ('operator', 'qc')
+            GROUP BY u.id, u.nama_lengkap, u.gaji_pokok, u.role, gabung.tanggal
+            ORDER BY u.nama_lengkap ASC, gabung.tanggal ASC
         `;
 
         const rowsRes = await db.query(sql, [tgl_awal, tgl_akhir, tId]);
@@ -2818,17 +2857,14 @@ app.get('/input-gaji', isAdmin, async (req, res) => {
                 const jamLem = parseFloat(row.jam_lembur || 0);
 
                 if (apakahHariMinggu) {
-                    // HARI MINGGU: Jika ada total jam kerja masuk, dihitung sebagai 1 hari lembur utuh
                     if (jamReg > 0 || jamLem > 0) {
                         rekap[row.id].total_hari_lembur_minggu += 1; 
                     }
                 } else {
-                    // HARI BIASA: Senin - Sabtu
                     rekap[row.id].total_jam_reguler_biasa += jamReg;
                     rekap[row.id].total_jam_lembur_biasa += jamLem;
                 }
 
-                // Hitung borongan harian untuk bonus
                 const sub = parseFloat(row.total_borongan_hari_ini || 0);
                 rekap[row.id].borongan += sub;
                 rekap[row.id].harian[row.tanggal] = sub;
@@ -2837,19 +2873,14 @@ app.get('/input-gaji', isAdmin, async (req, res) => {
 
         // FORMAT DATA UNTUK KIRIM KE VIEW EJS
         Object.values(rekap).forEach(op => {
-            // A. Gabungkan jam reguler + lembur hari biasa untuk Hari Kerja
             const totalJamHariBiasa = op.total_jam_reguler_biasa + op.total_jam_lembur_biasa;
             
             const hariUtuh = Math.floor(totalJamHariBiasa / JAM_REGULER_SISTEM);
             const sisaJam = totalJamHariBiasa % JAM_REGULER_SISTEM;
 
-            // Masukkan ke format Hari.Jam (Contoh: 6.2 jika sisa 2 jam)
             op.format_hari_kerja = sisaJam > 0 ? `${hariUtuh}.${sisaJam}` : `${hariUtuh}.0`;
-
-            // B. Kolom Lembur otomatis terisi jumlah HARI MINGGU yang masuk kerja
             op.total_lembur_tampil = op.total_hari_lembur_minggu;
 
-            // Logika Bonus Internal Tetap
             if (isInternal) {
                 Object.values(op.harian).forEach(totalHari => {
                     if (totalHari >= parseFloat(activeConfig.target_bonus)) {
