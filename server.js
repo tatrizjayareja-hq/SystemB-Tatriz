@@ -2464,6 +2464,11 @@ app.get('/hasil-saya', isAuth, async (req, res) => {
     const tId = req.session.tenantId;
     const userName = req.session.nama_lengkap;
 
+    // 1. TANGKAP PARAMETER BULAN DARI URL (?bulan=2026-06)
+    // Jika admin/operator tidak memilih bulan, otomatis default ke bulan berjalan saat ini
+    const bulanDipilih = req.query.bulan || new Date().toISOString().slice(0, 7);
+
+    // 2. QUERY DISESUAIKAN DENGAN FILTER BULAN (Menggunakan TO_CHAR)
     const sql = `
         SELECT 
             h.id as log_id, 
@@ -2477,17 +2482,31 @@ app.get('/hasil-saya', isAuth, async (req, res) => {
         FROM hasil_kerja h
         JOIN po_utama p ON h.po_id = p.id
         JOIN po_detail d ON h.detail_id = d.id
-        WHERE h.operator_id = $1 AND h.tenant_id = $2
+        WHERE h.operator_id = $1 
+          AND h.tenant_id = $2
+          AND TO_CHAR(h.tanggal::DATE, 'YYYY-MM') = $3
         ORDER BY h.tanggal DESC, h.id DESC
     `;
 
     try {
-        const rows = await db.all(sql, [userId, tId]);
+        // 3. AMBIL DATA SETORAN DARI DATABASE
+        const result = await db.query(sql, [userId, tId, bulanDipilih]);
+        const rows = result.rows || [];
+
+        // 4. AMBIL CONFIG SETTINGS (Dibutuhkan EJS untuk menghitung target_bonus)
+        const configRes = await db.query("SELECT * FROM settings WHERE tenant_id = $1", [tId]);
+        const activeConfig = configRes.rows[0] || { target_bonus: 0, nominal_bonus_dasar: 0, kelipatan_bonus: 100000, nominal_bonus_lipat: 0 };
+
+        // 5. RENDER KE VIEW DENGAN DATA LENGKAP
         res.render('hasil-kerja-operator', { 
-            rows: rows || [], 
+            rows: rows, 
+            filterBulan: bulanDipilih, // Dikirim agar dropdown bulan tetap me-retain bulan yang dipilih
             userName: userName,
-            user: req.session 
+            config: activeConfig,
+            user: req.session,
+            access: { isInternal: (tId === 1 || tId === 100) } // Menentukan flag internal / external tenant
         });
+
     } catch (err) {
         console.error("🔥 Gagal memuat rekap operator:", err.message);
         res.status(500).send("Terjadi kesalahan saat memuat rekap kerja.");

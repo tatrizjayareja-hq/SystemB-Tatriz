@@ -22,6 +22,11 @@
         .bonus-tag { background: #27ae60; color: white; padding: 2px 6px; border-radius: 4px; font-size: 11px; margin-left: 5px; }
         .arrow { float: right; transition: 0.3s; color: #0984e3; }
         .rotate { transform: rotate(180deg); }
+        
+        /* Style Tambahan untuk Form Filter Bulan */
+        .filter-periode-box { display: flex; gap: 8px; align-items: center; margin-top: 12px; padding-top: 12px; border-top: 1px dashed #eee; }
+        .select-periode { padding: 10px; border-radius: 8px; border: 1px solid #ddd; font-size: 14px; background: #fff; flex-grow: 1; }
+        .btn-cari { background: #27ae60; color: white; border: none; padding: 10px 15px; border-radius: 8px; font-weight: bold; cursor: pointer; }
     </style>
 </head>
 <body>
@@ -29,8 +34,8 @@
     position: fixed;
     top: 0; left: 0;
     width: 100%; height: 100%;
-    background: #195e0b; /* Warna hijau gelap khas Tatriz */
-    z-index: 99999; /* Dipastikan paling atas menutupi semua menu */
+    background: #195e0b;
+    z-index: 99999;
     display: flex;
     flex-direction: column;
     justify-content: center;
@@ -43,31 +48,15 @@
     </p>
 </div>
 
-<style>
-    .spinner-tatriz {
-        width: 50px; height: 50px;
-        border: 5px solid rgba(255,255,255,0.2);
-        border-top: 5px solid #59cf77; /* Warna hijau muda aksen */
-        border-radius: 50%;
-        animation: putarLoaderTatriz 1s linear infinite;
-    }
-    @keyframes putarLoaderTatriz {
-        0% { transform: rotate(0deg); }
-        100% { transform: rotate(360deg); }
-    }
-    /* Kelas untuk menghilangkan loader dengan halus */
-    .loader-hilang {
-        opacity: 0 !important;
-        visibility: hidden !important;
-    }
-</style>
     <% 
         // 1. Inisialisasi Logika & Variabel
-        const isInternal = access.isInternal; // Dari middleware server.js
+        const isInternal = access.isInternal; 
         let totalGajiMingguIni = 0;
-        let totalOmzetHarian = 0;
         const tanggalUnik = new Set();
         
+        // Ambil filter bulan dari query string URL, jika tidak ada gunakan bulan ini (YYYY-MM)
+        const bulanDipilih = filterBulan || new Date().toISOString().slice(0, 7);
+
         const sekarang = new Date();
         const day = sekarang.getDay(); 
         const diff = sekarang.getDate() - day + (day === 0 ? -6 : 1);
@@ -87,14 +76,13 @@
             grouped[r.tanggal].totalOmzet += subtotal;
             grouped[r.tanggal].totalQty += qty;
 
-            // Hitung Estimasi Gaji (Hanya jika Internal)
             const tglData = new Date(r.tanggal);
             if(tglData >= awalMinggu) {
                 tanggalUnik.add(r.tanggal);
             }
         });
 
-        // 3. Hitung Bonus & Gaji Pokok (Logika Khusus Internal)
+        // 3. Hitung Bonus & Gaji Pokok (Logika Internal)
         if (isInternal) {
             let akumulasiBonus = 0;
             Object.keys(grouped).forEach(tgl => {
@@ -115,7 +103,14 @@
     <div class="header-box">    
         <h2 style="margin: 10px 0 5px 0;text-align:center;">Halo, <%= userName %>! 👋</h2>
         <p style="margin: 0; color: #888; font-size: 13px;text-align:center">Laporan hasil kerja Anda di sistem Tatriz.</p>       
+        
         <input type="text" id="filterInput" class="filter-input" placeholder="Cari Tanggal atau Nama PO..." onkeyup="liveFilter()">
+        
+        <form action="/hasil-saya" method="GET" class="filter-periode-box">
+            <label style="font-size: 13px; font-weight: bold; color: #555;">Periode:</label>
+            <input type="month" name="bulan" class="select-periode" value="<%= bulanDipilih %>" required>
+            <button type="submit" class="btn-cari">Buka</button>
+        </form>
     </div>
 
     <% if (isInternal) { %>
@@ -139,11 +134,19 @@
         <table>
             <thead>
                 <tr>
-                    <th>Rekap Per Tanggal</th>
+                    <th>Rekap Per Tanggal (<%= new Date(bulanDipilih + '-02').toLocaleDateString('id-ID', { month: 'long', year: 'numeric' }) %>)</th>
                     <th style="text-align: right;"><%= isInternal ? 'Pencapaian Omzet' : 'Total Setor' %></th>
                 </tr>
             </thead>
             <tbody id="rekapTable">
+                <% if (sortedDates.length === 0) { %>
+                    <tr>
+                        <td colspan="2" style="text-align: center; padding: 30px; color: #999; background: #fff;">
+                            Belum ada rekapan setoran kerja pada periode bulan ini.
+                        </td>
+                    </tr>
+                <% } %>
+                
                 <% sortedDates.forEach((tgl, index) => { 
                     let dHarian = grouped[tgl];
                     let bonusHarian = 0;
@@ -251,12 +254,6 @@
                 }, 200);
             }
         });
-        setTimeout(function() {
-            const loader = document.getElementById('loaderSistem');
-            if (loader && !loader.classList.contains('loader-hilang')) {
-                loader.classList.add('loader-hilang');
-            }
-        }, 4000);
     </script>
 </body>
 </html>
