@@ -247,28 +247,30 @@ app.post('/login', async (req, res) => {
 
         // 5. PAKSA SIMPAN SESSION SEBELUM REDIRECT
         req.session.save((err) => {
-            if (err) {
-                console.error("Log: Gagal simpan session:", err);
-                return res.redirect('/?error=session_failed');
-            }
-                
-            console.log(`Log: Login sukses, redirect ke role: ${loggedInUser.role}`);
-            const userRole = (loggedInUser.role || '').toLowerCase();
-            if (loggedInUser.role === 'admin') {
-                // Sekarang pengecekan ini akan berjalan dengan akurat 100%
-                if (settings && settings.is_setup_complete === false) {
-                    req.session.isAdminSetup = true; 
-                    console.log(`Log: Tenant ${loggedInUser.tenant_id} belum setup. Mengarahkan ke /setup`);
-                    return res.redirect('/setup');
-                }
-                
-                return res.redirect('/dashboard');
-            } else if (loggedInUser.role === 'qc') {
-                return res.redirect('/qc-input'); 
-            } else {
-                return res.redirect('/operator'); 
-            }
-        });
+    if (err) {
+        console.error("Log: Gagal simpan session:", err);
+        return res.redirect('/?error=session_failed');
+    }
+        
+    console.log(`Log: Login sukses, redirect ke role: ${loggedInUser.role}`);
+    
+    // PERBAIKAN: Ubah role menjadi huruf kecil semua sebelum dicek
+    const roleAman = (loggedInUser.role || '').toLowerCase();
+    
+    if (roleAman === 'admin') {
+        if (settings && settings.is_setup_complete === false) {
+            req.session.isAdminSetup = true; 
+            console.log(`Log: Tenant ${loggedInUser.tenant_id} belum setup. Mengarahkan ke /setup`);
+            return res.redirect('/setup');
+        }
+        return res.redirect('/dashboard');
+    } else if (roleAman === 'qc') { 
+        // Sekarang "QC", "Qc", maupun "qc" dari database akan sukses masuk ke sini!
+        return res.redirect('/qc-input'); 
+    } else {
+        return res.redirect('/operator'); 
+    }
+});
 
     } catch (err) {
         console.error("🔥 Login Error:", err);
