@@ -2480,21 +2480,23 @@ app.get('/hasil-saya', isAuth, async (req, res) => {
         JOIN po_detail d ON h.detail_id = d.id
         WHERE h.operator_id = $1 
           AND h.tenant_id = $2
-          AND TO_CHAR(h.tanggal::DATE, 'YYYY-MM') = $3
+          -- Menggunakan format CAST yang 100% aman untuk Supabase/PostgreSQL
+          AND CAST(h.tanggal AS TEXT) LIKE $3 || '%'
         ORDER BY h.tanggal DESC, h.id DESC
     `;
 
     try {
-        // Ambil data setoran berdasarkan driver database asli proyekmu (db.all)
-        const rows = await db.all(sql, [userId, tId, bulanDipilih]);
+        // 1. PERBAIKAN FATAL: Gunakan db.query dan .rows untuk Supabase
+        const result = await db.query(sql, [userId, tId, bulanDipilih]);
+        const rowsData = result.rows || [];
         
-        // Ambil data settings pendukung
-        const configRes = await db.all("SELECT * FROM settings WHERE tenant_id = $1", [tId]);
-        const activeConfig = configRes[0] || { target_bonus: 0, nominal_bonus_dasar: 0, kelipatan_bonus: 100000, nominal_bonus_lipat: 0 };
+        // 2. Ambil data settings pendukung (juga menggunakan db.query)
+        const configResult = await db.query("SELECT * FROM settings WHERE tenant_id = $1", [tId]);
+        const activeConfig = configResult.rows[0] || { target_bonus: 0, nominal_bonus_dasar: 0, kelipatan_bonus: 100000, nominal_bonus_lipat: 0 };
 
-        // Render ke halaman EJS dengan data lengkap
+        // 3. Render ke halaman EJS dengan data yang sudah bersih
         res.render('hasil-kerja-operator', { 
-            rows: rows || [], 
+            rows: rowsData, 
             filterBulan: bulanDipilih,
             userName: userName,
             config: activeConfig,
@@ -2503,7 +2505,7 @@ app.get('/hasil-saya', isAuth, async (req, res) => {
         });
 
     } catch (err) {
-        // Blok catch dipastikan ada dan mengurung error dengan benar
+        // Blok catch yang aman
         console.error("🔥 Gagal memuat rekap operator:", err.message);
         res.status(500).send("Terjadi kesalahan saat memuat rekap kerja.");
     }
