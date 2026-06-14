@@ -2140,18 +2140,29 @@ app.get('/operator', async (req, res) => {
 });
 
 // --- RUTE INPUT QC ---
+// --- RUTE INPUT QC (VERSI TERFILTER OTOMATIS) ---
 app.get('/qc-input', isQC, async (req, res) => {
     const tId = req.session.tenantId;
     try {
-        // PERBAIKAN 1: Mengubah db.all menjadi db.query yang kompatibel dengan PostgreSQL/Supabase
-        const result = await db.query(
-            "SELECT id, nama_po FROM po_utama WHERE tenant_id = $1 AND status IN ('Produksi', 'QC', 'CMT')", 
-            [tId]
-        );
+        // PERBAIKAN QUERY: Hanya mengambil PO yang memiliki item dengan antrean QC > 0
+        const sqlFilterPO = `
+            SELECT DISTINCT p.id, p.nama_po 
+            FROM po_utama p
+            JOIN po_detail d ON d.po_id = p.id
+            WHERE p.tenant_id = $1 
+              AND p.status IN ('Produksi', 'QC', 'CMT')
+              AND NOT EXISTS (
+                  SELECT 1 FROM cmt_surat_jalan_detail sjd WHERE sjd.po_detail_id = d.id
+              )
+              -- Kunci Filter: Memastikan total yang disetor operator LEBIH BANYAK daripada yang sudah di-QC
+              AND COALESCE((SELECT SUM(jumlah_setor) FROM hasil_kerja WHERE detail_id = d.id), 0) > 
+                  COALESCE((SELECT SUM(jumlah_qc) FROM hasil_qc WHERE detail_id = d.id), 0)
+        `;
 
-        // Kirim hasil query lewat result.rows
+        const result = await db.query(sqlFilterPO, [tId]);
+
         res.render('admin/qc-input', { 
-            active_pos: result.rows || [], // PERBAIKAN 2: Mengambil array data dari .rows
+            active_pos: result.rows || [], 
             user: req.session 
         });
     } catch (err) {
