@@ -2463,12 +2463,8 @@ app.get('/hasil-saya', isAuth, async (req, res) => {
     const userId = req.session.userId;
     const tId = req.session.tenantId;
     const userName = req.session.nama_lengkap;
-
-    // 1. TANGKAP PARAMETER BULAN DARI URL (?bulan=2026-06)
-    // Jika admin/operator tidak memilih bulan, otomatis default ke bulan berjalan saat ini
     const bulanDipilih = req.query.bulan || new Date().toISOString().slice(0, 7);
 
-    // 2. QUERY DISESUAIKAN DENGAN FILTER BULAN (Menggunakan TO_CHAR)
     const sql = `
         SELECT 
             h.id as log_id, 
@@ -2488,22 +2484,30 @@ app.get('/hasil-saya', isAuth, async (req, res) => {
         ORDER BY h.tanggal DESC, h.id DESC
     `;
 
-    // Ganti bagian ini di app.get('/hasil-saya') jika menggunakan driver db custom/SQLite-style:
-try {
-    // Gunakan db.all kembali jika itu driver bawaan proyekmu
-    const rows = await db.all(sql, [userId, tId, bulanDipilih]); 
-    const configRes = await db.all("SELECT * FROM settings WHERE tenant_id = $1", [tId]);
-    const activeConfig = configRes[0] || { target_bonus: 0, nominal_bonus_dasar: 0, kelipatan_bonus: 100000, nominal_bonus_lipat: 0 };
+    try {
+        // Ambil data setoran berdasarkan driver database asli proyekmu (db.all)
+        const rows = await db.all(sql, [userId, tId, bulanDipilih]);
+        
+        // Ambil data settings pendukung
+        const configRes = await db.all("SELECT * FROM settings WHERE tenant_id = $1", [tId]);
+        const activeConfig = configRes[0] || { target_bonus: 0, nominal_bonus_dasar: 0, kelipatan_bonus: 100000, nominal_bonus_lipat: 0 };
 
-    res.render('hasil-kerja-operator', { 
-        rows: rows || [], // Langsung array tanpa .rows
-        filterBulan: bulanDipilih,
-        userName: userName,
-        config: activeConfig,
-        user: req.session,
-        access: { isInternal: (tId === 1 || tId === 100) }
-    });
-}
+        // Render ke halaman EJS dengan data lengkap
+        res.render('hasil-kerja-operator', { 
+            rows: rows || [], 
+            filterBulan: bulanDipilih,
+            userName: userName,
+            config: activeConfig,
+            user: req.session,
+            access: { isInternal: (tId === 1 || tId === 100) }
+        });
+
+    } catch (err) {
+        // Blok catch dipastikan ada dan mengurung error dengan benar
+        console.error("🔥 Gagal memuat rekap operator:", err.message);
+        res.status(500).send("Terjadi kesalahan saat memuat rekap kerja.");
+    }
+});
 
 app.get('/input-kerja-admin', isAdmin, async (req, res) => {
     const tId = req.session.tenantId;
