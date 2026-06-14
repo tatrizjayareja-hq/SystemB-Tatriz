@@ -2480,21 +2480,29 @@ app.get('/hasil-saya', isAuth, async (req, res) => {
         JOIN po_detail d ON h.detail_id = d.id
         WHERE h.operator_id = $1 
           AND h.tenant_id = $2
-          -- Menggunakan format CAST yang 100% aman untuk Supabase/PostgreSQL
           AND CAST(h.tanggal AS TEXT) LIKE $3 || '%'
         ORDER BY h.tanggal DESC, h.id DESC
     `;
 
     try {
-        // 1. PERBAIKAN FATAL: Gunakan db.query dan .rows untuk Supabase
         const result = await db.query(sql, [userId, tId, bulanDipilih]);
-        const rowsData = result.rows || [];
-        
-        // 2. Ambil data settings pendukung (juga menggunakan db.query)
-        const configResult = await db.query("SELECT * FROM settings WHERE tenant_id = $1", [tId]);
-        const activeConfig = configResult.rows[0] || { target_bonus: 0, nominal_bonus_dasar: 0, kelipatan_bonus: 100000, nominal_bonus_lipat: 0 };
+        // BENTENG KEAMANAN: Memastikan formatnya pasti Array
+        let rowsData = [];
+        if (Array.isArray(result)) {
+            rowsData = result;
+        } else if (result && Array.isArray(result.rows)) {
+            rowsData = result.rows;
+        }
 
-        // 3. Render ke halaman EJS dengan data yang sudah bersih
+        const configResult = await db.query("SELECT * FROM settings WHERE tenant_id = $1", [tId]);
+        let activeConfig = { target_bonus: 0, nominal_bonus_dasar: 0, kelipatan_bonus: 100000, nominal_bonus_lipat: 0 };
+        
+        if (Array.isArray(configResult) && configResult.length > 0) {
+            activeConfig = configResult[0];
+        } else if (configResult && Array.isArray(configResult.rows) && configResult.rows.length > 0) {
+            activeConfig = configResult.rows[0];
+        }
+
         res.render('hasil-kerja-operator', { 
             rows: rowsData, 
             filterBulan: bulanDipilih,
@@ -2505,9 +2513,8 @@ app.get('/hasil-saya', isAuth, async (req, res) => {
         });
 
     } catch (err) {
-        // Blok catch yang aman
         console.error("🔥 Gagal memuat rekap operator:", err.message);
-        res.status(500).send("Terjadi kesalahan saat memuat rekap kerja.");
+        res.status(500).send("Terjadi kesalahan saat memuat rekap kerja. Hubungi Developer.");
     }
 });
 
