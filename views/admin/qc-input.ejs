@@ -39,38 +39,25 @@
             </div>
 
             <div class="mb-3">
-                <label class="form-label small fw-bold text-secondary">Pilih Pesanan (PO)</label>
-                <select name="po_id" id="select_po" class="form-select" onchange="muatDaftarDesain(this.value)" required>
-                    <option value="">-- Pilih PO --</option>
-                    <% active_pos.forEach(po => { %>
-                        <option value="<%= po.id %>"><%= po.nama_po %></option>
-                    <% }) %>
-                </select>
-            </div>
+    <label class="form-label small fw-bold text-secondary">Pilih Jenis Bordir</label>
+    <select name="detail_id" id="select_jenis" class="form-select" onchange="pilihOtomatisDesain(this)" required disabled>
+        <option value="">-- Pilih Jenis --</option>
+    </select>
+</div>
 
-            <div class="mb-3">
-                <label class="form-label small fw-bold text-secondary">Pilih Jenis Bordir</label>
-                <select name="detail_id" id="select_jenis" class="form-select" onchange="pilihOtomatisDesain(this)" required disabled>
-                    <option value="">-- Pilih Jenis --</option>
-                </select>
-            </div>
-
-            <div id="info_bordir" class="p-3 mb-3" style="background: #e8f4fd; border-radius: 10px; border-left: 5px solid #0984e3; display: none;">
-                <div class="mb-3">
-                    <small class="text-muted d-block">Nama Desain:</small>
-                    <strong id="display_nama_desain" class="fs-6 text-dark"></strong>
-                </div>
-                
-                <div class="mb-2">
-                    <label class="form-label small fw-bold text-dark">Jumlah Lulus QC (Pcs)</label>
-                    <input type="number" name="jumlah_qc" id="input_qc" class="form-control form-control-lg" placeholder="0" min="1" required>
-                </div>
-            </div>
-
-            <button type="submit" class="btn btn-primary w-100 py-3 fw-bold shadow-sm" style="border-radius: 10px;">
-                SIMPAN HASIL & JAM QC
-            </button>
-        </form>
+<div id="info_bordir" class="p-3 mb-3" style="background: #e8f4fd; border-radius: 10px; border-left: 5px solid #0984e3; display: none;">
+    <div class="mb-2">
+        <small class="text-muted d-block">Nama Desain:</small>
+        <strong id="display_nama_desain" class="fs-6 text-dark"></strong>
+    </div>
+    <div class="mb-3 p-2 table-responsive" style="background: white; border-radius: 6px; font-size: 13px;">
+        <span class="text-muted">Total Setoran Operator:</span> <strong id="display_total_op" class="text-success">0</strong> Pcs<br>
+        <span class="text-muted">Antrean Siap di-QC:</span> <strong id="display_sisa_qc" class="text-danger">0</strong> Pcs
+    </div>
+    
+    <div class="mb-2">
+        <label class="form-label small fw-bold text-dark">Jumlah Lulus QC (Pcs)</label>
+        <input type="number" name="jumlah_qc" id="input_qc" class="form-control form-control-lg" placeholder="0" min="1" required>
     </div>
 </div>
 
@@ -89,8 +76,11 @@ async function muatDaftarDesain(poId) {
         
         let html = '<option value="">-- Pilih Jenis Bordir --</option>';
         dataSimpanan.forEach(d => {
-            const sisaTarget = d.sisa !== undefined ? d.sisa : d.jumlah;
-            html += `<option value="${d.id}" data-nama="${d.nama_desain}" data-sisa="${sisaTarget}">${d.jenis_bordir} (Sisa: ${sisaTarget} Pcs)</option>`;
+            // Membaca 'd.sisa_qc' hasil kalkulasi dinamis dari API baru kita
+            html += `<option value="${d.id}" 
+                            data-nama="${d.nama_desain}" 
+                            data-totalop="${d.total_operator}"
+                            data-sisa="${d.sisa_qc}">${d.jenis_bordir} (Antrean: ${d.sisa_qc} Pcs)</option>`;
         });
         selectJenis.innerHTML = html;
         selectJenis.disabled = false;
@@ -102,10 +92,20 @@ async function muatDaftarDesain(poId) {
 function pilihOtomatisDesain(el) {
     const infoDiv = document.getElementById('info_bordir');
     const selected = el.options[el.selectedIndex];
+    
     if(el.value) {
-        document.getElementById('display_nama_desain').innerText = selected.getAttribute('data-nama');
+        const namaDesain = selected.getAttribute('data-nama');
+        const totalOp = selected.getAttribute('data-totalop');
+        const sisa = selected.getAttribute('data-sisa');
+
+        document.getElementById('display_nama_desain').innerText = namaDesain;
+        document.getElementById('display_total_op').innerText = totalOp;
+        document.getElementById('display_sisa_qc').innerText = sisa;
+        
         const inputQc = document.getElementById('input_qc');
-        inputQc.placeholder = "Sisa Target QC: " + selected.getAttribute('data-sisa');
+        inputQc.placeholder = "Maksimal input: " + sisa;
+        inputQc.max = sisa; // Kunci input agar QC tidak bisa melampaui hasil kerja operator
+        
         infoDiv.style.display = 'block';
     } else {
         infoDiv.style.display = 'none';

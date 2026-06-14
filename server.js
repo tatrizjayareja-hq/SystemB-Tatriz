@@ -2341,11 +2341,20 @@ app.get('/api/po-details/:id', async (req, res) => {
 
     const poId = req.params.id;
     
-    // Menghitung sisa per item desain secara real-time
-    // DITAMBAH FILTER: Jangan tampilkan desain yang sudah masuk ke Surat Jalan CMT
+    // PERBAIKAN QUERY: Menghitung sisa untuk Operator DAN sisa antrean untuk QC sekaligus
     const sql = `
-        SELECT d.id, d.jenis_bordir, d.nama_desain, d.harga_operator, d.jumlah,
-               (d.jumlah - COALESCE((SELECT SUM(jumlah_setor) FROM hasil_kerja WHERE detail_id = d.id), 0)) as sisa
+        SELECT 
+            d.id, 
+            d.jenis_bordir, 
+            d.nama_desain, 
+            d.harga_operator, 
+            d.jumlah,
+            -- 1. Sisa untuk OPERATOR (Target global dikurangi yang sudah dikerjakan operator)
+            (d.jumlah - COALESCE((SELECT SUM(jumlah_setor) FROM hasil_kerja WHERE detail_id = d.id), 0)) as sisa,
+            -- 2. Total yang SUDAH SETOR dari Operator (Untuk info QC)
+            COALESCE((SELECT SUM(jumlah_setor) FROM hasil_kerja WHERE detail_id = d.id), 0) as total_operator,
+            -- 3. Total yang SUDAH PERIKSA oleh QC
+            COALESCE((SELECT SUM(jumlah_qc) FROM hasil_qc WHERE detail_id = d.id), 0) as total_sudah_qc
         FROM po_detail d
         WHERE d.po_id = $1
         AND NOT EXISTS (
@@ -2354,8 +2363,26 @@ app.get('/api/po-details/:id', async (req, res) => {
     `;
     
     try {
-        const rows = await db.all(sql, [poId]);
-        res.json(rows);
+        // PERBAIKAN: Mengubah db.all menjadi db.query jika kamu menggunakan PostgreSQL / Supabase
+        const result = await db.query(sql, [poId]);
+        const rows = result.rows || [];
+
+        // Hitung sisa antrean riil QC di sisi aplikasi Node.js agar tidak merusak kolom database
+        const dataFinal = rows.map(row => {
+            const hitungSisaQC = row.total_operator - row.total_sudah_qc;
+            return {
+                id: row.id,
+                jenis_bordir: row.jenis_bordir,
+                nama_desain: row.nama_desain,
+                harga_operator: row.harga_operator,
+                jumlah: row.jumlah,
+                sisa: row.sisa, // Tetap aman digunakan oleh halaman Operator lama
+                total_operator: row.total_operator, // Dibaca oleh halaman QC baru
+                sisa_qc: hitungSisaQC < 0 ? 0 : hitungSisaQC // Dibaca oleh halaman QC baru
+            };
+        });
+
+        res.json(dataFinal);
     } catch (err) {
         console.error("🔥 API Details Error:", err.message);
         res.status(500).json([]);
