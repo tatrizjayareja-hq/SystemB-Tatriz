@@ -1749,13 +1749,26 @@ app.post('/save-kas', isAdmin, async (req, res) => {
             }
         }
 
-        // 🔴 JALUR 2: JIKA KATEGORI ADALAH BAYAR CMT / VENDOR (Kode tahap 1 kemarin)
+        // 🔴 JALUR 2: JIKA KATEGORI ADALAH BAYAR CMT / VENDOR
         if (kategori === "BAYAR CMT / VENDOR" && sj_ids) {
             const arraySJ = Array.isArray(sj_ids) ? sj_ids : [sj_ids];
+            
+            // Gabungkan semua ID menjadi satu teks (Contoh hasil: "10,11,12")
+            const stringSJ = arraySJ.join(',');
+
+            // A. Update status semua Surat Jalan yang dipilih menjadi LUNAS
             for (let idSJ of arraySJ) {
-                await db.query("UPDATE cmt_surat_jalan SET status_pembayaran = 'LUNAS' WHERE id = $1 AND tenant_id = $2", [parseInt(idSJ), tId]);
-                await db.query("UPDATE arus_kas SET cmt_sj_id = $1 WHERE id = $2 AND tenant_id = $3", [parseInt(idSJ), currentKasId, tId]);
+                await db.query(
+                    "UPDATE cmt_surat_jalan SET status_pembayaran = 'LUNAS' WHERE id = $1 AND tenant_id = $2", 
+                    [parseInt(idSJ), tId]
+                );
             }
+
+            // B. Update riwayat Kas SATU KALI SAJA dengan gabungan ID Surat Jalan
+            await db.query(
+                "UPDATE arus_kas SET cmt_sj_id = $1 WHERE id = $2 AND tenant_id = $3", 
+                [stringSJ, currentKasId, tId]
+            );
         }
 
         // Jalankan fungsi update helper status bawaan Anda jika input manual 1 PO seperti dulu
