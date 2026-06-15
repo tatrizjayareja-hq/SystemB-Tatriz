@@ -3668,18 +3668,21 @@ app.get('/api/vendor-hutang', isAdmin, async (req, res) => {
 });
 
 // 2. API: AMBIL DAFTAR SURAT JALAN BELUM LUNAS BERDASARKAN NAMA VENDOR
+// 2. API: AMBIL DAFTAR SURAT JALAN BELUM LUNAS BERDASARKAN NAMA VENDOR
 app.get('/api/vendor-sj-list', isAdmin, async (req, res) => {
     const tId = req.session.tenantId;
     const { nama_vendor } = req.query;
+    
     try {
+        // Menggunakan GROUP BY agar 1 Surat Jalan = 1 Baris Data (Tidak Duplikat)
         const sql = `
             SELECT 
                 sj.id as sj_id,
                 sj.total_biaya_vendor,
                 p.nama_po,
                 p.customer,
-                d.nama_desain,
-                sjd.qty_dikirim
+                STRING_AGG(d.nama_desain, ' & ') as nama_desain,
+                SUM(sjd.qty_dikirim) as qty_dikirim
             FROM cmt_surat_jalan sj
             JOIN cmt_surat_jalan_detail sjd ON sj.id = sjd.sj_id
             JOIN po_detail d ON sjd.po_detail_id = d.id
@@ -3688,12 +3691,20 @@ app.get('/api/vendor-sj-list', isAdmin, async (req, res) => {
               AND sj.nama_vendor = $2 
               AND sj.status = 'SELESAI' 
               AND sj.status_pembayaran = 'BELUM LUNAS'
+            GROUP BY 
+                sj.id, 
+                sj.total_biaya_vendor, 
+                p.nama_po, 
+                p.customer
             ORDER BY sj.id ASC
         `;
+        
         const result = await db.query(sql, [tId, nama_vendor]);
         res.json(result.rows);
+        
     } catch (err) {
-        res.status(500).json({ error: err.message });
+        console.error("🔥 Error API Vendor SJ List:", err.message);
+        res.status(500).json({ error: "Gagal memuat data Surat Jalan Vendor" });
     }
 });
 
