@@ -372,6 +372,47 @@
             } else {
                 alert('Gagal menyimpan transaksi kas.');
                 document.getElementById('loaderSistem').classList.add('loader-hilang');
+            }if (response.ok) {
+                sessionStorage.removeItem('editDataKas');
+                
+                if (dataKirim['kategori'] === "BAYAR CMT / VENDOR" && listIdSJ.length > 0) {
+                    const resWa = await fetch('/api/get-wa-perusahaan');
+                    const dataWa = await resWa.json();
+                    const noWaPerusahaan = dataWa.phone || ''; 
+
+                    if (noWaPerusahaan !== '') {
+                        const domainApp = window.location.origin; 
+                        const linkNotaAsli = `${domainApp}/cetak-nota-pilihan-vendor?ids=${listIdSJ.join(',')}`;
+                        
+                        const teksWA = `*💰 NOTIFIKASI PEMBAYARAN CMT VENDOR*\n\n` +
+                                       `Bendahara baru saja menginput pengeluaran Kas.\n` +
+                                       `• *Vendor:* ${namaVendor.toUpperCase()}\n` +
+                                       `• *Total Bayar:* Rp ${Number(dataKirim['jumlah']).toLocaleString('id-ID')}\n` +
+                                       `• *Catatan:* ${dataKirim['keterangan'] || '-'}\n\n` +
+                                       `*Silakan Admin Produksi klik link di bawah ini untuk mencetak nota pilihan resmi:*\n` +
+                                       `${linkNotaAsli}`;
+
+                        const urlWhatsApp = `https://api.whatsapp.com/send?phone=${noWaPerusahaan}&text=${encodeURIComponent(teksWA)}`;
+                        
+                        // 🔴 PERBAIKAN: Gunakan Confirm agar browser tidak memblokir pop-up WA
+                        const kirimWA = confirm("✅ Transaksi Kas Berhasil Disimpan!\n\nKlik 'OK' untuk mengirim Notifikasi WhatsApp dan Link Nota ke Admin Utama.\n\nKlik 'Cancel' jika hanya ingin kembali ke Laporan Kas.");
+                        
+                        if (kirimWA) {
+                            window.open(urlWhatsApp, '_blank');
+                        }
+                    } else {
+                        alert('✅ Transaksi Kas Berhasil Disimpan! (Nomor WA perusahaan belum diatur).');
+                    }
+                } else {
+                    alert('✅ Transaksi Kas Berhasil Disimpan!');
+                }
+
+                // Redirect ke Laporan Kas
+                window.location.href = '/laporan-kas'; 
+
+            } else {
+                alert('Gagal menyimpan transaksi kas.');
+                document.getElementById('loaderSistem').classList.add('loader-hilang');
             }
         } catch (err) {
             console.error(err);
