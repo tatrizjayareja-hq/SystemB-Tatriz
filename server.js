@@ -3330,6 +3330,7 @@ app.get('/performa-operator', isAdmin, async (req, res) => {
 });
 
 // 1. TAMPILAN UTAMA & MONITOR
+// 1. TAMPILAN UTAMA & MONITOR
 app.get('/admin/data-cmt', isAdmin, async (req, res) => {
     const tId = req.session.tenantId;
     try {
@@ -3359,12 +3360,13 @@ app.get('/admin/data-cmt', isAdmin, async (req, res) => {
                 ) as list_vendor
             FROM po_detail d
             JOIN po_utama p ON d.po_id = p.id
-            WHERE p.status = 'CMT' AND p.tenant_id = $1
+            -- 🔴 PERBAIKAN: Izinkan PO dengan status Lunas untuk tetap terbaca oleh sistem CMT
+            WHERE p.status IN ('CMT', 'Lunas') AND p.tenant_id = $1
             ORDER BY p.tanggal DESC
         `;
         const result = await db.query(sql, [tId]);
         
-        // Filter: Hanya tampilkan yang masih ada sisa di gudang ATAU ada hutang di vendor
+        // Filter cerdas Anda akan memastikan data yang benar-benar Lunas dan Selesai tidak akan nyangkut di layar
         const filteredData = result.rows.filter(row => 
             row.sisa_gudang > 0 || 
             (Array.isArray(row.list_vendor) && row.list_vendor.some(v => v.status_bayar !== 'LUNAS'))
