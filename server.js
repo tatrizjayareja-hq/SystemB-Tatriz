@@ -3670,7 +3670,6 @@ app.get('/api/vendor-hutang', isAdmin, async (req, res) => {
 });
 
 // 2. API: AMBIL DAFTAR SURAT JALAN BELUM LUNAS BERDASARKAN NAMA VENDOR
-// 2. API: AMBIL DAFTAR SURAT JALAN BELUM LUNAS BERDASARKAN NAMA VENDOR
 app.get('/api/vendor-sj-list', isAdmin, async (req, res) => {
     const tId = req.session.tenantId;
     const { nama_vendor } = req.query;
@@ -3711,6 +3710,7 @@ app.get('/api/vendor-sj-list', isAdmin, async (req, res) => {
 });
 
 // 3. HANDLER UTAMA: SIMPAN KAS & PELUNASAN MASSAL VENDOR CMT
+// 3. HANDLER UTAMA: SIMPAN KAS & PELUNASAN MASSAL VENDOR CMT
 app.post('/save-kas', isAdmin, async (req, res) => {
     const tId = req.session.tenantId;
     // sj_ids akan dikirim berupa array checkbox dari frontend
@@ -3734,29 +3734,33 @@ app.post('/save-kas', isAdmin, async (req, res) => {
         // B. Jika yang dipilih adalah kategori Bayar CMT, jalankan fungsi Domino Pelunasan
         if (kategori === "BAYAR CMT / VENDOR" && sj_ids) {
             const arraySJ = Array.isArray(sj_ids) ? sj_ids : [sj_ids];
-            
+            const stringSJ = arraySJ.join(','); // Gabungkan ID jadi teks (contoh: "10,11,12")
+
+            // 1. Ubah status Surat Jalan di database produksi CMT menjadi LUNAS
             for (let idSJ of arraySJ) {
-                // 1. Ubah status Surat Jalan di database produksi CMT menjadi LUNAS
                 await db.query(
                     "UPDATE cmt_surat_jalan SET status_pembayaran = 'LUNAS' WHERE id = $1 AND tenant_id = $2",
                     [parseInt(idSJ), tId]
                 );
-
-                // 2. Ikat ID Surat Jalan ke dalam detail kas (opsional, tapi bagus untuk audit)
-                // Jika Anda sudah menambahkan kolom cmt_sj_id via ALTER TABLE kemarin:
-                await db.query(
-                    "UPDATE arus_kas SET cmt_sj_id = $1 WHERE id = $2",
-                    [parseInt(idSJ), newKasId]
-                );
             }
+
+            // 2. Ikat ID Surat Jalan ke dalam detail kas (SATU KALI SAJA di luar looping)
+            await db.query(
+                "UPDATE arus_kas SET cmt_sj_id = $1 WHERE id = $2",
+                [stringSJ, newKasId]
+            );
         }
 
         await db.query("COMMIT");
-        res.send("<script>alert('Transaksi Kas Berhasil Disimpan! Status pembayaran Vendor otomatis sinkron Lunas.'); window.location='/laporan-kas';</script>");
+        
+        // 🔴 PERBAIKAN: Balas dengan JSON agar fetch di frontend sukses memicu Pop-up WA
+        res.json({ success: true, message: 'Transaksi Kas Berhasil Disimpan!' });
+
     } catch (err) {
         if (db) await db.query("ROLLBACK");
         console.error("🔥 Error Simpan Kas Terintegrasi:", err.message);
-        res.status(500).send("Gagal menyimpan transaksi kas: " + err.message);
+        // Balas dengan error status 500 agar ditangkap oleh catch di frontend
+        res.status(500).json({ error: "Gagal menyimpan transaksi kas: " + err.message });
     }
 });
 
