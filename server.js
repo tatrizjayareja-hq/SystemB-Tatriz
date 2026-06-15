@@ -3330,7 +3330,6 @@ app.get('/performa-operator', isAdmin, async (req, res) => {
 });
 
 // 1. TAMPILAN UTAMA & MONITOR
-// 1. TAMPILAN UTAMA & MONITOR
 app.get('/admin/data-cmt', isAdmin, async (req, res) => {
     const tId = req.session.tenantId;
     try {
@@ -3338,6 +3337,7 @@ app.get('/admin/data-cmt', isAdmin, async (req, res) => {
             SELECT 
                 d.id as detail_id, 
                 p.id as po_id, 
+                p.status,
                 p.nama_po, 
                 p.customer, 
                 d.nama_desain, 
@@ -3360,17 +3360,31 @@ app.get('/admin/data-cmt', isAdmin, async (req, res) => {
                 ) as list_vendor
             FROM po_detail d
             JOIN po_utama p ON d.po_id = p.id
-            -- 🔴 PERBAIKAN: Izinkan PO dengan status Lunas untuk tetap terbaca oleh sistem CMT
-            WHERE p.status IN ('CMT', 'Lunas') AND p.tenant_id = $1
+            WHERE p.tenant_id = $1 
+              AND (
+                  p.status = 'CMT' 
+                  OR 
+                  -- 🔴 PERBAIKAN: Hanya izinkan PO Lunas JIKA benar-benar punya hutang vendor!
+                  (p.status = 'Lunas' AND EXISTS (
+                      SELECT 1 FROM cmt_surat_jalan_detail sjd 
+                      JOIN cmt_surat_jalan sj ON sj.id = sjd.sj_id 
+                      WHERE sjd.po_detail_id = d.id AND sj.status_pembayaran = 'BELUM LUNAS'
+                  ))
+              )
             ORDER BY p.tanggal DESC
         `;
         const result = await db.query(sql, [tId]);
         
-        // Filter cerdas Anda akan memastikan data yang benar-benar Lunas dan Selesai tidak akan nyangkut di layar
-        const filteredData = result.rows.filter(row => 
-            row.sisa_gudang > 0 || 
-            (Array.isArray(row.list_vendor) && row.list_vendor.some(v => v.status_bayar !== 'LUNAS'))
-        );
+        // Filter JavaScript sekarang hanya bertugas menyembunyikan PO 'CMT' yang barangnya sudah habis dikirim ke vendor
+        const filteredData = result.rows.filter(row => {
+            const adaHutang = Array.isArray(row.list_vendor) && row.list_vendor.some(v => v.status_bayar !== 'LUNAS');
+            
+            if (row.status === 'Lunas') {
+                return adaHutang; // Jika sudah lunas, wajib tampil HANYA jika ada hutang
+            } else {
+                return row.sisa_gudang > 0 || adaHutang; // Jika masih CMT, tampilkan jika ada sisa barang ATAU ada hutang
+            }
+        });
 
         res.render('admin/data-cmt', { dataCMT: filteredData });
     } catch (err) {
