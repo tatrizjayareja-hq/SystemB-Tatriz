@@ -153,21 +153,28 @@
                             </div>
 
                             <% 
-                                // PERBAIKAN FATAL: Gunakan operator `==` agar toleran terhadap tipe data string/integer
+                                // Mencari detail yang po_id-nya sama dengan id PO utama
                                 const subItems = details.filter(d => d.po_id == po.id); 
                                 
-                                subItems.forEach(sub => {
-                                    let warnaTeks = "text-success";
-                                    let targetPcs = parseInt(sub.target_pcs) || 0;
-                                    let sudahSetor = parseInt(sub.sudah_setor) || 0;
-                                    let sisa = targetPcs - sudahSetor;
-                                    
-                                    if(sisa < 0) warnaTeks = "text-danger blink-warn"; 
-                                    else if(sisa > 0) warnaTeks = "text-warning"; 
-                                    else warnaTeks = "text-success"; 
+                                // JIKA DATA KOSONG, TAMPILKAN PERINGATAN MERAH!
+                                if (subItems.length === 0) { 
                             %>
-                                <!-- Sub Item Klik memicu Popup Login -->
-                                <div class="sub-item shadow-sm" onclick="bukaLoginKiosk('<%= po.id %>', '<%= po.nama_po %>', '<%= sub.detail_id %>', '<%= sub.nama_desain %>')">
+                                <div class="alert alert-danger text-center small p-2 mb-0 border border-danger">
+                                    <i class="bi bi-exclamation-circle-fill"></i> Data detail tidak ditemukan!
+                                </div>
+                            <%  } else { 
+                                    // JIKA DATA ADA, TAMPILKAN LISTNYA
+                                    subItems.forEach(sub => {
+                                        let warnaTeks = "text-success";
+                                        let targetPcs = parseInt(sub.jumlah) || 0;     // <-- Diambil dari d.*
+                                        let sudahSetor = parseInt(sub.sudah_setor) || 0; // <-- Diambil dari sub-query
+                                        let sisa = targetPcs - sudahSetor;
+                                        
+                                        if(sisa < 0) warnaTeks = "text-danger blink-warn"; 
+                                        else if(sisa > 0) warnaTeks = "text-warning"; 
+                                        else warnaTeks = "text-success"; 
+                            %>
+                                <div class="sub-item shadow-sm" onclick="bukaLoginKiosk('<%= po.id %>', '<%= po.nama_po %>', '<%= sub.id %>', '<%= sub.nama_desain %>')">
                                     <div>
                                         <strong class="d-block text-dark" style="font-size: 14px;"><%= sub.nama_desain %></strong>
                                         <small class="text-muted"><%= sub.jenis_bordir %></small>
@@ -179,13 +186,11 @@
                                         </small>
                                     </div>
                                 </div>
-                            <% }); %>
+                            <%      }); 
+                                } 
+                            %>
                         </div>
                     </div>
-                </div>
-            <% }) %>
-        </div>
-    </div>
 
     <!-- POPUP LOGIN KHUSUS KIOSK -->
     <div class="modal fade" id="modalLoginKiosk" tabindex="-1" data-bs-backdrop="static">
