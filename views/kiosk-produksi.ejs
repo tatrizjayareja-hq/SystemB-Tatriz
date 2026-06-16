@@ -162,7 +162,7 @@
                                         subItems.forEach(sub => {
                                             let warnaTeks = "text-success";
                                             let targetPcs = parseInt(sub.jumlah) || 0;     
-                                            let sudahSetor = parseInt(sub.sudah_setor) || 0; 
+                                            let sudahSetor = parseInt(sub.total_produksi) || 0; 
                                             let sisa = targetPcs - sudahSetor;
                                             
                                             if(sisa < 0) warnaTeks = "text-danger blink-warn"; 
