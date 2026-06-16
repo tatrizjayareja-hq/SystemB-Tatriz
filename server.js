@@ -2131,7 +2131,10 @@ app.get('/operator', async (req, res) => {
 
         // 5. Kirim data ke file EJS (Ditambahkan objek config agar input jam kerja dinamis)
         res.render('operator', { 
-            user: { nama: req.session.nama_lengkap },
+            user: { 
+                nama: req.session.nama_lengkap,
+                isKiosk: req.session.isKioskMode // 🌟 TAMBAHKAN INI
+            },
             active_pos: active_pos,
             daftarMesin: daftarMesin,
             kurangnya: kurangnya,
@@ -2970,7 +2973,14 @@ app.get('/input-gaji', isAdmin, async (req, res) => {
 });
 
 // A. RUTE UNTUK MENAMPILKAN LAYAR KIOSK
-app.get('/kiosk-produksi', isAdmin, async (req, res) => {
+app.get('/kiosk-produksi', async (req, res) => {
+    // 🌟 VALIDASI KEAMANAN BARU
+    if (!req.session.tenantId) return res.redirect('/');
+    // Hanya izinkan jika yang buka adalah Admin ATAU mesin yang sedang dalam mode Kiosk
+    if (req.session.role !== 'admin' && req.session.role !== 'kiosk') {
+        return res.redirect('/'); // Tolak jika operator biasa coba buka URL ini dari HP pribadi
+    }
+    
     const tId = req.session.tenantId;
     
     try {
@@ -3076,6 +3086,7 @@ app.post('/login-kiosk', async (req, res) => {
         req.session.nama_lengkap = loggedInUser.nama_lengkap;
         req.session.role = loggedInUser.role;
         req.session.tenantId = loggedInUser.tenant_id;
+        req.session.isKioskMode = true;
 
         req.session.save((err) => {
             if (err) throw err;
@@ -3089,6 +3100,24 @@ app.post('/login-kiosk', async (req, res) => {
         console.error("🔥 Kiosk Login Error:", err);
         res.send("<script>alert('Terjadi kesalahan sistem'); window.history.back();</script>");
     }
+});
+
+// RUTE KHUSUS LOGOUT MESIN KIOSK
+app.get('/logout-kiosk', async (req, res) => {
+    // 1. Hapus identitas personal karyawan
+    req.session.userId = null;
+    req.session.username = null;
+    req.session.nama_lengkap = null;
+    
+    // 2. KUNCI MESIN! Ubah role menjadi 'kiosk' agar tidak bisa akses dashboard admin
+    req.session.role = 'kiosk';
+    
+    // 3. Tenant ID tetap dibiarkan hidup agar data PO perusahaan tetap bisa ditarik
+    req.session.save((err) => {
+        if (err) console.error("Error logout kiosk:", err);
+        // Lempar kembali ke layar standby
+        res.redirect('/kiosk-produksi');
+    });
 });
 
 // --- 2. PROSES CETAK SLIP (REVISI TOTAL - DENGAN ADJ MANUAL) ---

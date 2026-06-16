@@ -160,7 +160,7 @@
     </a>
     
     <div style="text-align: center;">
-        <a href="/logout" style="color: #e74c3c; text-decoration: none; font-size: 14px; font-weight: bold;">
+        <a href="<%= user.isKiosk ? '/logout-kiosk' : '/logout' %>" style="color: #e74c3c; text-decoration: none; font-size: 14px; font-weight: bold;">
             🚪 Keluar (Logout)
         </a>
     </div>
@@ -272,41 +272,46 @@ function pilihOtomatisDesain(el) {
                 allowOutsideClick: false // Paksa user memilih
             }).then((result) => {
                 if (result.isConfirmed) {
-                    // Bersihkan URL agar popup tidak muncul lagi jika di-refresh
                     window.history.replaceState({}, document.title, "/operator");
                 } else {
-                    // Logout dan kembali ke Kiosk
-                    window.location.href = '/logout';
+                    // Logout kembali ke Kiosk
+                    window.location.href = '<%= user.isKiosk ? "/logout-kiosk" : "/logout" %>';
                 }
             });
         }
     });
 
+   // ==========================================
+    // 3. FITUR IDLE TIMEOUT (KHUSUS KEAMANAN KIOSK)
     // ==========================================
-    // 3. FITUR IDLE TIMEOUT (KEAMANAN KIOSK)
-    // ==========================================
-    let idleTime = 0;
-    const idleLimitSeconds = 60; // Set batas waktu diam: 60 detik
+    // Cek apakah session isKioskMode bernilai true dari backend
+    const isModeKiosk = '<%= user.isKiosk %>' === 'true';
 
-    // Reset timer jika ada aktivitas di layar
-    function resetIdleTimer() {
-        idleTime = 0;
+    if (isModeKiosk) {
+        let idleTime = 0;
+        const idleLimitSeconds = 60; // Set batas waktu diam: 60 detik
+
+        // Reset timer jika ada aktivitas di layar
+        function resetIdleTimer() {
+            idleTime = 0;
+        }
+
+        // Pasang sensor aktivitas
+        document.addEventListener('mousemove', resetIdleTimer);
+        document.addEventListener('keypress', resetIdleTimer);
+        document.addEventListener('touchstart', resetIdleTimer); // Untuk layar sentuh tablet
+        document.addEventListener('scroll', resetIdleTimer);
+
+        // Jalankan timer setiap detik
+        setInterval(function() {
+            idleTime++;
+            if (idleTime >= idleLimitSeconds) {
+                // Jika menganggur melebihi batas waktu, otomatis cuci bersih sesi kiosk
+                window.location.href = '/logout-kiosk';
+            }
+        }, 1000); // 1000 ms = 1 detik
     }
 
-    // Pasang sensor aktivitas
-    document.addEventListener('mousemove', resetIdleTimer);
-    document.addEventListener('keypress', resetIdleTimer);
-    document.addEventListener('touchstart', resetIdleTimer); // Untuk layar sentuh tablet
-    document.addEventListener('scroll', resetIdleTimer);
-
-    // Jalankan timer setiap detik
-    setInterval(function() {
-        idleTime++;
-        if (idleTime >= idleLimitSeconds) {
-            // Jika menganggur melebih batas waktu, otomatis logout
-            window.location.href = '/logout';
-        }
-    }, 1000); // 1000 ms = 1 detik
     // ==========================================
     // 1. FITUR AUTO-SELECT PO (DARI KIOSK)
     // ==========================================
