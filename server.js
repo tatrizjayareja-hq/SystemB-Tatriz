@@ -2970,26 +2970,31 @@ app.get('/input-gaji', isAdmin, async (req, res) => {
 });
 
 // A. RUTE UNTUK MENAMPILKAN LAYAR KIOSK
-// Catatan: Kiosk biasanya dibuka pertama kali oleh Admin di tablet tersebut, 
-// jadi kita tetap menggunakan tenantId dari session yang aktif.
 app.get('/kiosk-produksi', isAdmin, async (req, res) => {
     const tId = req.session.tenantId;
     
     try {
-        // 1. Ambil daftar PO yang sedang aktif (Antri / Produksi) beserta total Qty-nya
+        // 1. Ambil config untuk memanggil Logo Perusahaan
+        const configRes = await db.query("SELECT logo_path, nama_perusahaan FROM settings WHERE tenant_id = $1", [tId]);
+        const config = configRes.rows[0] || { logo_path: '', nama_perusahaan: 'Perusahaan' };
+
+        // 2. Ambil daftar PO, Hitung Progres, & Sortir status "Produksi" di posisi teratas
         const poRes = await db.query(`
             SELECT 
                 p.id, 
                 p.nama_po, 
                 p.customer, 
                 p.status,
-                (SELECT COALESCE(SUM(jumlah), 0) FROM po_detail WHERE po_id = p.id) as qty_tampil 
-            FROM po_utama p
-            WHERE p.tenant_id = $1 AND p.status IN ('Produksi','Antri')
-            ORDER BY p.tanggal DESC
+                (SELECT COALESCE(SUM(jumlah), 0) FROM po_detail WHERE po_id = p.id) as qty_tampil,
+                (SELECT COALESCE(SUM(jumlah_setor), 0) FROM hasil_kerja WHERE po_id = p.id) as total_setor
+            FROM po_utama p 
+            WHERE p.tenant_id = $1 AND p.status IN ('Antri', 'Produksi')
+            ORDER BY 
+                CASE WHEN p.status = 'Produksi' THEN 1 ELSE 2 END,
+                p.tanggal DESC
         `, [tId]);
 
-        // 2. Ambil daftar karyawan (Operator / QC) untuk Dropdown Login
+        // 3. Ambil daftar karyawan untuk Popup Login
         const userRes = await db.query(`
             SELECT id, nama_lengkap, username 
             FROM users 
@@ -2999,7 +3004,8 @@ app.get('/kiosk-produksi', isAdmin, async (req, res) => {
 
         res.render('kiosk-produksi', { 
             orders: poRes.rows,
-            karyawan: userRes.rows 
+            karyawan: userRes.rows,
+            config: config // Lempar config ke EJS untuk menampilkan logo
         });
     } catch (err) {
         console.error("🔥 Error Load Kiosk:", err.message);
