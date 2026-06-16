@@ -1626,9 +1626,39 @@ app.get('/laporan-kas', isAdmin, async (req, res) => {
         const pbRes = await db.query(sqlPiutangBulanIni, [bulanIni, tId]);
         const piutangBulanIni = parseFloat(pbRes.rows[0].total_piutang_bulan_ini);
 
-        // 4. Query Rincian Transaksi
+       // 4. Query Rincian Transaksi
         const rincianRes = await db.query(`
-            SELECT ak.*, p.customer, p.nama_po 
+            SELECT 
+                ak.*, 
+                -- Data untuk PEMBAYARAN BORDIR (Bawaan)
+                p.customer as customer_bordir, 
+                p.nama_po as po_bordir,
+                
+                -- Data untuk BAYAR CMT / VENDOR (Hasil relasi cmt_sj_id)
+                (
+                    SELECT STRING_AGG(DISTINCT sj.nama_vendor, ', ') 
+                    FROM cmt_surat_jalan sj 
+                    WHERE sj.id::TEXT = ANY(STRING_TO_ARRAY(COALESCE(ak.cmt_sj_id, ''), ','))
+                ) as nama_vendor,
+                
+                (
+                    SELECT STRING_AGG(DISTINCT p2.nama_po, ', ') 
+                    FROM cmt_surat_jalan sj
+                    JOIN cmt_surat_jalan_detail sjd ON sj.id = sjd.sj_id
+                    JOIN po_detail d2 ON sjd.po_detail_id = d2.id
+                    JOIN po_utama p2 ON d2.po_id = p2.id
+                    WHERE sj.id::TEXT = ANY(STRING_TO_ARRAY(COALESCE(ak.cmt_sj_id, ''), ','))
+                ) as po_vendor,
+                
+                (
+                    SELECT STRING_AGG(DISTINCT p2.customer, ', ') 
+                    FROM cmt_surat_jalan sj
+                    JOIN cmt_surat_jalan_detail sjd ON sj.id = sjd.sj_id
+                    JOIN po_detail d2 ON sjd.po_detail_id = d2.id
+                    JOIN po_utama p2 ON d2.po_id = p2.id
+                    WHERE sj.id::TEXT = ANY(STRING_TO_ARRAY(COALESCE(ak.cmt_sj_id, ''), ','))
+                ) as customer_vendor
+
             FROM arus_kas ak 
             LEFT JOIN po_utama p ON ak.po_id = p.id 
             WHERE TO_CHAR(ak.tanggal::DATE, 'YYYY-MM') = $1 AND ak.tenant_id = $2

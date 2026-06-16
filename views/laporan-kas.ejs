@@ -203,15 +203,27 @@
                             <td>
                                 <strong><%= item.kategori %></strong>
                                 
-                                <% if (item.customer) { %>
-                                    <span class="badge bg-info p-1" style="font-size: 9px; margin-left: 5px;">
-                                        <%= item.customer %>
+                                <% 
+                                    // Logika penggabungan: Pakai data bordir jika ada, jika tidak pakai data vendor
+                                    const finalCustomer = item.customer_bordir || item.customer_vendor;
+                                    const finalPO = item.po_bordir || item.po_vendor;
+                                %>
+
+                                <% if (item.nama_vendor) { %>
+                                    <span class="badge bg-danger p-1" style="font-size: 9px; margin-left: 5px;">
+                                        <i class="bi bi-person-badge"></i> <%= item.nama_vendor %>
                                     </span>
                                 <% } %>
 
-                                <% if (item.nama_po) { %>
+                                <% if (finalCustomer) { %>
+                                    <span class="badge bg-info p-1" style="font-size: 9px; margin-left: 2px;">
+                                        <%= finalCustomer %>
+                                    </span>
+                                <% } %>
+
+                                <% if (finalPO) { %>
                                     <span class="badge bg-success p-1" style="font-size: 9px; margin-left: 2px;">
-                                        <i class="bi bi-tag-fill"></i> <%= item.nama_po %>
+                                        <i class="bi bi-tag-fill"></i> <%= finalPO %>
                                     </span>
                                 <% } %>
                                 
