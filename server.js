@@ -3856,6 +3856,22 @@ app.get('/api/vendor-sj-list', isAdmin, async (req, res) => {
     }
 });
 
+app.get('/admin/batal-lunas-vendor/:id', isAdmin, async (req, res) => {
+    const sjId = req.params.id;
+    try {
+        // PERHATIAN: Sesuaikan string 'BELUM LUNAS' di bawah ini 
+        // dengan format teks yang biasa kamu gunakan di database saat data belum lunas 
+        // (misalnya: 'BELUM', 'HUTANG', atau null).
+        const sql = `UPDATE cmt_surat_jalan SET status_pembayaran = 'BELUM LUNAS' WHERE id = $1`;
+        await db.query(sql, [sjId]);
+        
+        res.redirect('/admin/data-cmt');
+    } catch (err) {
+        console.error("Gagal membatalkan lunas:", err);
+        res.status(500).send("Error: " + err.message);
+    }
+});
+
 // 3. HANDLER UTAMA: SIMPAN KAS & PELUNASAN MASSAL VENDOR CMT
 app.post('/save-kas', isAdmin, async (req, res) => {
     const tId = req.session.tenantId;
