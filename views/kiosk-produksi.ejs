@@ -74,6 +74,13 @@
         <div id="clock" class="fs-6 fw-bold bg-dark px-3 py-1 rounded border border-secondary text-info font-monospace">00:00:00</div>
     </div>
 
+    <% if (!details || details.length === 0) { %>
+        <div class="alert alert-danger m-3 fw-bold text-center">
+            <i class="bi bi-exclamation-triangle-fill fs-4 d-block mb-2"></i>
+            ERROR SISTEM: Data rincian desain (PO Detail) gagal dikirim dari Server! Hubungi Developer.
+        </div>
+    <% } %>
+
     <div class="container-fluid py-3 px-3 px-md-4">
         <div class="row g-3">
             <% if (orders.length === 0) { %>
@@ -85,15 +92,10 @@
 
             <% orders.forEach(po => { 
                 let cardState = "new";
-                if (po.is_over) {
-                    cardState = "over";
-                } else if (po.is_under) {
-                    cardState = "under";
-                } else if (po.is_empty) {
-                    cardState = "new";
-                } else {
-                    cardState = "done";
-                }
+                if (po.is_over) cardState = "over";
+                else if (po.is_under) cardState = "under";
+                else if (po.is_empty) cardState = "new";
+                else cardState = "done";
 
                 let percent = 0;
                 let qtyTotal = parseInt(po.qty_tampil) || 0;
@@ -151,20 +153,19 @@
                                 if (subItems.length === 0) { 
                             %>
                                 <div class="alert alert-danger text-center small p-2 mb-0 border border-danger">
-                                    <i class="bi bi-exclamation-circle-fill"></i> Data detail tidak ditemukan!
+                                    <i class="bi bi-exclamation-circle-fill"></i> Rincian gagal ditarik! Database detail mungkin kosong.
                                 </div>
                             <%  } else { 
                                     subItems.forEach(sub => {
                                         let warnaTeks = "text-success";
                                         let targetPcs = parseInt(sub.jumlah) || 0;     
-                                        let sudahSetor = parseInt(sub.sudah_setor) || 0; 
+                                        let sudahSetor = parseInt(sub.total_produksi) || 0; 
                                         let sisa = targetPcs - sudahSetor;
                                         
                                         if(sisa < 0) warnaTeks = "text-danger blink-warn"; 
                                         else if(sisa > 0) warnaTeks = "text-warning"; 
                                         else warnaTeks = "text-success"; 
 
-                                        /* PROTEKSI NAMA DARI TANDA KUTIP (contoh: M. Mus'ab) */
                                         let poAman = po.nama_po ? po.nama_po.replace(/'/g, "\\'") : "";
                                         let desainAman = sub.nama_desain ? sub.nama_desain.replace(/'/g, "\\'") : "";
                             %>

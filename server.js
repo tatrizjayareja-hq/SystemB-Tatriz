@@ -2977,13 +2977,10 @@ app.get('/kiosk-produksi', isAdmin, async (req, res) => {
         const configRes = await db.query("SELECT logo_path, nama_perusahaan FROM settings WHERE tenant_id = $1", [tId]);
         const config = configRes.rows[0] || { logo_path: '', nama_perusahaan: 'Perusahaan' };
 
-        // 1. QUERY PO UTAMA
+        // 1. QUERY PO UTAMA (Sama Persis dengan po-data-v2)
         const sqlOrders = `
             SELECT 
-                u.id, 
-                u.nama_po, 
-                u.customer, 
-                u.status,
+                u.*, 
                 (SELECT COALESCE(SUM(jumlah), 0) FROM po_detail WHERE po_id = u.id) as qty_tampil,
                 (SELECT COALESCE(SUM(jumlah_setor), 0) FROM hasil_kerja WHERE po_id = u.id) as total_setor,
                 
@@ -3014,15 +3011,17 @@ app.get('/kiosk-produksi', isAdmin, async (req, res) => {
 
             FROM po_utama u 
             WHERE u.tenant_id = $1 AND u.status IN ('Antri', 'Produksi')
-            ORDER BY CASE WHEN u.status = 'Produksi' THEN 1 ELSE 2 END, u.tanggal DESC
+            ORDER BY 
+                CASE WHEN u.status = 'Produksi' THEN 1 ELSE 2 END,
+                u.tanggal DESC
         `;
         const poRes = await db.query(sqlOrders, [tId]);
 
-        // 2. QUERY DETAIL (Disinkronkan dengan style PO-Data)
+        // 2. QUERY DETAIL (Sama Persis dengan po-data-v2)
         const sqlDetails = `
             SELECT 
-                d.*,
-                (SELECT COALESCE(SUM(h.jumlah_setor), 0) FROM hasil_kerja h WHERE h.detail_id = d.id) as sudah_setor
+                d.*, 
+                (SELECT COALESCE(SUM(h.jumlah_setor), 0) FROM hasil_kerja h WHERE h.detail_id = d.id) as total_produksi
             FROM po_detail d
             JOIN po_utama u ON d.po_id = u.id
             WHERE u.tenant_id = $1 AND u.status IN ('Antri', 'Produksi')
@@ -3038,15 +3037,16 @@ app.get('/kiosk-produksi', isAdmin, async (req, res) => {
             ORDER BY nama_lengkap ASC
         `, [tId]);
 
+        // LEMPAR SEMUA DATA KE EJS
         res.render('kiosk-produksi', { 
             orders: poRes.rows,
-            details: detailRes.rows, // <--- Data detail disuntikkan ke sini
+            details: detailRes.rows,
             karyawan: userRes.rows,
             config: config
         });
     } catch (err) {
         console.error("🔥 Error Load Kiosk:", err.message);
-        res.status(500).send("Gagal memuat Kiosk Produksi");
+        res.status(500).send("Gagal memuat Kiosk Produksi: " + err.message);
     }
 });
 
