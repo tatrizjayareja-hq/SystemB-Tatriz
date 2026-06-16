@@ -2135,7 +2135,8 @@ app.get('/operator', async (req, res) => {
             active_pos: active_pos,
             daftarMesin: daftarMesin,
             kurangnya: kurangnya,
-            config: config // 🔴 PENTING: Dikirim agar form operator tahu batasan jam reguler (misal: 8 atau 7 jam)
+            config: config, // 🔴 PENTING: Dikirim agar form operator tahu batasan jam reguler (misal: 8 atau 7 jam)
+            kiosk_po_id: req.query.po_id || null
         });
     } catch (err) {
         console.error("🔥 Error Load Operator Page:", err.message);
@@ -2143,7 +2144,6 @@ app.get('/operator', async (req, res) => {
     }
 });
 
-// --- RUTE INPUT QC ---
 // --- RUTE INPUT QC (VERSI TERFILTER OTOMATIS) ---
 app.get('/qc-input', isQC, async (req, res) => {
     const tId = req.session.tenantId;
@@ -2454,7 +2454,7 @@ app.post('/simpan-kerja', async (req, res) => {
             await db.query("UPDATE po_utama SET status = 'QC' WHERE id = $1 AND tenant_id = $2", [po_id, tId]);
         }
 
-        res.send("<script>alert('Data hasil kerja & durasi absen berhasil disimpan!'); window.location='/operator';</script>");
+        res.redirect('/operator?success=true');
     } catch (err) {
         console.error("🔥 Error Simpan Kerja:", err.message);
         res.status(500).send("Gagal menyimpan data. Pastikan semua field terisi dengan benar.");
@@ -2966,6 +2966,82 @@ app.get('/input-gaji', isAdmin, async (req, res) => {
     } catch (err) {
         console.error("🔥 Error Input Gaji Dinamis:", err.message);
         res.status(500).send("Gagal memuat data gaji.");
+    }
+});
+
+// A. RUTE UNTUK MENAMPILKAN LAYAR KIOSK
+// Catatan: Kiosk biasanya dibuka pertama kali oleh Admin di tablet tersebut, 
+// jadi kita tetap menggunakan tenantId dari session yang aktif.
+app.get('/kiosk-produksi', isAdmin, async (req, res) => {
+    const tId = req.session.tenantId;
+    
+    try {
+        // 1. Ambil daftar PO yang sedang aktif (Antri / Produksi)
+        const poRes = await db.query(`
+            SELECT id, nama_po, customer, qty_tampil, status 
+            FROM po_utama 
+            WHERE tenant_id = $1 AND status IN ('Antri', 'Produksi')
+            ORDER BY tanggal DESC
+        `, [tId]);
+
+        // 2. Ambil daftar karyawan (Operator / QC) untuk Dropdown Login
+        const userRes = await db.query(`
+            SELECT id, nama_lengkap, username 
+            FROM users 
+            WHERE tenant_id = $1 AND role IN ('operator', 'qc')
+            ORDER BY nama_lengkap ASC
+        `, [tId]);
+
+        res.render('kiosk-produksi', { 
+            orders: poRes.rows,
+            karyawan: userRes.rows 
+        });
+    } catch (err) {
+        console.error("🔥 Error Load Kiosk:", err.message);
+        res.status(500).send("Gagal memuat Kiosk Produksi");
+    }
+});
+
+// B. RUTE UNTUK MEMPROSES LOGIN DARI POPUP KIOSK
+app.post('/login-kiosk', async (req, res) => {
+    const { user_id, password, po_id } = req.body;
+
+    try {
+        // 1. Cari Karyawan berdasarkan ID yang dipilih di Dropdown
+        const result = await db.query("SELECT * FROM users WHERE id = $1", [user_id]);
+        
+        if (result.rows.length === 0) {
+            return res.send("<script>alert('Karyawan tidak ditemukan'); window.history.back();</script>");
+        }
+
+        const loggedInUser = result.rows[0];
+
+        // 2. Verifikasi Password
+        const isPasswordValid = await bcrypt.compare(password, loggedInUser.password);
+        if (!isPasswordValid) {
+            return res.send("<script>alert('Password Salah! Silakan coba lagi.'); window.history.back();</script>");
+        }
+
+        // 3. Login Sukses -> Set Session
+        req.session.userId = loggedInUser.id;
+        req.session.username = loggedInUser.username;
+        req.session.nama_lengkap = loggedInUser.nama_lengkap;
+        req.session.role = loggedInUser.role;
+        req.session.tenantId = loggedInUser.tenant_id;
+
+        req.session.save((err) => {
+            if (err) throw err;
+            
+            // 4. Arahkan ke halaman input data masing-masing.
+            // Anda bisa menangkap po_id ini di rute /operator untuk langsung membuka form PO tersebut.
+            const targetUrl = (loggedInUser.role === 'qc' || loggedInUser.role === 'QC') ? '/qc-input' : '/operator';
+            
+            res.redirect(`${targetUrl}?po_id=${po_id}`);
+        });
+
+    } catch (err) {
+        console.error("🔥 Kiosk Login Error:", err);
+        res.send("<script>alert('Terjadi kesalahan sistem'); window.history.back();</script>");
     }
 });
 

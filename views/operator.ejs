@@ -21,6 +21,7 @@
         .btn-setor { background: #0984e3; color: white; border: none; padding: 15px; width: 100%; border-radius: 10px; font-weight: bold; font-size: 16px; cursor: pointer; margin-top: 10px; }
         .info-bordir { background: #f8f9fa; padding: 10px; border-radius: 8px; margin-top: 10px; border-left: 4px solid #0984e3; display: none; }
     </style>
+    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
 </head>
 <body>
 <div id="loaderSistem" style="
@@ -224,20 +225,88 @@ function pilihOtomatisDesain(el) {
 }
 </script>
 <script>
-        document.addEventListener('DOMContentLoaded', function() {
-            const loader = document.getElementById('loaderSistem');
-            if (loader) {
-                setTimeout(function() {
-                    loader.classList.add('loader-hilang');
-                }, 200);
-            }
-        });
-        setTimeout(function() {
-            const loader = document.getElementById('loaderSistem');
-            if (loader && !loader.classList.contains('loader-hilang')) {
+    document.addEventListener('DOMContentLoaded', function() {
+        const loader = document.getElementById('loaderSistem');
+        if (loader) {
+            setTimeout(function() {
                 loader.classList.add('loader-hilang');
-            }
-        }, 4000);
-    </script>
+            }, 200);
+        }
+    });
+    setTimeout(function() {
+        const loader = document.getElementById('loaderSistem');
+        if (loader && !loader.classList.contains('loader-hilang')) {
+            loader.classList.add('loader-hilang');
+        }
+    }, 4000);
+</script>
+<script>
+    // ==========================================
+    // 1. FITUR AUTO-SELECT PO (DARI KIOSK)
+    // ==========================================
+    document.addEventListener('DOMContentLoaded', function() {
+        const kioskPoId = "<%= kiosk_po_id %>"; // Nilai dari backend
+        if (kioskPoId && kioskPoId !== 'null') {
+            const selectPO = document.getElementById('select_po');
+            selectPO.value = kioskPoId;
+            // Panggil fungsi muatDaftarDesain agar dropdown Jenis Bordir otomatis terisi
+            muatDaftarDesain(kioskPoId);
+        }
+    });
+
+    // ==========================================
+    // 2. FITUR POPUP POST-SIMPAN (LANJUT ATAU KELUAR)
+    // ==========================================
+    document.addEventListener('DOMContentLoaded', function() {
+        const urlParams = new URLSearchParams(window.location.search);
+        if (urlParams.get('success') === 'true') {
+            Swal.fire({
+                title: 'Kerja Bagus! 🚀',
+                text: 'Data hasil kerja & durasi absen berhasil disimpan.',
+                icon: 'success',
+                showCancelButton: true,
+                confirmButtonColor: '#0984e3',
+                cancelButtonColor: '#e74c3c',
+                confirmButtonText: 'Input PO Lain',
+                cancelButtonText: 'Keluar (Logout)',
+                allowOutsideClick: false // Paksa user memilih
+            }).then((result) => {
+                if (result.isConfirmed) {
+                    // Bersihkan URL agar popup tidak muncul lagi jika di-refresh
+                    window.history.replaceState({}, document.title, "/operator");
+                } else {
+                    // Logout dan kembali ke Kiosk
+                    window.location.href = '/logout';
+                }
+            });
+        }
+    });
+
+    // ==========================================
+    // 3. FITUR IDLE TIMEOUT (KEAMANAN KIOSK)
+    // ==========================================
+    let idleTime = 0;
+    const idleLimitSeconds = 60; // Set batas waktu diam: 60 detik
+
+    // Reset timer jika ada aktivitas di layar
+    function resetIdleTimer() {
+        idleTime = 0;
+    }
+
+    // Pasang sensor aktivitas
+    document.addEventListener('mousemove', resetIdleTimer);
+    document.addEventListener('keypress', resetIdleTimer);
+    document.addEventListener('touchstart', resetIdleTimer); // Untuk layar sentuh tablet
+    document.addEventListener('scroll', resetIdleTimer);
+
+    // Jalankan timer setiap detik
+    setInterval(function() {
+        idleTime++;
+        if (idleTime >= idleLimitSeconds) {
+            // Jika menganggur melebih batas waktu, otomatis logout
+            window.location.href = '/logout';
+        }
+    }, 1000); // 1000 ms = 1 detik
+</script>
 </body>
 </html>

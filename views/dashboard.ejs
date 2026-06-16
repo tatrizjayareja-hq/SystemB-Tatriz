@@ -212,7 +212,17 @@
                     <i class="bi bi-lock-fill"></i>
                 </a>
             <% } %>
-
+            <% if (user.tenantId === 1 || user.tenantId === 100 || user.tenantLevel >= 2) { %>
+                <a href="/kiosk-produksi" class="menu-item" target="_blank">
+                    <i class="bi bi-display"></i> Terminal Kiosk Produksi
+                    <small style="color: var(--warning); font-size: 9px; margin-left: auto;">PRO</small>
+                </a>
+            <% } else { %>
+                <a href="javascript:void(0)" onclick="ajakUpgrade('Terminal Kiosk Produksi')" class="menu-item menu-locked">
+                    <i class="bi bi-display"></i> Terminal Kiosk Produksi 
+                    <i class="bi bi-lock-fill"></i>
+                </a>
+            <% } %>
             <a href="/input-gaji" class="menu-item"><i class="bi bi-calculator"></i> Hitung Gaji Karyawan</a>
             <a href="/nota-manual" class="menu-item"><i class="bi bi-printer"></i> Cetak Nota Manual</a>
             <a href="/piutang-customer" class="menu-item"><i class="bi bi-receipt"></i> Cetak Nota / Customer</a>
