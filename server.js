@@ -2985,7 +2985,7 @@ app.get('/kiosk-produksi', isAdmin, async (req, res) => {
                 p.status,
                 (SELECT COALESCE(SUM(jumlah), 0) FROM po_detail WHERE po_id = p.id) as qty_tampil 
             FROM po_utama p
-            WHERE p.tenant_id = $1 AND p.status IN ('Antri', 'Produksi')
+            WHERE p.tenant_id = $1 AND p.status IN ('Produksi','Antri')
             ORDER BY p.tanggal DESC
         `, [tId]);
 
