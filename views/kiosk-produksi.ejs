@@ -19,11 +19,11 @@
             border-radius: 12px; cursor: pointer; transition: 0.2s; 
             position: relative; overflow: hidden;
             box-shadow: 0 4px 6px rgba(0,0,0,0.2);
-            z-index: 2; /* Agar berada di atas area collapse */
+            z-index: 2; 
         }
         .po-card:active { transform: scale(0.98); }
         
-        /* Aksen Warna Berdasarkan Progres Kerja */
+        /* Aksen Warna Mengikuti PO DATA V2 */
         .po-card.new { border-left-color: #0fb9b1; }   
         .po-card.under { border-left-color: #f39c12; } 
         .po-card.done { border-left-color: #2ecc71; }  
@@ -31,11 +31,11 @@
 
         .po-title { font-size: 1.15rem; font-weight: bold; color: #fff; line-height: 1.3; }
         
-        /* Area Sub Detail */
+        /* Area Sub Detail (Akan terbuka saat PO diklik) */
         .collapse-area {
             background: #353b48;
             border-radius: 0 0 12px 12px;
-            margin-top: -10px; /* Masuk sedikit ke bawah kartu utama */
+            margin-top: -10px; 
             padding: 20px 15px 15px 15px;
             border: 1px solid #718093;
             border-top: none;
@@ -87,42 +87,53 @@
             <% } %>
 
             <% orders.forEach(po => { 
+                // 🔴 LOGIKA WARNA DIADOPSI MURNI DARI PO-DATA-V2
                 let cardState = "new";
+                if (po.is_over) {
+                    cardState = "over";
+                } else if (po.is_under) {
+                    cardState = "under";
+                } else if (po.is_empty) {
+                    cardState = "new";
+                } else {
+                    cardState = "done";
+                }
+
+                // Kalkulasi Progress Bar
                 let percent = 0;
+                let qtyTotal = parseInt(po.qty_tampil) || 0;
+                let setorTotal = parseInt(po.total_setor) || 0;
                 
-                if (po.qty_tampil > 0) {
-                    percent = Math.round((po.total_setor / po.qty_tampil) * 100);
+                if (qtyTotal > 0) {
+                    percent = Math.round((setorTotal / qtyTotal) * 100);
                     if (percent > 100) percent = 100;
-                    
-                    if (po.total_setor > po.qty_tampil) cardState = "over";
-                    else if (po.total_setor > 0 && po.total_setor < po.qty_tampil) cardState = "under";
-                    else if (po.total_setor == po.qty_tampil && po.qty_tampil > 0) cardState = "done";
                 }
             %>
                 <div class="col-12 col-md-6 col-lg-4">
-                    <div class="po-card <%= cardState %> p-3 h-100" data-bs-toggle="collapse" data-bs-target="#collapsePO_<%= po.id %>" aria-expanded="false" aria-controls="collapsePO_<%= po.id %>">
+                    <!-- KARTU UTAMA PO -->
+                    <div class="po-card <%= cardState %> p-3 h-100" data-bs-toggle="collapse" data-bs-target="#collapsePO_<%= po.id %>" aria-expanded="false">
                         <div class="d-flex justify-content-between align-items-center mb-2">
                             <span class="badge <%= po.status === 'Produksi' ? 'bg-success' : 'bg-secondary text-white' %> px-2 py-1 shadow-sm">
                                 <i class="bi <%= po.status === 'Produksi' ? 'bi-play-fill' : 'bi-pause-fill' %>"></i> <%= po.status %>
                             </span>
-                            <span class="badge bg-light text-dark fw-bold border"><%= po.qty_tampil || 0 %> Pcs</span>
+                            <span class="badge bg-light text-dark fw-bold border"><%= qtyTotal %> Pcs</span>
                         </div>
                         
                         <div class="po-title text-truncate mb-1"><%= po.nama_po %></div>
                         <small class="text-light opacity-75 d-block text-truncate mb-3"><i class="bi bi-person-fill text-info"></i> <%= po.customer %></small>
                         
                         <div class="d-flex justify-content-between align-items-end" style="font-size: 11px;">
-                            <span class="text-white-50">Total Mesin:<br><strong class="text-white" style="font-size: 14px;"><%= po.total_setor %> / <%= po.qty_tampil %></strong></span>
+                            <span class="text-white-50">Total Mesin:<br><strong class="text-white" style="font-size: 14px;"><%= setorTotal %> / <%= qtyTotal %></strong></span>
                             
                             <div class="text-end">
-                                <% if (cardState === 'over') { %>
-                                    <span class="text-danger fw-bold blink-warn bg-danger bg-opacity-25 px-2 py-1 rounded border border-danger">LEBIH <%= po.total_setor - po.qty_tampil %></span>
-                                <% } else if (cardState === 'under') { %>
-                                    <span class="text-warning fw-bold">KURANG <%= po.qty_tampil - po.total_setor %></span>
-                                <% } else if (cardState === 'done') { %>
-                                    <span class="text-success fw-bold"><i class="bi bi-check-all"></i> PAS LENGKAP</span>
+                                <% if (po.is_over) { %>
+                                    <span class="text-danger fw-bold blink-warn bg-danger bg-opacity-25 px-2 py-1 rounded border border-danger"><i class="bi bi-exclamation-triangle-fill"></i> ADA LEBIH</span>
+                                <% } else if (po.is_under) { %>
+                                    <span class="text-warning fw-bold"><i class="bi bi-exclamation-circle-fill"></i> MASIH KURANG</span>
+                                <% } else if (po.is_empty) { %>
+                                    <span class="text-info fw-bold opacity-75"><i class="bi bi-clock"></i> BELUM KERJA</span>
                                 <% } else { %>
-                                    <span class="text-info fw-bold opacity-75">BELUM KERJA</span>
+                                    <span class="text-success fw-bold"><i class="bi bi-check-circle-fill"></i> LENGKAP</span>
                                 <% } %>
                                 <br><small class="text-white-50"><i class="bi bi-chevron-down mt-1"></i> Ketuk rincian</small>
                             </div>
@@ -134,6 +145,7 @@
                         </div>
                     </div>
 
+                    <!-- AREA COLLAPSE (Rincian Item) -->
                     <div class="collapse" id="collapsePO_<%= po.id %>">
                         <div class="collapse-area shadow">
                             <div class="text-center mb-2">
@@ -141,25 +153,27 @@
                             </div>
 
                             <% 
-                                // Ambil hanya rincian untuk PO ini
-                                const subItems = details.filter(d => d.po_id === po.id); 
+                                // PERBAIKAN FATAL: Gunakan operator `==` agar toleran terhadap tipe data string/integer
+                                const subItems = details.filter(d => d.po_id == po.id); 
                                 
                                 subItems.forEach(sub => {
-                                    // Evaluasi tiap item rincian
                                     let warnaTeks = "text-success";
-                                    let sisa = sub.target_pcs - sub.sudah_setor;
+                                    let targetPcs = parseInt(sub.target_pcs) || 0;
+                                    let sudahSetor = parseInt(sub.sudah_setor) || 0;
+                                    let sisa = targetPcs - sudahSetor;
                                     
-                                    if(sisa < 0) warnaTeks = "text-danger blink-warn"; // Lebihan
-                                    else if(sisa > 0) warnaTeks = "text-warning"; // Masih kurang
-                                    else warnaTeks = "text-success"; // Pas (0)
+                                    if(sisa < 0) warnaTeks = "text-danger blink-warn"; 
+                                    else if(sisa > 0) warnaTeks = "text-warning"; 
+                                    else warnaTeks = "text-success"; 
                             %>
+                                <!-- Sub Item Klik memicu Popup Login -->
                                 <div class="sub-item shadow-sm" onclick="bukaLoginKiosk('<%= po.id %>', '<%= po.nama_po %>', '<%= sub.detail_id %>', '<%= sub.nama_desain %>')">
                                     <div>
                                         <strong class="d-block text-dark" style="font-size: 14px;"><%= sub.nama_desain %></strong>
                                         <small class="text-muted"><%= sub.jenis_bordir %></small>
                                     </div>
                                     <div class="text-end">
-                                        <span class="badge bg-dark text-white fw-bold mb-1"><%= sub.sudah_setor %> / <%= sub.target_pcs %></span><br>
+                                        <span class="badge bg-dark text-white fw-bold mb-1"><%= sudahSetor %> / <%= targetPcs %></span><br>
                                         <small class="<%= warnaTeks %> fw-bold" style="font-size: 10px;">
                                             <%= sisa < 0 ? 'LEBIHAN +' + Math.abs(sisa) : (sisa === 0 ? '✔ LENGKAP' : 'SISA ' + sisa) %>
                                         </small>
@@ -173,6 +187,7 @@
         </div>
     </div>
 
+    <!-- POPUP LOGIN KHUSUS KIOSK -->
     <div class="modal fade" id="modalLoginKiosk" tabindex="-1" data-bs-backdrop="static">
         <div class="modal-dialog modal-dialog-centered">
             <div class="modal-content shadow-lg border-0">
@@ -222,7 +237,6 @@
             document.getElementById('clock').innerText = now.toLocaleTimeString('id-ID', { hour12: false });
         }, 1000);
 
-        // Update fungsi untuk menerima detail ID dan nama desain
         function bukaLoginKiosk(poId, namaPo, detailId, namaDesain) {
             document.getElementById('display_nama_po').innerText = namaPo;
             document.getElementById('display_nama_desain').innerText = "Item: " + namaDesain;
