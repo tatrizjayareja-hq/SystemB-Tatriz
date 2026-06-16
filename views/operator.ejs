@@ -307,6 +307,31 @@ function pilihOtomatisDesain(el) {
             window.location.href = '/logout';
         }
     }, 1000); // 1000 ms = 1 detik
+    // ==========================================
+    // 1. FITUR AUTO-SELECT PO (DARI KIOSK)
+    // ==========================================
+    document.addEventListener('DOMContentLoaded', async function() {
+        const urlParams = new URLSearchParams(window.location.search);
+        const kioskPoId = urlParams.get('po_id');
+        const kioskDetailId = urlParams.get('detail_id');
+
+        if (kioskPoId && kioskPoId !== 'null') {
+            const selectPO = document.getElementById('select_po');
+            selectPO.value = kioskPoId;
+            
+            // Muat daftar desain (Fungsi Asli Anda)
+            await muatDaftarDesain(kioskPoId);
+            
+            // Jika ada detail ID dari kiosk, otomatis pilih itemnya
+            if (kioskDetailId) {
+                setTimeout(() => { // Kasih jeda kecil untuk merender DOM option-nya
+                    const selectJenis = document.getElementById('select_jenis');
+                    selectJenis.value = kioskDetailId;
+                    pilihOtomatisDesain(selectJenis); // Trigger pemunculan info_bordir
+                }, 100);
+            }
+        }
+    });
 </script>
 </body>
 </html>

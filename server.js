@@ -2974,12 +2974,12 @@ app.get('/kiosk-produksi', isAdmin, async (req, res) => {
     const tId = req.session.tenantId;
     
     try {
-        // 1. Ambil config untuk memanggil Logo Perusahaan
+        // 1. Ambil config Logo
         const configRes = await db.query("SELECT logo_path, nama_perusahaan FROM settings WHERE tenant_id = $1", [tId]);
         const config = configRes.rows[0] || { logo_path: '', nama_perusahaan: 'Perusahaan' };
 
-        // 2. Ambil daftar PO, Hitung Progres, & Sortir status "Produksi" di posisi teratas
-        const poRes = await db.query(`
+        // 2. Ambil daftar PO Utama (Mirip po-data-v2)
+        const sqlOrders = `
             SELECT 
                 p.id, 
                 p.nama_po, 
@@ -2992,9 +2992,26 @@ app.get('/kiosk-produksi', isAdmin, async (req, res) => {
             ORDER BY 
                 CASE WHEN p.status = 'Produksi' THEN 1 ELSE 2 END,
                 p.tanggal DESC
-        `, [tId]);
+        `;
+        const poRes = await db.query(sqlOrders, [tId]);
 
-        // 3. Ambil daftar karyawan untuk Popup Login
+        // 3. Ambil Rincian (PO Detail) yang terkait dengan PO Aktif di atas
+        const sqlDetails = `
+            SELECT 
+                d.id as detail_id,
+                d.po_id,
+                d.nama_desain,
+                d.jenis_bordir,
+                d.jumlah as target_pcs,
+                (SELECT COALESCE(SUM(jumlah_setor), 0) FROM hasil_kerja h WHERE h.detail_id = d.id) as sudah_setor
+            FROM po_detail d
+            JOIN po_utama u ON d.po_id = u.id
+            WHERE u.tenant_id = $1 AND u.status IN ('Antri', 'Produksi')
+            ORDER BY d.id ASC
+        `;
+        const detailRes = await db.query(sqlDetails, [tId]);
+
+        // 4. Ambil daftar karyawan
         const userRes = await db.query(`
             SELECT id, nama_lengkap, username 
             FROM users 
@@ -3004,8 +3021,9 @@ app.get('/kiosk-produksi', isAdmin, async (req, res) => {
 
         res.render('kiosk-produksi', { 
             orders: poRes.rows,
+            details: detailRes.rows,
             karyawan: userRes.rows,
-            config: config // Lempar config ke EJS untuk menampilkan logo
+            config: config
         });
     } catch (err) {
         console.error("🔥 Error Load Kiosk:", err.message);
@@ -3015,7 +3033,7 @@ app.get('/kiosk-produksi', isAdmin, async (req, res) => {
 
 // B. RUTE UNTUK MEMPROSES LOGIN DARI POPUP KIOSK
 app.post('/login-kiosk', async (req, res) => {
-    const { user_id, password, po_id } = req.body;
+    const { user_id, password, po_id, detail_id } = req.body;
 
     try {
         // 1. Cari Karyawan berdasarkan ID yang dipilih di Dropdown
@@ -3043,11 +3061,9 @@ app.post('/login-kiosk', async (req, res) => {
         req.session.save((err) => {
             if (err) throw err;
             
-            // 4. Arahkan ke halaman input data masing-masing.
-            // Anda bisa menangkap po_id ini di rute /operator untuk langsung membuka form PO tersebut.
+            // LEMPAR po_id DAN detail_id KE URL
             const targetUrl = (loggedInUser.role === 'qc' || loggedInUser.role === 'QC') ? '/qc-input' : '/operator';
-            
-            res.redirect(`${targetUrl}?po_id=${po_id}`);
+            res.redirect(`${targetUrl}?po_id=${po_id}&detail_id=${detail_id}`);
         });
 
     } catch (err) {

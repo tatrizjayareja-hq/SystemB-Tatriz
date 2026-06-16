@@ -3,37 +3,63 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Kiosk Produksi - <%= config.nama_perusahaan %></title>
+    <title>Terminal Produksi - <%= config.nama_perusahaan %></title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.0/font/bootstrap-icons.css">
     <style>
         body { background: #1e272e; color: #fff; font-family: 'Segoe UI', sans-serif; overflow-x: hidden; padding-bottom: 30px;}
         
-        /* Header & Logo */
         .kiosk-header { background: #0a463c; padding: 15px 20px; box-shadow: 0 4px 10px rgba(0,0,0,0.5); border-bottom: 3px solid #0fb9b1; }
         .logo-img { height: 40px; background: white; padding: 4px; border-radius: 6px; }
         
-        /* Kartu PO Dinamis */
+        /* Kartu PO Utama */
         .po-card { 
             background: #2d3436; 
             border-left: 6px solid #636e72;
             border-radius: 12px; cursor: pointer; transition: 0.2s; 
             position: relative; overflow: hidden;
             box-shadow: 0 4px 6px rgba(0,0,0,0.2);
+            z-index: 2; /* Agar berada di atas area collapse */
         }
-        .po-card:active { transform: scale(0.97); }
+        .po-card:active { transform: scale(0.98); }
         
         /* Aksen Warna Berdasarkan Progres Kerja */
-        .po-card.new { border-left-color: #0fb9b1; }    /* Belum Mulai */
-        .po-card.under { border-left-color: #f39c12; }  /* Kurang (Kuning) */
-        .po-card.done { border-left-color: #2ecc71; }   /* Pas / Lengkap (Hijau) */
-        .po-card.over { border-left-color: #ff4757; }   /* Lebih (Merah) */
+        .po-card.new { border-left-color: #0fb9b1; }   
+        .po-card.under { border-left-color: #f39c12; } 
+        .po-card.done { border-left-color: #2ecc71; }  
+        .po-card.over { border-left-color: #ff4757; }  
 
         .po-title { font-size: 1.15rem; font-weight: bold; color: #fff; line-height: 1.3; }
+        
+        /* Area Sub Detail */
+        .collapse-area {
+            background: #353b48;
+            border-radius: 0 0 12px 12px;
+            margin-top: -10px; /* Masuk sedikit ke bawah kartu utama */
+            padding: 20px 15px 15px 15px;
+            border: 1px solid #718093;
+            border-top: none;
+            box-shadow: inset 0 5px 10px rgba(0,0,0,0.2);
+        }
+        .sub-item {
+            background: #f5f6fa;
+            color: #2f3640;
+            padding: 12px 15px;
+            border-radius: 8px;
+            margin-bottom: 10px;
+            cursor: pointer;
+            border-left: 4px solid #0fb9b1;
+            transition: 0.2s;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        .sub-item:active { transform: scale(0.95); background: #dcdde1; }
+        .sub-item:last-child { margin-bottom: 0; }
+
         .modal-content { background: #f5f6fa; color: #2d3436; border-radius: 15px; }
         .form-select-lg, .form-control-lg { height: 55px; font-size: 1.1rem; font-weight: bold; border-radius: 10px;}
         
-        /* Animasi Berkedip */
         .blink-warn { animation: blinker 1.2s linear infinite; }
         @keyframes blinker { 50% { opacity: 0.4; } }
     </style>
@@ -45,7 +71,7 @@
             <% if (config.logo_path) { %>
                 <img src="<%= config.logo_path %>" alt="Logo" class="logo-img shadow-sm">
             <% } %>
-            <h5 class="mb-0 fw-bold d-none d-sm-block text-light" style="letter-spacing: 1px;">TERMINAL PRODUKSI</h5>
+            <h5 class="mb-0 fw-bold d-none d-sm-block text-light" style="letter-spacing: 1px;">TERMINAL MESIN</h5>
             <h6 class="mb-0 fw-bold d-block d-sm-none text-light">KIOSK PRODUKSI</h6>
         </div>
         <div id="clock" class="fs-6 fw-bold bg-dark px-3 py-1 rounded border border-secondary text-info font-monospace">00:00:00</div>
@@ -68,19 +94,15 @@
                     percent = Math.round((po.total_setor / po.qty_tampil) * 100);
                     if (percent > 100) percent = 100;
                     
-                    if (po.total_setor > po.qty_tampil) {
-                        cardState = "over";
-                    } else if (po.total_setor > 0 && po.total_setor < po.qty_tampil) {
-                        cardState = "under";
-                    } else if (po.total_setor == po.qty_tampil && po.qty_tampil > 0) {
-                        cardState = "done";
-                    }
+                    if (po.total_setor > po.qty_tampil) cardState = "over";
+                    else if (po.total_setor > 0 && po.total_setor < po.qty_tampil) cardState = "under";
+                    else if (po.total_setor == po.qty_tampil && po.qty_tampil > 0) cardState = "done";
                 }
             %>
-                <div class="col-12 col-md-6 col-lg-3">
-                    <div class="po-card <%= cardState %> p-3 h-100" onclick="bukaLoginKiosk('<%= po.id %>', '<%= po.nama_po %>')">
+                <div class="col-12 col-md-6 col-lg-4">
+                    <div class="po-card <%= cardState %> p-3 h-100" data-bs-toggle="collapse" data-bs-target="#collapsePO_<%= po.id %>" aria-expanded="false" aria-controls="collapsePO_<%= po.id %>">
                         <div class="d-flex justify-content-between align-items-center mb-2">
-                            <span class="badge <%= po.status === 'Produksi' ? 'bg-success' : 'bg-secondary text-white' %> px-2 py-1">
+                            <span class="badge <%= po.status === 'Produksi' ? 'bg-success' : 'bg-secondary text-white' %> px-2 py-1 shadow-sm">
                                 <i class="bi <%= po.status === 'Produksi' ? 'bi-play-fill' : 'bi-pause-fill' %>"></i> <%= po.status %>
                             </span>
                             <span class="badge bg-light text-dark fw-bold border"><%= po.qty_tampil || 0 %> Pcs</span>
@@ -90,22 +112,60 @@
                         <small class="text-light opacity-75 d-block text-truncate mb-3"><i class="bi bi-person-fill text-info"></i> <%= po.customer %></small>
                         
                         <div class="d-flex justify-content-between align-items-end" style="font-size: 11px;">
-                            <span class="text-white-50">Terkumpul:<br><strong class="text-white" style="font-size: 14px;"><%= po.total_setor %> Pcs</strong></span>
+                            <span class="text-white-50">Total Mesin:<br><strong class="text-white" style="font-size: 14px;"><%= po.total_setor %> / <%= po.qty_tampil %></strong></span>
                             
-                            <% if (cardState === 'over') { %>
-                                <span class="text-danger fw-bold blink-warn bg-danger bg-opacity-25 px-2 py-1 rounded border border-danger">LEBIH <%= po.total_setor - po.qty_tampil %></span>
-                            <% } else if (cardState === 'under') { %>
-                                <span class="text-warning fw-bold">SISA <%= po.qty_tampil - po.total_setor %></span>
-                            <% } else if (cardState === 'done') { %>
-                                <span class="text-success fw-bold"><i class="bi bi-check-all"></i> LENGKAP</span>
-                            <% } else { %>
-                                <span class="text-info fw-bold opacity-75">BELUM MULAI</span>
-                            <% } %>
+                            <div class="text-end">
+                                <% if (cardState === 'over') { %>
+                                    <span class="text-danger fw-bold blink-warn bg-danger bg-opacity-25 px-2 py-1 rounded border border-danger">LEBIH <%= po.total_setor - po.qty_tampil %></span>
+                                <% } else if (cardState === 'under') { %>
+                                    <span class="text-warning fw-bold">KURANG <%= po.qty_tampil - po.total_setor %></span>
+                                <% } else if (cardState === 'done') { %>
+                                    <span class="text-success fw-bold"><i class="bi bi-check-all"></i> PAS LENGKAP</span>
+                                <% } else { %>
+                                    <span class="text-info fw-bold opacity-75">BELUM KERJA</span>
+                                <% } %>
+                                <br><small class="text-white-50"><i class="bi bi-chevron-down mt-1"></i> Ketuk rincian</small>
+                            </div>
                         </div>
                         
                         <div class="progress mt-2" style="height: 5px; background: #636e72;">
                             <div class="progress-bar <%= cardState === 'over' ? 'bg-danger' : (cardState === 'under' ? 'bg-warning' : (cardState === 'done' ? 'bg-success' : 'bg-info')) %>" 
                                  role="progressbar" style="width: <%= percent + '%' %>;"></div>
+                        </div>
+                    </div>
+
+                    <div class="collapse" id="collapsePO_<%= po.id %>">
+                        <div class="collapse-area shadow">
+                            <div class="text-center mb-2">
+                                <small class="text-info fw-bold text-uppercase" style="font-size: 10px; letter-spacing: 1px;">PILIH DESAIN UNTUK DIKERJAKAN</small>
+                            </div>
+
+                            <% 
+                                // Ambil hanya rincian untuk PO ini
+                                const subItems = details.filter(d => d.po_id === po.id); 
+                                
+                                subItems.forEach(sub => {
+                                    // Evaluasi tiap item rincian
+                                    let warnaTeks = "text-success";
+                                    let sisa = sub.target_pcs - sub.sudah_setor;
+                                    
+                                    if(sisa < 0) warnaTeks = "text-danger blink-warn"; // Lebihan
+                                    else if(sisa > 0) warnaTeks = "text-warning"; // Masih kurang
+                                    else warnaTeks = "text-success"; // Pas (0)
+                            %>
+                                <div class="sub-item shadow-sm" onclick="bukaLoginKiosk('<%= po.id %>', '<%= po.nama_po %>', '<%= sub.detail_id %>', '<%= sub.nama_desain %>')">
+                                    <div>
+                                        <strong class="d-block text-dark" style="font-size: 14px;"><%= sub.nama_desain %></strong>
+                                        <small class="text-muted"><%= sub.jenis_bordir %></small>
+                                    </div>
+                                    <div class="text-end">
+                                        <span class="badge bg-dark text-white fw-bold mb-1"><%= sub.sudah_setor %> / <%= sub.target_pcs %></span><br>
+                                        <small class="<%= warnaTeks %> fw-bold" style="font-size: 10px;">
+                                            <%= sisa < 0 ? 'LEBIHAN +' + Math.abs(sisa) : (sisa === 0 ? '✔ LENGKAP' : 'SISA ' + sisa) %>
+                                        </small>
+                                    </div>
+                                </div>
+                            <% }); %>
                         </div>
                     </div>
                 </div>
@@ -123,9 +183,12 @@
                     </div>
                     <div class="modal-body p-4 bg-white">
                         <div class="text-center mb-4 p-3 bg-light rounded border border-secondary border-opacity-25">
-                            <small class="text-muted text-uppercase fw-bold d-block mb-1">Mengerjakan Pesanan:</small>
+                            <small class="text-muted text-uppercase fw-bold d-block mb-1">Mengerjakan:</small>
                             <h4 class="fw-bold text-dark mb-0" id="display_nama_po">NAMA PO</h4>
+                            <p class="text-primary fw-bold mb-0 mt-1" id="display_nama_desain" style="font-size: 14px;"></p>
+                            
                             <input type="hidden" name="po_id" id="input_po_id">
+                            <input type="hidden" name="detail_id" id="input_detail_id">
                         </div>
 
                         <div class="mb-3">
@@ -154,15 +217,19 @@
 
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
     <script>
-        // Jam Digital Realtime
         setInterval(() => {
             const now = new Date();
             document.getElementById('clock').innerText = now.toLocaleTimeString('id-ID', { hour12: false });
         }, 1000);
 
-        function bukaLoginKiosk(poId, namaPo) {
+        // Update fungsi untuk menerima detail ID dan nama desain
+        function bukaLoginKiosk(poId, namaPo, detailId, namaDesain) {
             document.getElementById('display_nama_po').innerText = namaPo;
+            document.getElementById('display_nama_desain').innerText = "Item: " + namaDesain;
+            
             document.getElementById('input_po_id').value = poId;
+            document.getElementById('input_detail_id').value = detailId;
+            
             document.getElementById('input_password').value = ''; 
             new bootstrap.Modal(document.getElementById('modalLoginKiosk')).show();
         }
