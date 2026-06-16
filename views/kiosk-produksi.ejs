@@ -12,16 +12,20 @@
         .kiosk-header { background: #0a463c; padding: 15px 20px; box-shadow: 0 4px 10px rgba(0,0,0,0.5); border-bottom: 3px solid #0fb9b1; }
         .logo-img { height: 40px; background: white; padding: 4px; border-radius: 6px; }
         
+        /* Kartu Wrapper Utama */
         .po-card { 
             background: #2d3436; 
             border-left: 6px solid #636e72;
-            border-radius: 12px; cursor: pointer; transition: 0.2s; 
-            position: relative; overflow: hidden;
+            border-radius: 12px; transition: 0.2s; 
+            overflow: hidden;
             box-shadow: 0 4px 6px rgba(0,0,0,0.2);
-            z-index: 2; 
         }
-        .po-card:active { transform: scale(0.98); }
         
+        /* Area yang bisa diklik */
+        .po-card-header { padding: 15px; cursor: pointer; transition: 0.2s; }
+        .po-card-header:active { background: rgba(255,255,255,0.05); }
+        
+        /* Warna Status */
         .po-card.new { border-left-color: #0fb9b1; }   
         .po-card.under { border-left-color: #f39c12; } 
         .po-card.done { border-left-color: #2ecc71; }  
@@ -29,13 +33,11 @@
 
         .po-title { font-size: 1.15rem; font-weight: bold; color: #fff; line-height: 1.3; }
         
+        /* Area Sub Detail (Di dalam kartu) */
         .collapse-area {
-            background: #353b48;
-            border-radius: 0 0 12px 12px;
-            margin-top: -10px; 
-            padding: 20px 15px 15px 15px;
-            border: 1px solid #718093;
-            border-top: none;
+            background: #1e272e; /* Dibuat lebih gelap */
+            padding: 15px;
+            border-top: 1px solid #636e72;
             box-shadow: inset 0 5px 10px rgba(0,0,0,0.2);
         }
         .sub-item {
@@ -77,7 +79,7 @@
     <% if (!details || details.length === 0) { %>
         <div class="alert alert-danger m-3 fw-bold text-center">
             <i class="bi bi-exclamation-triangle-fill fs-4 d-block mb-2"></i>
-            ERROR SISTEM: Data rincian desain (PO Detail) gagal dikirim dari Server! Hubungi Developer.
+            ERROR SISTEM: Data rincian desain (PO Detail) gagal dikirim dari Server!
         </div>
     <% } %>
 
@@ -106,84 +108,86 @@
                     if (percent > 100) percent = 100;
                 }
             %>
-                <div class="col-12 col-md-6 col-lg-4">
-                    <div class="po-card <%= cardState %> p-3 h-100" data-bs-toggle="collapse" data-bs-target="#collapsePO_<%= po.id %>" aria-expanded="false">
-                        <div class="d-flex justify-content-between align-items-center mb-2">
-                            <span class="badge <%= po.status === 'Produksi' ? 'bg-success' : 'bg-secondary text-white' %> px-2 py-1 shadow-sm">
-                                <i class="bi <%= po.status === 'Produksi' ? 'bi-play-fill' : 'bi-pause-fill' %>"></i> <%= po.status %>
-                            </span>
-                            <span class="badge bg-light text-dark fw-bold border"><%= qtyTotal %> Pcs</span>
-                        </div>
-                        
-                        <div class="po-title text-truncate mb-1"><%= po.nama_po %></div>
-                        <small class="text-light opacity-75 d-block text-truncate mb-3"><i class="bi bi-person-fill text-info"></i> <%= po.customer %></small>
-                        
-                        <div class="d-flex justify-content-between align-items-end" style="font-size: 11px;">
-                            <span class="text-white-50">Total Mesin:<br><strong class="text-white" style="font-size: 14px;"><%= setorTotal %> / <%= qtyTotal %></strong></span>
+                <div class="col-12 col-md-6 col-lg-4 align-self-start">
+                    <div class="po-card <%= cardState %> shadow-sm">
+                        <div class="po-card-header" data-bs-toggle="collapse" data-bs-target="#collapsePO_<%= po.id %>" aria-expanded="false">
+                            <div class="d-flex justify-content-between align-items-center mb-2">
+                                <span class="badge <%= po.status === 'Produksi' ? 'bg-success' : 'bg-secondary text-white' %> px-2 py-1 shadow-sm">
+                                    <i class="bi <%= po.status === 'Produksi' ? 'bi-play-fill' : 'bi-pause-fill' %>"></i> <%= po.status %>
+                                </span>
+                                <span class="badge bg-light text-dark fw-bold border"><%= qtyTotal %> Pcs</span>
+                            </div>
                             
-                            <div class="text-end">
-                                <% if (po.is_over) { %>
-                                    <span class="text-danger fw-bold blink-warn bg-danger bg-opacity-25 px-2 py-1 rounded border border-danger"><i class="bi bi-exclamation-triangle-fill"></i> ADA LEBIH</span>
-                                <% } else if (po.is_under) { %>
-                                    <span class="text-warning fw-bold"><i class="bi bi-exclamation-circle-fill"></i> MASIH KURANG</span>
-                                <% } else if (po.is_empty) { %>
-                                    <span class="text-info fw-bold opacity-75"><i class="bi bi-clock"></i> BELUM KERJA</span>
-                                <% } else { %>
-                                    <span class="text-success fw-bold"><i class="bi bi-check-circle-fill"></i> LENGKAP</span>
-                                <% } %>
-                                <br><small class="text-white-50"><i class="bi bi-chevron-down mt-1"></i> Ketuk rincian</small>
-                            </div>
-                        </div>
-                        
-                        <div class="progress mt-2" style="height: 5px; background: #636e72;">
-                            <div class="progress-bar <%= cardState === 'over' ? 'bg-danger' : (cardState === 'under' ? 'bg-warning' : (cardState === 'done' ? 'bg-success' : 'bg-info')) %>" 
-                                 role="progressbar" style="width: <%= percent + '%' %>;"></div>
-                        </div>
-                    </div>
-
-                    <div class="collapse" id="collapsePO_<%= po.id %>">
-                        <div class="collapse-area shadow">
-                            <div class="text-center mb-2">
-                                <small class="text-info fw-bold text-uppercase" style="font-size: 10px; letter-spacing: 1px;">PILIH DESAIN UNTUK DIKERJAKAN</small>
-                            </div>
-
-                            <% 
-                                const subItems = details.filter(d => d.po_id == po.id); 
+                            <div class="po-title text-truncate mb-1"><%= po.nama_po %></div>
+                            <small class="text-light opacity-75 d-block text-truncate mb-3"><i class="bi bi-person-fill text-info"></i> <%= po.customer %></small>
+                            
+                            <div class="d-flex justify-content-between align-items-end" style="font-size: 11px;">
+                                <span class="text-white-50">Total Mesin:<br><strong class="text-white" style="font-size: 14px;"><%= setorTotal %> / <%= qtyTotal %></strong></span>
                                 
-                                if (subItems.length === 0) { 
-                            %>
-                                <div class="alert alert-danger text-center small p-2 mb-0 border border-danger">
-                                    <i class="bi bi-exclamation-circle-fill"></i> Rincian gagal ditarik! Database detail mungkin kosong.
+                                <div class="text-end">
+                                    <% if (po.is_over) { %>
+                                        <span class="text-danger fw-bold blink-warn bg-danger bg-opacity-25 px-2 py-1 rounded border border-danger"><i class="bi bi-exclamation-triangle-fill"></i> ADA LEBIH</span>
+                                    <% } else if (po.is_under) { %>
+                                        <span class="text-warning fw-bold"><i class="bi bi-exclamation-circle-fill"></i> MASIH KURANG</span>
+                                    <% } else if (po.is_empty) { %>
+                                        <span class="text-info fw-bold opacity-75"><i class="bi bi-clock"></i> BELUM KERJA</span>
+                                    <% } else { %>
+                                        <span class="text-success fw-bold"><i class="bi bi-check-circle-fill"></i> LENGKAP</span>
+                                    <% } %>
+                                    <br><small class="text-white-50"><i class="bi bi-chevron-down mt-1"></i> Ketuk rincian</small>
                                 </div>
-                            <%  } else { 
-                                    subItems.forEach(sub => {
-                                        let warnaTeks = "text-success";
-                                        let targetPcs = parseInt(sub.jumlah) || 0;     
-                                        let sudahSetor = parseInt(sub.total_produksi) || 0; 
-                                        let sisa = targetPcs - sudahSetor;
-                                        
-                                        if(sisa < 0) warnaTeks = "text-danger blink-warn"; 
-                                        else if(sisa > 0) warnaTeks = "text-warning"; 
-                                        else warnaTeks = "text-success"; 
+                            </div>
+                            
+                            <div class="progress mt-2" style="height: 5px; background: #636e72;">
+                                <div class="progress-bar <%= cardState === 'over' ? 'bg-danger' : (cardState === 'under' ? 'bg-warning' : (cardState === 'done' ? 'bg-success' : 'bg-info')) %>" 
+                                     role="progressbar" style="width: <%= percent + '%' %>;"></div>
+                            </div>
+                        </div>
 
-                                        let poAman = po.nama_po ? po.nama_po.replace(/'/g, "\\'") : "";
-                                        let desainAman = sub.nama_desain ? sub.nama_desain.replace(/'/g, "\\'") : "";
-                            %>
-                                <div class="sub-item shadow-sm" onclick="bukaLoginKiosk('<%= po.id %>', '<%= poAman %>', '<%= sub.id %>', '<%= desainAman %>')">
-                                    <div>
-                                        <strong class="d-block text-dark" style="font-size: 14px;"><%= sub.nama_desain %></strong>
-                                        <small class="text-muted"><%= sub.jenis_bordir %></small>
-                                    </div>
-                                    <div class="text-end">
-                                        <span class="badge bg-dark text-white fw-bold mb-1"><%= sudahSetor %> / <%= targetPcs %></span><br>
-                                        <small class="<%= warnaTeks %> fw-bold" style="font-size: 10px;">
-                                            <%= sisa < 0 ? 'LEBIHAN +' + Math.abs(sisa) : (sisa === 0 ? '✔ LENGKAP' : 'SISA ' + sisa) %>
-                                        </small>
-                                    </div>
+                        <div class="collapse" id="collapsePO_<%= po.id %>">
+                            <div class="collapse-area">
+                                <div class="text-center mb-2">
+                                    <small class="text-info fw-bold text-uppercase" style="font-size: 10px; letter-spacing: 1px;">PILIH DESAIN UNTUK DIKERJAKAN</small>
                                 </div>
-                            <%      }); 
-                                } 
-                            %>
+
+                                <% 
+                                    const subItems = details.filter(d => d.po_id == po.id); 
+                                    
+                                    if (subItems.length === 0) { 
+                                %>
+                                    <div class="alert alert-danger text-center small p-2 mb-0 border border-danger">
+                                        <i class="bi bi-exclamation-circle-fill"></i> Data detail kosong/tidak ditemukan!
+                                    </div>
+                                <%  } else { 
+                                        subItems.forEach(sub => {
+                                            let warnaTeks = "text-success";
+                                            let targetPcs = parseInt(sub.jumlah) || 0;     
+                                            let sudahSetor = parseInt(sub.sudah_setor) || 0; 
+                                            let sisa = targetPcs - sudahSetor;
+                                            
+                                            if(sisa < 0) warnaTeks = "text-danger blink-warn"; 
+                                            else if(sisa > 0) warnaTeks = "text-warning"; 
+                                            else warnaTeks = "text-success"; 
+
+                                            let poAman = po.nama_po ? po.nama_po.replace(/'/g, "\\'") : "";
+                                            let desainAman = sub.nama_desain ? sub.nama_desain.replace(/'/g, "\\'") : "";
+                                %>
+                                    <div class="sub-item shadow-sm" onclick="bukaLoginKiosk('<%= po.id %>', '<%= poAman %>', '<%= sub.id %>', '<%= desainAman %>')">
+                                        <div>
+                                            <strong class="d-block text-dark" style="font-size: 14px;"><%= sub.nama_desain %></strong>
+                                            <small class="text-muted"><%= sub.jenis_bordir %></small>
+                                        </div>
+                                        <div class="text-end">
+                                            <span class="badge bg-dark text-white fw-bold mb-1"><%= sudahSetor %> / <%= targetPcs %></span><br>
+                                            <small class="<%= warnaTeks %> fw-bold" style="font-size: 10px;">
+                                                <%= sisa < 0 ? 'LEBIHAN +' + Math.abs(sisa) : (sisa === 0 ? '✔ LENGKAP' : 'SISA ' + sisa) %>
+                                            </small>
+                                        </div>
+                                    </div>
+                                <%      }); 
+                                    } 
+                                %>
+                            </div>
                         </div>
                     </div>
                 </div>
