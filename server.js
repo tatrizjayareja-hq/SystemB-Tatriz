@@ -2976,12 +2976,17 @@ app.get('/kiosk-produksi', isAdmin, async (req, res) => {
     const tId = req.session.tenantId;
     
     try {
-        // 1. Ambil daftar PO yang sedang aktif (Antri / Produksi)
+        // 1. Ambil daftar PO yang sedang aktif (Antri / Produksi) beserta total Qty-nya
         const poRes = await db.query(`
-            SELECT id, nama_po, customer, qty_tampil, status 
-            FROM po_utama 
-            WHERE tenant_id = $1 AND status IN ('Antri', 'Produksi')
-            ORDER BY tanggal DESC
+            SELECT 
+                p.id, 
+                p.nama_po, 
+                p.customer, 
+                p.status,
+                (SELECT COALESCE(SUM(jumlah), 0) FROM po_detail WHERE po_id = p.id) as qty_tampil 
+            FROM po_utama p
+            WHERE p.tenant_id = $1 AND p.status IN ('Antri', 'Produksi')
+            ORDER BY p.tanggal DESC
         `, [tId]);
 
         // 2. Ambil daftar karyawan (Operator / QC) untuk Dropdown Login
