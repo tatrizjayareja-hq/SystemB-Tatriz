@@ -1679,110 +1679,71 @@ app.get('/laporan-kas', isAdmin, async (req, res) => {
     }
 });
 
+// 3. HANDLER UTAMA: SIMPAN KAS & PELUNASAN MASSAL VENDOR CMT
 app.post('/save-kas', isAdmin, async (req, res) => {
     const tId = req.session.tenantId;
-    // 🔴 Ditambahkan 'bulk_po_ids' untuk menangkap checkbox banyak PO dari Customer
-    const { kas_id, tanggal, jenis, kategori, jumlah, keterangan, po_id, sj_ids, bulk_po_ids } = req.body;
-    
-    const isPayment = ["PEMBAYARAN BORDIR", "PELUNASAN", "DP/CICILAN"].includes(kategori);
-    const ref_po = (isPayment && po_id && po_id !== "") ? parseInt(po_id) : null;
+    const { kas_id, tanggal, jenis, kategori, po_id, jumlah, keterangan, sj_ids } = req.body;
 
     try {
-        await db.query("BEGIN"); 
+        await db.query("BEGIN");
+        let newKasId;
 
-        let currentKasId = kas_id;
-
-        if (kas_id) {
-            // 1. Mode Update Transaksi yang Sudah Ada
-            await db.query(`
-                UPDATE arus_kas SET tanggal=$1, jenis=$2, kategori=$3, jumlah=$4, keterangan=$5, po_id=$6 
-                WHERE id=$7 AND tenant_id=$8`,
-                [tanggal, jenis, kategori, jumlah, keterangan, ref_po, kas_id, tId]
-            );
+        // A. Cek apakah ini mode EDIT atau transaksi BARU
+        if (kas_id && kas_id !== '') {
+            // 🟡 MODE EDIT: Update data yang sudah ada
+            const sqlUpdateKas = `
+                UPDATE arus_kas 
+                SET tanggal = $1, jenis = $2, kategori = $3, po_id = $4, jumlah = $5, keterangan = $6
+                WHERE id = $7 AND tenant_id = $8 RETURNING id
+            `;
+            await db.query(sqlUpdateKas, [
+                tanggal, jenis, kategori, 
+                po_id && po_id !== '' ? po_id : null, 
+                parseFloat(jumlah), keterangan, 
+                kas_id, tId
+            ]);
+            newKasId = kas_id;
         } else {
-            // 2. Mode Tambah Transaksi Baru (Hanya jika BUKAN Pembayaran Massal Customer)
-            // Karena jika massal customer, baris kas akan di-insert otomatis di bawah per masing-masing PO
-            if (kategori !== "PEMBAYARAN BORDIR" || !bulk_po_ids) {
-                const insertRes = await db.query(`
-                    INSERT INTO arus_kas (tenant_id, tanggal, jenis, kategori, jumlah, keterangan, po_id) 
-                    VALUES ($1, $2, $3, $4, $5, $6, $7) RETURNING id`,
-                    [tId, tanggal, jenis, kategori, jumlah, keterangan, ref_po]
-                );
-                currentKasId = insertRes.rows[0].id;
-            }
+            // 🟢 MODE BARU: Insert data baru
+            const sqlInsertKas = `
+                INSERT INTO arus_kas (tenant_id, tanggal, jenis, kategori, po_id, jumlah, keterangan)
+                VALUES ($1, $2, $3, $4, $5, $6, $7) RETURNING id
+            `;
+            const kasRes = await db.query(sqlInsertKas, [
+                tId, tanggal, jenis, kategori, 
+                po_id && po_id !== '' ? po_id : null, 
+                parseFloat(jumlah), keterangan
+            ]);
+            newKasId = kasRes.rows[0].id;
         }
 
-        // 🔴 JALUR 1: JIKA KATEGORI ADALAH PEMBAYARAN BORDIR MASSAL CUSTOMER
-        if (kategori === "PEMBAYARAN BORDIR" && bulk_po_ids) {
-            const arrayPO = Array.isArray(bulk_po_ids) ? bulk_po_ids : [bulk_po_ids];
-            
-            for (let idPO of arrayPO) {
-                // A. Hitung Sisa Piutang Riil menggunakan logika query API piutang Anda kemarin
-                const sqlCekSisa = `
-                    SELECT (p.total_harga_customer - COALESCE(SUM(ak.jumlah), 0)) as sisa_piutang
-                    FROM po_utama p
-                    LEFT JOIN arus_kas ak ON p.id = ak.po_id 
-                         AND ak.kategori IN ('PEMBAYARAN BORDIR', 'PELUNASAN', 'DP/CICILAN')
-                    WHERE p.id = $1 AND p.tenant_id = $2
-                    GROUP BY p.id, p.total_harga_customer
-                `;
-                const sisaRes = await db.query(sqlCekSisa, [parseInt(idPO), tId]);
-                const sisaPiutangRiil = parseFloat(sisaRes.rows[0]?.sisa_piutang || 0);
-
-                // Pengaman: Jika piutang ternyata sudah habis, lewati PO ini
-                if (sisaPiutangRiil <= 0) continue;
-
-                // B. Simpan baris Kas Baru murni sebesar sisa uang yang belum dibayar pada PO ini
-                await db.query(`
-                    INSERT INTO arus_kas (tenant_id, tanggal, jenis, kategori, po_id, jumlah, keterangan)
-                    VALUES ($1, $2, $3, $4, $5, $6, $7)`,
-                    [tId, tanggal, jenis, kategori, parseInt(idPO), sisaPiutangRiil, `[PELUNASAN MASSAL] ${keterangan}`]
-                );
-
-                // C. Tembak status PO menjadi Lunas karena sisa piutangnya sudah dibayar penuh
-                await db.query(`
-                    UPDATE po_utama 
-                    SET status = 'Lunas' 
-                    WHERE id = $1 AND tenant_id = $2`,
-                    [parseInt(idPO), tId]
-                );
-            }
-        }
-
-        // 🔴 JALUR 2: JIKA KATEGORI ADALAH BAYAR CMT / VENDOR
+        // B. Jika yang dipilih adalah kategori Bayar CMT, jalankan fungsi Domino Pelunasan
         if (kategori === "BAYAR CMT / VENDOR" && sj_ids) {
             const arraySJ = Array.isArray(sj_ids) ? sj_ids : [sj_ids];
-            
-            // Gabungkan semua ID menjadi satu teks (Contoh hasil: "10,11,12")
             const stringSJ = arraySJ.join(',');
 
-            // A. Update status semua Surat Jalan yang dipilih menjadi LUNAS
+            // 1. Ubah status Surat Jalan di database produksi CMT menjadi LUNAS
             for (let idSJ of arraySJ) {
                 await db.query(
-                    "UPDATE cmt_surat_jalan SET status_pembayaran = 'LUNAS' WHERE id = $1 AND tenant_id = $2", 
+                    "UPDATE cmt_surat_jalan SET status_pembayaran = 'LUNAS' WHERE id = $1 AND tenant_id = $2",
                     [parseInt(idSJ), tId]
                 );
             }
 
-            // B. Update riwayat Kas SATU KALI SAJA dengan gabungan ID Surat Jalan
+            // 2. Ikat ID Surat Jalan ke dalam detail kas 
             await db.query(
-                "UPDATE arus_kas SET cmt_sj_id = $1 WHERE id = $2 AND tenant_id = $3", 
-                [stringSJ, currentKasId, tId]
+                "UPDATE arus_kas SET cmt_sj_id = $1 WHERE id = $2",
+                [stringSJ, newKasId]
             );
         }
 
-        // Jalankan fungsi update helper status bawaan Anda jika input manual 1 PO seperti dulu
-        if (ref_po && (kategori !== "PEMBAYARAN BORDIR" || !bulk_po_ids)) {
-            updateStatusPO(ref_po); 
-        }
-        
-        await db.query("COMMIT"); 
-        res.redirect('/laporan-kas');
+        await db.query("COMMIT");
+        res.json({ success: true, message: 'Transaksi Kas Berhasil Disimpan/Diupdate!' });
 
     } catch (err) {
-        if (db) await db.query("ROLLBACK"); 
-        console.error("🔥 Save Kas Error:", err.message);
-        res.status(500).send("Gagal menyimpan transaksi.");
+        if (db) await db.query("ROLLBACK");
+        console.error("🔥 Error Simpan Kas Terintegrasi:", err.message);
+        res.status(500).json({ error: "Gagal menyimpan transaksi kas: " + err.message });
     }
 });
 

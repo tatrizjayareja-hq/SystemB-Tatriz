@@ -297,16 +297,41 @@
 
     window.onload = function() {
         const editData = sessionStorage.getItem('editDataKas');
+        
         if (editData) {
             const d = JSON.parse(editData);
+            
+            // 1. Isi ID ke input tersembunyi (KUNCI AGAR TIDAK DOBEL)
+            document.getElementById('kas_id').value = d.id;
+            
+            // 2. Isi form standar
+            document.getElementById('tgl_skrg').value = d.tgl;
             document.getElementById('input_jumlah').value = d.jml;
             document.getElementById('input_keterangan').value = d.ket;
 
+            // 3. Set Jenis Transaksi
+            const selectJenis = document.getElementById('select_jenis');
+            selectJenis.value = d.jenis;
+            
+            // 4. Panggil fungsi update kategori berdasarkan jenisnya
+            updateKategori();
+            
+            // 5. Beri sedikit jeda (setTimeout) agar opsi DOM select_kategori selesai dibuat, lalu pilih kategorinya
+            setTimeout(() => {
+                const selectKategori = document.getElementById('select_kategori');
+                if (selectKategori) selectKategori.value = d.kat;
+                cekKategoriPO(); // Cek apakah perlu memunculkan form PO/Vendor
+            }, 50);
+
+            // Ubah tampilan tombol
             const btnSubmit = document.getElementById('btn-submit-kas');
             btnSubmit.innerText = "UPDATE TRANSAKSI SEKARANG";
             btnSubmit.style.background = "#3498db"; 
             document.getElementById('btn-batal-kas').style.display = 'block';
+            
         } else {
+            // Jika mode input baru, kosongkan ID dan set tanggal hari ini
+            document.getElementById('kas_id').value = "";
             document.getElementById('tgl_skrg').valueAsDate = new Date();
         }
     }
