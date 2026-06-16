@@ -3364,29 +3364,20 @@ app.get('/admin/data-cmt', isAdmin, async (req, res) => {
               AND (
                   p.status = 'CMT' 
                   OR 
-                  -- 🔴 PERBAIKAN: Hanya izinkan PO Lunas JIKA benar-benar punya hutang vendor!
-                  (p.status = 'Lunas' AND EXISTS (
+                  -- Buka gerbang: Ambil semua PO yang pernah disentuh oleh vendor CMT (Baik Lunas maupun Belum)
+                  EXISTS (
                       SELECT 1 FROM cmt_surat_jalan_detail sjd 
                       JOIN cmt_surat_jalan sj ON sj.id = sjd.sj_id 
-                      WHERE sjd.po_detail_id = d.id AND sj.status_pembayaran = 'BELUM LUNAS'
-                  ))
+                      WHERE sjd.po_detail_id = d.id
+                  )
               )
             ORDER BY p.tanggal DESC
         `;
         const result = await db.query(sql, [tId]);
         
-        // Filter JavaScript sekarang hanya bertugas menyembunyikan PO 'CMT' yang barangnya sudah habis dikirim ke vendor
-        const filteredData = result.rows.filter(row => {
-            const adaHutang = Array.isArray(row.list_vendor) && row.list_vendor.some(v => v.status_bayar !== 'LUNAS');
-            
-            if (row.status === 'Lunas') {
-                return adaHutang; // Jika sudah lunas, wajib tampil HANYA jika ada hutang
-            } else {
-                return row.sisa_gudang > 0 || adaHutang; // Jika masih CMT, tampilkan jika ada sisa barang ATAU ada hutang
-            }
-        });
-
-        res.render('admin/data-cmt', { dataCMT: filteredData });
+        // KUNCI PERBAIKAN: Kita tidak memfilter data di backend lagi. 
+        // Semua data (Lunas & Belum) dikirim ke EJS, lalu JavaScript EJS yang akan membaginya ke dalam TAB.
+        res.render('admin/data-cmt', { dataCMT: result.rows });
     } catch (err) {
         res.status(500).send("Error: " + err.message);
     }
@@ -3723,7 +3714,6 @@ app.get('/api/vendor-sj-list', isAdmin, async (req, res) => {
     }
 });
 
-// 3. HANDLER UTAMA: SIMPAN KAS & PELUNASAN MASSAL VENDOR CMT
 // 3. HANDLER UTAMA: SIMPAN KAS & PELUNASAN MASSAL VENDOR CMT
 app.post('/save-kas', isAdmin, async (req, res) => {
     const tId = req.session.tenantId;

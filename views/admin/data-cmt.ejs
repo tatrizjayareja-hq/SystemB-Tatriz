@@ -1,24 +1,36 @@
 <%- include('../partials/header') %>
 
 <div class="container-fluid mt-3" style="max-width: 1100px;">
-    <!-- HEADER -->
     <div class="d-flex justify-content-between align-items-center mb-3">
         <h4 class="fw-bold mb-0">🚜 Monitor Produksi & Hutang CMT</h4>
         <div class="d-flex gap-2">
             <button onclick="cetakNotaPilihan()" class="btn btn-dark btn-sm fw-bold shadow-sm">
-                <i class="bi bi-printer"></i> CETAK NOTA PILIHAN (<span id="countPilihan">0</span>)
+                <i class="bi bi-printer"></i> CETAK NOTA (<span id="countPilihan">0</span>)
             </button>
             <a href="/dashboard" class="btn btn-outline-secondary btn-sm shadow-sm">Kembali</a>
         </div>
     </div>
 
-    <!-- FILTER BOX (Kunci Perbaikan 1: Penyesuaian nama fungsi onkeyup) -->
     <div class="card shadow-sm border-0 mb-3">
         <div class="card-body p-2">
-            <div class="input-group">
-                <span class="input-group-text bg-white border-end-0"><i class="bi bi-search"></i></span>
-                <input type="text" id="filterInput" class="form-control border-start-0 ps-0" 
-                    placeholder="Cari Nama PO, Customer, atau Nama Vendor..." onkeyup="jalankanFilterCmt()">
+            <div class="row align-items-center">
+                <div class="col-md-6 mb-2 mb-md-0">
+                    <div class="btn-group w-100 shadow-sm" role="group">
+                        <button type="button" class="btn btn-outline-danger active fw-bold" id="tab-hutang" onclick="ubahTabFilter('hutang')">
+                            <i class="bi bi-exclamation-circle"></i> AKTIF & HUTANG
+                        </button>
+                        <button type="button" class="btn btn-outline-success fw-bold" id="tab-lunas" onclick="ubahTabFilter('lunas')">
+                            <i class="bi bi-check-circle"></i> SUDAH LUNAS
+                        </button>
+                    </div>
+                </div>
+                <div class="col-md-6">
+                    <div class="input-group shadow-sm">
+                        <span class="input-group-text bg-white border-end-0"><i class="bi bi-search"></i></span>
+                        <input type="text" id="filterInput" class="form-control border-start-0 ps-0" 
+                            placeholder="Cari PO, Customer, atau Vendor..." onkeyup="jalankanFilterCmt()">
+                    </div>
+                </div>
             </div>
         </div>
     </div>
@@ -37,19 +49,28 @@
                         <th width="15%" class="text-end">Aksi</th>
                     </tr>
                 </thead>
-                <!-- Kunci Perbaikan 2: Menghapus tbody ganda -->
                 <tbody id="cmtTableBody">
                     <% if (dataCMT.length === 0) { %>
                         <tr class="no-data">
-                            <td colspan="4" class="text-center py-5 text-muted">
-                                <i class="bi bi-check-all fs-2"></i><br>
-                                Semua pekerjaan CMT selesai & lunas.
-                            </td>
+                            <td colspan="4" class="text-center py-5 text-muted">Belum ada data pengerjaan CMT.</td>
                         </tr>
                     <% } %>
 
-                    <% dataCMT.forEach(item => { %>
+                    <% dataCMT.forEach(item => { 
+                        // LOGIKA PENENTUAN STATUS BARIS (LUNAS / HUTANG)
+                        let statusRow = 'lunas'; 
+                        if (item.sisa_gudang > 0) {
+                            statusRow = 'hutang'; // Masih ada barang di gudang = Aktif
+                        } else if (!item.list_vendor || item.list_vendor.length === 0 || item.list_vendor[0].sj_id === null) {
+                            statusRow = 'hutang'; // Belum dikirim ke vendor sama sekali
+                        } else {
+                            item.list_vendor.forEach(v => {
+                                if (v.status_bayar !== 'LUNAS') statusRow = 'hutang'; // Jika ada 1 saja vendor belum lunas = Hutang
+                            });
+                        }
+                    %>
                         <tr class="cmt-row" 
+                            data-kategori="<%= statusRow %>"
                             data-search="<%= item.nama_po.toLowerCase() %> <%= item.customer.toLowerCase() %> <%= item.list_vendor.map(v => v.nama_vendor).join(' ').toLowerCase() %>">
                             <td>
                                 <div class="d-flex justify-content-between align-items-start gap-2">
@@ -81,11 +102,10 @@
                             <td>
                                 <% if (item.list_vendor && item.list_vendor.length > 0 && item.list_vendor[0].sj_id !== null) { %>
                                     <% item.list_vendor.forEach(v => { %>
-                                        <div class="d-flex justify-content-between align-items-center mb-2 p-2 bg-light rounded border-start border-4 <%= v.status_sj === 'PROSES' ? 'border-warning' : 'border-success' %>">
+                                        <div class="d-flex justify-content-between align-items-center mb-2 p-2 bg-light rounded border-start border-4 <%= v.status_bayar === 'LUNAS' ? 'border-success' : (v.status_sj === 'PROSES' ? 'border-warning' : 'border-danger') %>">
                                             <div class="d-flex align-items-center gap-2">
-                                                <% if(v.status_bayar !== 'LUNAS') { %>
-                                                    <input type="checkbox" class="form-check-input check-nota border-secondary" value="<%= v.sj_id %>" onchange="updateCount()">
-                                                <% } %>
+                                                <input type="checkbox" class="form-check-input check-nota <%= v.status_bayar === 'LUNAS' ? 'border-success' : 'border-danger' %>" value="<%= v.sj_id %>" onchange="updateCount()">
+                                                
                                                 <div>
                                                     <strong class="text-uppercase"><%= v.nama_vendor %></strong> 
                                                     <small class="ms-1 badge bg-white text-dark border"><%= v.qty %> Pcs</small>
@@ -98,6 +118,8 @@
                                                     <button onclick="konfirmasiHapusSJ('<%= v.sj_id %>')" class="btn btn-xs btn-outline-danger py-0 px-1"><i class="bi bi-trash"></i></button>
                                                 <% } else if(v.status_bayar !== 'LUNAS') { %>
                                                     <button onclick="konfirmasiBayar('<%= v.sj_id %>')" class="btn btn-xs btn-primary py-0 px-2">LUNASI</button>
+                                                <% } else { %>
+                                                    <span class="badge bg-success-subtle text-success border border-success me-1" style="font-size: 10px;">✔ LUNAS</span>
                                                 <% } %>
                                                 <a href="/cetak-nota-vendor?sj_id=<%= v.sj_id %>" target="_blank" class="btn btn-xs btn-outline-dark py-0 px-2"><i class="bi bi-printer"></i></a>
                                             </div>
@@ -120,7 +142,6 @@
     </div>
 </div>
 
-<!-- MODAL KIRIM (Tetap sama) -->
 <div class="modal fade" id="modalKirim" tabindex="-1">
     <div class="modal-dialog modal-sm">
         <form action="/admin/kirim-ke-vendor" method="POST" class="modal-content shadow-lg">
@@ -150,23 +171,65 @@
 
 <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
 <script>
+    let tabAktifSekarang = 'hutang'; // Default Tab saat halaman dibuka
+
     document.addEventListener('DOMContentLoaded', function() {
         window.myModalKirim = new bootstrap.Modal(document.getElementById('modalKirim'));
+        jalankanFilterCmt(); // Langsung jalankan filter saat pertama kali load
     });
 
-    // FUNGSI FILTER (Kunci Perbaikan 3: Nama fungsi disamakan dengan onkeyup)
+    // FUNGSI PINDAH TAB
+    function ubahTabFilter(status) {
+        tabAktifSekarang = status;
+        
+        // Atur tampilan tombol Tab (Warna)
+        const btnHutang = document.getElementById('tab-hutang');
+        const btnLunas = document.getElementById('tab-lunas');
+        
+        if(status === 'hutang') {
+            btnHutang.classList.add('active', 'btn-danger');
+            btnHutang.classList.remove('btn-outline-danger');
+            btnLunas.classList.remove('active', 'btn-success');
+            btnLunas.classList.add('btn-outline-success');
+        } else {
+            btnLunas.classList.add('active', 'btn-success');
+            btnLunas.classList.remove('btn-outline-success');
+            btnHutang.classList.remove('active', 'btn-danger');
+            btnHutang.classList.add('btn-outline-danger');
+        }
+
+        // Kosongkan kolom pencarian setiap ganti tab (opsional, tapi disarankan)
+        document.getElementById('filterInput').value = '';
+        
+        jalankanFilterCmt();
+    }
+
+    // FUNGSI FILTER UTAMA (TAB + SEARCH)
     function jalankanFilterCmt() {
-        const filter = document.getElementById('filterInput').value.toLowerCase();
+        const filterText = document.getElementById('filterInput').value.toLowerCase();
         const rows = document.querySelectorAll('.cmt-row');
+        
+        // Hapus centang pada master checkbox setiap kali memfilter
+        document.getElementById('checkAllVisible').checked = false; 
 
         rows.forEach(row => {
             const text = row.getAttribute('data-search') || "";
-            if (text.includes(filter)) {
+            const kategori = row.getAttribute('data-kategori'); // hutang atau lunas
+            
+            const cocokTab = (kategori === tabAktifSekarang);
+            const cocokTeks = text.includes(filterText);
+
+            // Baris hanya akan tampil jika sesuai dengan Tab terpilih DAN Teks pencarian
+            if (cocokTab && cocokTeks) {
                 row.style.display = "";
             } else {
                 row.style.display = "none";
             }
         });
+
+        // Reset semua checkbox nota ketika filter dijalankan agar tidak ada nota tersembunyi yang ikut tercetak
+        document.querySelectorAll('.check-nota').forEach(cb => cb.checked = false);
+        updateCount();
     }
 
     function updateCount() {
@@ -174,41 +237,17 @@
         document.getElementById('countPilihan').innerText = checked;
     }
 
-    // Fungsi untuk Centang/Hapus Centang Semua Checkbox Nota
     function pilihSemuaTampil(source) {
-        // Ambil semua baris tabel CMT
         const rows = document.querySelectorAll('.cmt-row');
-
         rows.forEach(row => {
-            // Pastikan kita HANYA mencentang baris yang sedang tampil (tidak disembunyikan oleh kolom pencarian)
             if (row.style.display !== "none") {
-                // Cari semua checkbox nota di dalam baris ini
                 const checkboxes = row.querySelectorAll('.check-nota');
                 checkboxes.forEach(cb => {
-                    cb.checked = source.checked; // Samakan dengan status checkbox master
+                    cb.checked = source.checked;
                 });
             }
         });
-
-        // Wajib panggil fungsi ini agar angka di tombol "Cetak Nota Pilihan (0)" ikut ter-update
         updateCount();
-    }
-
-    function jalankanFilterCmt() {
-        const filter = document.getElementById('filterInput').value.toLowerCase();
-        const rows = document.querySelectorAll('.cmt-row');
-        
-        // Hapus centang pada master checkbox saat mencari
-        document.getElementById('checkAllVisible').checked = false; 
-
-        rows.forEach(row => {
-            const text = row.getAttribute('data-search') || "";
-            if (text.includes(filter)) {
-                row.style.display = "";
-            } else {
-                row.style.display = "none";
-            }
-        });
     }
 
     function cetakNotaPilihan() {
@@ -218,6 +257,7 @@
         window.open(`/cetak-nota-pilihan-vendor?ids=${ids.join(',')}`, '_blank');
     }
 
+    // Modal & Konfirmasi Functions
     function bukaModalKirim(id, sisa, harga) {
         document.getElementById('modal_detail_id').value = id;
         document.getElementById('modal_harga_cmt').value = harga;
@@ -228,7 +268,6 @@
         window.myModalKirim.show();
     }
 
-    // Fungsi konfirmasi lainnya (Terima, Bayar, Hapus SJ) tetap sama seperti kode Anda
     function konfirmasiTerima(id) {
         Swal.fire({ title: 'Terima Barang?', text: "Status akan menjadi HUTANG.", icon: 'question', showCancelButton: true, confirmButtonText: 'Ya, Terima!' })
         .then((r) => { if (r.isConfirmed) window.location.href = '/admin/terima-barang/' + id; });
