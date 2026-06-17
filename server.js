@@ -3807,44 +3807,43 @@ app.get('/admin/batal-lunas-vendor/:id', isAdmin, async (req, res) => {
 // 3. HANDLER UTAMA: SIMPAN KAS & PELUNASAN MASSAL VENDOR CMT / PIUTANG CUSTOMER
 app.post('/save-kas', isAdmin, async (req, res) => {
     const tId = req.session.tenantId;
-    
-    // Menangkap semua kemungkinan ID PO (baik dari checkbox massal maupun input po_id lama jika ada)
     const { kas_id, tanggal, jenis, kategori, po_id, jumlah, keterangan, sj_ids, bulk_po_ids } = req.body;
 
     try {
         await db.query("BEGIN");
-        
         let currentKasId = kas_id;
-        
-        // Gabungkan array PO ID agar pintar mendeteksi
-        let poIdsArray = [];
-        if (bulk_po_ids) {
-            poIdsArray = Array.isArray(bulk_po_ids) ? bulk_po_ids : [bulk_po_ids];
-        } else if (po_id && po_id !== '') {
-            poIdsArray = [po_id];
-        }
 
         // ==========================================
-        // 🔴 JALUR 1: PEMBAYARAN CUSTOMER (PIUTANG/BORDIR)
+        // 🔴 JALUR 1: PEMBAYARAN CUSTOMER MASSAL (BORDIR)
         // ==========================================
-        if (kategori === "PEMBAYARAN BORDIR" && poIdsArray.length > 0) {
+        if (kategori === "PEMBAYARAN BORDIR" && (!kas_id || kas_id === '')) {
+            
+            // GEMBOK PENGAMAN: Tolak transaksi jika bendahara lupa centang PO
+            if (!bulk_po_ids) {
+                await db.query("ROLLBACK");
+                return res.status(400).json({ error: "Harap centang minimal 1 PO yang ingin dilunasi di daftar piutang!" });
+            }
+
+            const arrayPO = Array.isArray(bulk_po_ids) ? bulk_po_ids : [bulk_po_ids];
             let sisaUangUser = parseFloat(jumlah); // Uang yang diketik bendahara
 
-            for (let i = 0; i < poIdsArray.length; i++) {
-                let idPO = parseInt(poIdsArray[i]);
-                
-                // Hitung sisa tagihan asli dari database
-                const sqlCek = `SELECT (total_harga_customer - COALESCE((SELECT SUM(jumlah) FROM arus_kas WHERE po_id = $1), 0)) as sisa FROM po_utama WHERE id = $1 AND tenant_id = $2`;
-                const resCek = await db.query(sqlCek, [idPO, tId]);
+            for (let idPO of arrayPO) {
+                // Hitung Sisa Piutang Riil
+                const sqlCek = `
+                    SELECT (total_harga_customer - COALESCE((SELECT SUM(jumlah) FROM arus_kas WHERE po_id = $1), 0)) as sisa 
+                    FROM po_utama WHERE id = $1 AND tenant_id = $2
+                `;
+                const resCek = await db.query(sqlCek, [parseInt(idPO), tId]);
                 const sisaTagihan = parseFloat(resCek.rows[0]?.sisa || 0);
+
+                if (sisaTagihan <= 0) continue; // Lewati jika sudah lunas
 
                 let bayarUntukPOIni = 0;
                 
-                // Jika hanya bayar 1 PO, masukkan seluruh nominal uang sesuai ketikan
-                if (poIdsArray.length === 1) {
+                // Distribusi uang pintar
+                if (arrayPO.length === 1) {
                     bayarUntukPOIni = sisaUangUser; 
                 } else {
-                    // Jika bayar massal (centang banyak), distribusikan uangnya
                     if (sisaUangUser >= sisaTagihan) {
                         bayarUntukPOIni = sisaTagihan;
                         sisaUangUser -= sisaTagihan;
@@ -3855,29 +3854,32 @@ app.post('/save-kas', isAdmin, async (req, res) => {
                 }
 
                 if (bayarUntukPOIni > 0) {
+                    // Masukkan Kas dengan penambahan label [PELUNASAN MASSAL]
+                    const teksKeterangan = arrayPO.length > 1 ? `[PELUNASAN MASSAL] ${keterangan || ''}`.trim() : keterangan;
+
                     const sqlInsertKas = `
                         INSERT INTO arus_kas (tenant_id, tanggal, jenis, kategori, po_id, jumlah, keterangan)
                         VALUES ($1, $2, $3, $4, $5, $6, $7) RETURNING id
                     `;
                     const kasRes = await db.query(sqlInsertKas, [
-                        tId, tanggal, jenis, kategori, idPO, bayarUntukPOIni, keterangan
+                        tId, tanggal, jenis, kategori, parseInt(idPO), bayarUntukPOIni, teksKeterangan
                     ]);
                     currentKasId = kasRes.rows[0].id;
                     
-                    // PANGGIL HELPER OTOMATISASI STATUS PO
-                    await updateStatusPOBawaan(idPO, tId, db); 
+                    // Trigger perubahan status Lunas/DP
+                    await updateStatusPOBawaan(parseInt(idPO), tId, db); 
                 }
             }
         } 
         // ==========================================
-        // 🔴 JALUR 2: KAS NORMAL & UPDATE DATA LAMA
+        // 🔴 JALUR 2: UPDATE KAS LAMA ATAU KAS PENGELUARAN NORMAL
         // ==========================================
         else {
             if (kas_id && kas_id !== '') {
                 await db.query(`
-                    UPDATE arus_kas SET tanggal=$1, jenis=$2, kategori=$3, jumlah=$4, keterangan=$5 
-                    WHERE id=$6 AND tenant_id=$7`,
-                    [tanggal, jenis, kategori, parseFloat(jumlah), keterangan, kas_id, tId]
+                    UPDATE arus_kas SET tanggal=$1, jenis=$2, kategori=$3, jumlah=$4, keterangan=$5, po_id=$6 
+                    WHERE id=$7 AND tenant_id=$8`,
+                    [tanggal, jenis, kategori, parseFloat(jumlah), keterangan, po_id && po_id !== '' ? po_id : null, kas_id, tId]
                 );
             } else {
                 const sqlInsertKas = `
@@ -3885,7 +3887,7 @@ app.post('/save-kas', isAdmin, async (req, res) => {
                     VALUES ($1, $2, $3, $4, $5, $6, $7) RETURNING id
                 `;
                 const kasRes = await db.query(sqlInsertKas, [
-                    tId, tanggal, jenis, kategori, null, parseFloat(jumlah), keterangan
+                    tId, tanggal, jenis, kategori, po_id && po_id !== '' ? po_id : null, parseFloat(jumlah), keterangan
                 ]);
                 currentKasId = kasRes.rows[0].id;
             }
