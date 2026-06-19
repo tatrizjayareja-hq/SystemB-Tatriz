@@ -1590,7 +1590,7 @@ app.get('/laporan-kas', isAdmin, async (req, res) => {
         const sqlData = `
             SELECT 
                 (SELECT COALESCE(SUM(h.jumlah_setor * d.harga_customer), 0) FROM hasil_kerja h JOIN po_detail d ON h.detail_id = d.id WHERE TO_CHAR(h.tanggal::DATE, 'YYYY-MM') = $1 AND h.tenant_id = $2) as prod_bln,
-                (SELECT COALESCE(SUM(jumlah), 0) FROM arus_kas WHERE jenis = 'PENGELUARAN' AND kategori NOT IN ('BIAYA KONTRAKAN', 'BAYAR HUTANG', 'JATAH PROFIT OWNER') AND TO_CHAR(tanggal::DATE, 'YYYY-MM') = $1 AND tenant_id = $2) as op_bln,
+                (SELECT COALESCE(SUM(jumlah), 0) FROM arus_kas WHERE jenis = 'PENGELUARAN' AND kategori NOT IN ('BIAYA KONTRAKAN', 'BAYAR HUTANG', 'JATAH PROFIT OWNER',"BAYAR CMT / VENDOR") AND TO_CHAR(tanggal::DATE, 'YYYY-MM') = $1 AND tenant_id = $2) as op_bln,
                 (SELECT COALESCE(SUM(jumlah), 0) FROM arus_kas WHERE kategori = 'BIAYA KONTRAKAN' AND TO_CHAR(tanggal::DATE, 'YYYY-MM') = $1 AND tenant_id = $2) as k_bayar_bln,
                 (SELECT COALESCE(SUM(CASE WHEN kategori = 'HUTANG' THEN jumlah WHEN kategori = 'BAYAR HUTANG' THEN -jumlah ELSE 0 END), 0) FROM arus_kas WHERE tenant_id = $2) as hutang_riil,
                 (SELECT COALESCE(SUM(CASE WHEN jenis = 'PEMASUKAN' THEN jumlah ELSE -jumlah END), 0) FROM arus_kas WHERE tenant_id = $2) as saldo_laci,
