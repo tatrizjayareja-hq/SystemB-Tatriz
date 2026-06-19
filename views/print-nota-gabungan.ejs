@@ -2,6 +2,7 @@
 <html lang="id">
 <head>
     <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>Nota Transaksi</title>
     
     <style>
@@ -21,8 +22,10 @@
             background: #fff; 
             box-shadow: 0 4px 10px rgba(0,0,0,0.1);
         }
-        .content-area { position: relative; z-index: 1; flex-grow: 1; }
-        .footer-nota { margin-top: auto; padding-top: 10px; page-break-inside: avoid; } 
+        /* PERBAIKAN: flex-grow: 1 dihapus agar konten tidak menendang footer ke bawah */
+        .content-area { position: relative; z-index: 1; }
+        /* PERBAIKAN: margin-top: auto dihapus, diganti jarak statis agar tidak terpisah halaman */
+        .footer-nota { margin-top: 15px; padding-top: 10px; page-break-inside: avoid; break-inside: avoid; } 
         .header-container { display: flex; align-items: center; border-bottom: 2px solid #2c3e50; padding-bottom: 5px; margin-bottom: 8px; }
         .logo-header { width: 45px; height: 45px; object-fit: contain; margin-right: 10px; }
         .company-info { flex-grow: 1; }
@@ -34,17 +37,17 @@
         table { width: 100%; border-collapse: collapse; margin-top: 2px; line-height: 1.3; }
         th { background: #2c3e50; color: white; border: 1px solid #2c3e50; padding: 5px 4px; text-align: left; font-weight: 600; }
         td { padding: 5px 3px; vertical-align: top; border-bottom: 1px dashed #ddd; word-wrap: break-word; }
-        tr { page-break-inside: avoid; } 
+        tr { page-break-inside: avoid; break-inside: avoid; } 
         .master-row td { background: #f8f9fa; font-weight: bold; border-top: 1px solid #ccc; border-bottom: 1px solid #ccc; }
         .detail-row td { color: #444; padding: 3px 3px; }
         .subtotal-po td { font-style: italic; background: #fff; border-bottom: 1px solid #eee; padding: 4px 3px; }
-        .total-box { width: 100%; border-top: 2px solid #2c3e50; padding-top: 5px; margin-bottom: 10px; }
+        .total-box { width: 100%; border-top: 2px solid #2c3e50; padding-top: 5px; margin-bottom: 10px; page-break-inside: avoid; }
         .total-row { display: flex; justify-content: flex-end; margin-bottom: 2px; }
         .total-row span:first-child { width: 150px; text-align: right; margin-right: 15px; color: #555; }
         .total-row span:last-child { width: 100px; text-align: right; font-weight: bold; padding-right: 2px; }
         .sisa-row { font-weight: 800; color: #d63031; border-top: 1px solid #ccc; padding-top: 3px; margin-top: 3px; }
         .lunas-row { font-weight: 800; color: #27ae60; border-top: 1px solid #ccc; padding-top: 3px; margin-top: 3px; }
-        .ttd-section { display: flex; justify-content: space-between; margin-top: 5px; text-align: center; }
+        .ttd-section { display: flex; justify-content: space-between; margin-top: 5px; text-align: center; page-break-inside: avoid; }
         .ttd-box { width: 40%; }
         .ttd-space { height: 40px; }
         .watermark { position: absolute; top: 40%; left: 50%; transform: translate(-50%, -50%) rotate(-30deg); opacity: 0.04; width: 250px; z-index: 0; pointer-events: none; }
@@ -58,14 +61,15 @@
             @media print {
                 @page { size: 105mm 148mm; margin: 0; }
                 body { padding: 0 !important; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
-                .nota-box { width: 105mm; min-height: 98vh; padding: 5mm; border: none !important; box-shadow: none !important; }
+                /* PERBAIKAN: min-height diganti height: auto agar mengikuti isi konten */
+                .nota-box { width: 105mm; height: auto; min-height: unset; padding: 5mm; border: none !important; box-shadow: none !important; }
                 * { font-size: 10px !important; }
                 .company-info h2 { font-size: 11px !important; }
                 .total-row { font-size: 11px !important; }
                 .sisa-row, .lunas-row { font-size: 12px !important; }
                 .ttd-section { font-size: 9px !important; }
             }
-            @media screen { .nota-box { max-width: 105mm; min-height: 148mm; padding: 5mm; } * { font-size: 10px; } }
+            @media screen { .nota-box { width: 100%; max-width: 105mm; height: auto; min-height: unset; padding: 5mm; } * { font-size: 10px; } }
             table { table-layout: auto; }
         </style>
     <% } else { %>
@@ -74,14 +78,15 @@
             @media print {
                 @page { size: A5 landscape; margin: 0.5cm; }
                 body { padding: 0 !important; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
-                .nota-box { width: 100%; min-height: 98vh; padding: 8mm; border: none !important; box-shadow: none !important; }
+                /* PERBAIKAN: min-height diganti height: auto agar mengikuti isi konten */
+                .nota-box { width: 100%; height: auto; min-height: unset; padding: 8mm; border: none !important; box-shadow: none !important; }
                 * { font-size: 11px !important; }
                 .company-info h2 { font-size: 14px !important; }
                 .total-row { font-size: 12px !important; }
                 .sisa-row, .lunas-row { font-size: 14px !important; }
                 .ttd-section { font-size: 10px !important; }
             }
-            @media screen { .nota-box { max-width: 210mm; min-height: 148mm; padding: 8mm; } * { font-size: 11px; } }
+            @media screen { .nota-box { width: 100%; max-width: 210mm; height: auto; min-height: unset; padding: 8mm; overflow-x: auto;} * { font-size: 11px; } }
             table { table-layout: fixed; }
         </style>
     <% } %>
@@ -304,3 +309,62 @@
     </script>
 </body>
 </html>
+
+<script>
+/* Catatan: Blok di bawah ini adalah Node.js/Express (Backend), 
+   biasanya berada di file terpisah (misal: app.js atau route.js), bukan di dalam file HTML/EJS ini. 
+   Namun saya kembalikan persis agar tidak ada yang hilang di file Anda. */
+</script>
+
+<% /* app.get('/cetak-nota-gabungan', isAdmin, async (req, res) => {
+    const tId = req.session.tenantId;
+    let ids = req.query.ids; 
+    const mode = req.query.mode || 'standard'; 
+    
+    if (!ids) return res.send("Tidak ada PO yang dipilih.");
+    
+    // Pastikan konversi ID aman (entah dari klik 1 PO atau banyak PO)
+    let idList = Array.isArray(ids) ? ids : ids.split(',');
+    idList = idList.map(id => parseInt(id)).filter(id => !isNaN(id));
+
+    if (idList.length === 0) return res.send("ID PO tidak valid.");
+
+    try {
+        const config = await db.get("SELECT * FROM settings WHERE tenant_id = $1", [tId]);
+
+        // Query PO Utama (Mendukung 1 atau Banyak ID sekaligus)
+        const sqlOrders = `
+            SELECT p.*, COALESCE(bayar.total, 0) as total_bayar 
+            FROM po_utama p
+            LEFT JOIN (
+                SELECT po_id, SUM(jumlah) as total 
+                FROM arus_kas 
+                GROUP BY po_id
+            ) bayar ON p.id = bayar.po_id
+            WHERE p.id = ANY($1::int[]) AND p.tenant_id = $2
+            ORDER BY p.id ASC
+        `;
+        const orders = await db.all(sqlOrders, [idList, tId]);
+
+        // Query Detail PO berdasarkan ID yang terpilih
+        const details = await db.all(`
+            SELECT * FROM po_detail 
+            WHERE po_id = ANY($1::int[]) 
+            ORDER BY id ASC
+        `, [idList]);
+
+        if (!orders || orders.length === 0) return res.send("Data PO tidak ditemukan.");
+
+        res.render('print-nota-gabungan', { 
+            orders, 
+            details, 
+            config: config || {},
+            mode: mode 
+        });
+
+    } catch (err) {
+        console.error("🔥 Error Cetak Nota Universal:", err.message);
+        res.status(500).send("Gagal memproses cetak nota: " + err.message);
+    }
+});
+*/ %>
