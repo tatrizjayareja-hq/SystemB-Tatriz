@@ -32,45 +32,30 @@
         th { background: #f8f9fa; padding: 12px; text-align: left; font-size: 11px; border-bottom: 2px solid #eee; color: #7f8c8d; }
         td { padding: 12px; border-bottom: 1px solid #eee; font-size: 14px; }
         .input-locked { background: #eee !important; cursor: not-allowed; color: #7f8c8d; font-weight: bold; }
+
+        /* Loader Cepat (Pengganti Layar Hijau) */
+        #quickLoader {
+            position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(255, 255, 255, 0.6); backdrop-filter: blur(3px); -webkit-backdrop-filter: blur(3px);
+            z-index: 99999; display: flex; justify-content: center; align-items: center;
+            opacity: 0; visibility: hidden; transition: opacity 0.2s ease-in-out;
+        }
+        #quickLoader.show { opacity: 1; visibility: visible; }
+        
+        /* Animasi Spinner Sederhana (Tanpa Bootstrap) */
+        .spinner-simple {
+            width: 40px; height: 40px; border: 4px solid rgba(46, 204, 113, 0.3);
+            border-top: 4px solid var(--primary-dark); border-radius: 50%;
+            animation: spin 1s linear infinite;
+        }
+        @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
     </style>
 </head>
 <body>
-    <div id="loaderSistem" style="
-    position: fixed;
-    top: 0; left: 0;
-    width: 100%; height: 100%;
-    background: #195e0b; /* Warna hijau gelap khas Tatriz */
-    z-index: 99999; /* Dipastikan paling atas menutupi semua menu */
-    display: flex;
-    flex-direction: column;
-    justify-content: center;
-    align-items: center;
-    transition: opacity 0.3s ease, visibility 0.3s ease;
-">
-    <div class="spinner-tatriz"></div>
-    <p style="color: white; margin-top: 18px; font-weight: bold; font-size: 14px; letter-spacing: 1px; font-family: sans-serif; text-align: center;">
-        MEMUAT SISTEM TATRIZ...
-    </p>
-</div>
 
-<style>
-    .spinner-tatriz {
-        width: 50px; height: 50px;
-        border: 5px solid rgba(255,255,255,0.2);
-        border-top: 5px solid #59cf77; /* Warna hijau muda aksen */
-        border-radius: 50%;
-        animation: putarLoaderTatriz 1s linear infinite;
-    }
-    @keyframes putarLoaderTatriz {
-        0% { transform: rotate(0deg); }
-        100% { transform: rotate(360deg); }
-    }
-    /* Kelas untuk menghilangkan loader dengan halus */
-    .loader-hilang {
-        opacity: 0 !important;
-        visibility: hidden !important;
-    }
-</style>
+<div id="quickLoader">
+    <div class="spinner-simple"></div>
+</div>
 
 <% 
     const isInternal = (user.tenantId === 1 || user.tenantId === 100); 
@@ -79,13 +64,19 @@
 
 <div class="setup-container">
     <div style="margin-bottom: 20px; display: flex; justify-content: space-between; align-items: center;">
-        <a href="/dashboard" style="text-decoration: none; color: var(--dark); font-weight: bold;"><i class="bi bi-arrow-left"></i> Dashboard</a>
-        <span class="badge-pro" style="font-size: 12px; padding: 5px 10px;">
-            LISENSI: <%= user.tenantLevel >= 2 ? 'AKUN PRO' : 'AKUN STANDAR' %>
+        <a href="/dashboard" class="nav-link-load" style="text-decoration: none; color: var(--dark); font-weight: bold;"><i class="bi bi-arrow-left"></i> Dashboard</a>
+        <% if (isPro) { %>
+    <span class="badge-pro" style="font-size: 12px; padding: 5px 10px; background: var(--primary);">
+            LISENSI: AKUN PRO
         </span>
+    <% } else { %>
+        <span class="badge-pro" style="font-size: 12px; padding: 5px 10px; background: var(--warning);">
+            LISENSI: AKUN STANDAR
+        </span>
+    <% } %>
     </div>
 
-    <form action="/save-settings-all" method="POST" enctype="multipart/form-data">
+    <form action="/save-settings-all" method="POST" enctype="multipart/form-data" onsubmit="tampilkanLoader()">
         
         <div class="card">
             <div class="section-title"><i class="bi bi-building"></i> Profil & Identitas Perusahaan</div>
@@ -185,16 +176,24 @@
         </div>
 
         <div class="card" style="border-left: 5px solid var(--blue);">
-            <div class="section-title" style="border-bottom-color: var(--blue);"><i class="bi bi-cpu"></i> Mesin Produksi</div>
+            <div class="section-title" style="border-bottom-color: var(--blue);"><i class="bi bi-cpu"></i> Manajemen Mesin Produksi</div>
             
             <% if (!isPro && machines.length >= 1) { %>
                 <div onclick="ajakUpgrade('Multi Mesin')" style="background: #fff9db; padding: 12px; border-radius: 8px; border: 1px solid #fab005; margin-bottom: 15px; font-size: 13px; cursor: pointer;">
-                    <i class="bi bi-lock-fill"></i> Akun Standar terbatas 1 Mesin aktif. <b>Upgrade PRO</b> untuk menambah unit mesin.
+                    <i class="bi bi-lock-fill"></i> Akun Standar terbatas 1 Mesin aktif. <b>Upgrade PRO</b> untuk menambah unit mesin (Portable/Cabang).
                 </div>
             <% } else { %>
-                <div class="form-group">
-                    <label>Tambah Mesin Baru</label>
-                    <input type="text" name="nama_mesin_baru" placeholder="Contoh: Mesin 02 - Barudan">
+                <div class="form-group" style="background: #f0f8ff; padding: 15px; border-radius: 8px; border: 1px dashed var(--blue);">
+                    <label style="color: var(--blue);"><i class="bi bi-plus-circle-fill"></i> Tambah Mesin Baru</label>
+                    <div style="display: flex; gap: 10px;">
+                        <input type="text" name="nama_mesin_baru" placeholder="Contoh: Mesin 02 - Portable" style="flex: 1; border-color: #b9d7f1;">
+                        <button type="submit" class="btn" style="width: auto; background: var(--blue); padding: 0 20px;">
+                            TAMBAH
+                        </button>
+                    </div>
+                    <small style="color: #555; font-size: 10px; margin-top: 5px; display: block;">
+                        *Ketik nama mesin lalu klik tombol tambah di atas.
+                    </small>
                 </div>
             <% } %>
 
@@ -238,6 +237,24 @@
 </div>
 
 <script>
+    // Skrip Loader Transparan
+    function tampilkanLoader() {
+        const loader = document.getElementById('quickLoader');
+        if (loader) loader.classList.add('show');
+    }
+
+    document.addEventListener('DOMContentLoaded', () => {
+        const loader = document.getElementById('quickLoader');
+        if (loader) loader.classList.remove('show');
+
+        const links = document.querySelectorAll('.nav-link-load');
+        links.forEach(link => {
+            link.addEventListener('click', function() {
+                tampilkanLoader();
+            });
+        });
+    });
+
     function ajakUpgrade(fitur) {
         Swal.fire({
             title: 'Fitur PRO!',
@@ -263,6 +280,7 @@
             confirmButtonText: 'Simpan',
         }).then((result) => {
             if (result.isConfirmed && result.value) {
+                tampilkanLoader();
                 const form = document.createElement('form');
                 form.method = 'POST'; form.action = '/save-mesin';
                 const i1 = document.createElement('input'); i1.type='hidden'; i1.name='mesin_id'; i1.value=id;
@@ -281,25 +299,12 @@
             confirmButtonColor: '#e74c3c',
             confirmButtonText: 'Ya, Hapus!'
         }).then((result) => {
-            if (result.isConfirmed) { window.location.href = '/delete-mesin/' + id; }
+            if (result.isConfirmed) { 
+                tampilkanLoader();
+                window.location.href = '/delete-mesin/' + id; 
+            }
         });
     }
 </script>
-<script>
-        document.addEventListener('DOMContentLoaded', function() {
-            const loader = document.getElementById('loaderSistem');
-            if (loader) {
-                setTimeout(function() {
-                    loader.classList.add('loader-hilang');
-                }, 200);
-            }
-        });
-        setTimeout(function() {
-            const loader = document.getElementById('loaderSistem');
-            if (loader && !loader.classList.contains('loader-hilang')) {
-                loader.classList.add('loader-hilang');
-            }
-        }, 4000);
-    </script>
 </body>
 </html>
