@@ -1820,7 +1820,7 @@ app.get('/analisis-profit', isAdmin, async (req, res) => {
                 FROM arus_kas 
                 WHERE tenant_id = $1 
                 AND jenis = 'PENGELUARAN' 
-                AND kategori NOT IN ('BIAYA KONTRAKAN', 'BAYAR HUTANG', 'JATAH PROFIT OWNER')
+                AND kategori NOT IN ('BIAYA KONTRAKAN', 'BAYAR HUTANG', 'JATAH PROFIT OWNER', 'BAYAR CMT / VENDOR')
                 GROUP BY TO_CHAR(tanggal::DATE, 'YYYY-MM')
             ) ops ON prod.bulan = ops.bulan
             ORDER BY prod.bulan DESC
