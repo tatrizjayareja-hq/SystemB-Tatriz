@@ -1582,15 +1582,22 @@ app.get('/laporan-kas', isAdmin, async (req, res) => {
     const bulanIni = req.query.bulan || new Date().toISOString().slice(0, 7);
     
     try {
-        // 0. Ambil Config
+        // 0. Ambil Config (Beban Tetap)
         const configRes = await db.query("SELECT * FROM settings WHERE tenant_id = $1", [tId]);
         const conf = configRes.rows[0] || { beban_tetap: 0, nominal_buffer: 0 };
 
-        // 1. Query Statistik Keuangan (Tambahan: JATAH PROFIT OWNER bulan ini)
+        // 1. Query Statistik Keuangan (Dilengkapi Pelacak Laba CMT & Mesin)
         const sqlData = `
             SELECT 
+                -- Track Mesin
                 (SELECT COALESCE(SUM(h.jumlah_setor * d.harga_customer), 0) FROM hasil_kerja h JOIN po_detail d ON h.detail_id = d.id WHERE TO_CHAR(h.tanggal::DATE, 'YYYY-MM') = $1 AND h.tenant_id = $2) as prod_bln,
                 (SELECT COALESCE(SUM(jumlah), 0) FROM arus_kas WHERE jenis = 'PENGELUARAN' AND kategori NOT IN ('BIAYA KONTRAKAN', 'BAYAR HUTANG', 'JATAH PROFIT OWNER', 'BAYAR CMT / VENDOR') AND TO_CHAR(tanggal::DATE, 'YYYY-MM') = $1 AND tenant_id = $2) as op_bln,
+                
+                -- Track CMT (Mencari Pemasukan dari PO berstatus CMT)
+                (SELECT COALESCE(SUM(ak.jumlah), 0) FROM arus_kas ak LEFT JOIN po_utama p ON ak.po_id = p.id WHERE ak.jenis = 'PEMASUKAN' AND p.status = 'CMT' AND TO_CHAR(ak.tanggal::DATE, 'YYYY-MM') = $1 AND ak.tenant_id = $2) as omzet_cmt_bln,
+                (SELECT COALESCE(SUM(jumlah), 0) FROM arus_kas WHERE kategori = 'BAYAR CMT / VENDOR' AND TO_CHAR(tanggal::DATE, 'YYYY-MM') = $1 AND tenant_id = $2) as hpp_cmt_bln,
+
+                -- Kewajiban & Saldo
                 (SELECT COALESCE(SUM(jumlah), 0) FROM arus_kas WHERE kategori = 'BIAYA KONTRAKAN' AND TO_CHAR(tanggal::DATE, 'YYYY-MM') = $1 AND tenant_id = $2) as k_bayar_bln,
                 (SELECT COALESCE(SUM(CASE WHEN kategori = 'HUTANG' THEN jumlah WHEN kategori = 'BAYAR HUTANG' THEN -jumlah ELSE 0 END), 0) FROM arus_kas WHERE tenant_id = $2) as hutang_riil,
                 (SELECT COALESCE(SUM(CASE WHEN jenis = 'PEMASUKAN' THEN jumlah ELSE -jumlah END), 0) FROM arus_kas WHERE tenant_id = $2) as saldo_laci,
@@ -1609,7 +1616,7 @@ app.get('/laporan-kas', isAdmin, async (req, res) => {
         const rowPRes = await db.query(sqlPiutang, [tId]);
         const rowP = rowPRes.rows[0];
 
-        // 3. Query Piutang KHUSUS PO yang Dikerjakan Bulan Ini (Mirror dari piutang-bulanan)
+        // 3. Query Piutang KHUSUS PO yang Dikerjakan Bulan Ini
         const sqlPiutangBulanIni = `
             SELECT 
                 COALESCE(SUM(GREATEST(0, (
@@ -1630,35 +1637,17 @@ app.get('/laporan-kas', isAdmin, async (req, res) => {
         const rincianRes = await db.query(`
             SELECT 
                 ak.*, 
-                -- Data untuk PEMBAYARAN BORDIR (Bawaan)
                 p.customer as customer_bordir, 
                 p.nama_po as po_bordir,
-                
-                -- Data untuk BAYAR CMT / VENDOR (Hasil relasi cmt_sj_id)
+                (SELECT STRING_AGG(DISTINCT sj.nama_vendor, ', ') FROM cmt_surat_jalan sj WHERE sj.id::TEXT = ANY(STRING_TO_ARRAY(COALESCE(ak.cmt_sj_id, ''), ','))) as nama_vendor,
                 (
-                    SELECT STRING_AGG(DISTINCT sj.nama_vendor, ', ') 
-                    FROM cmt_surat_jalan sj 
-                    WHERE sj.id::TEXT = ANY(STRING_TO_ARRAY(COALESCE(ak.cmt_sj_id, ''), ','))
-                ) as nama_vendor,
-                
-                (
-                    SELECT STRING_AGG(DISTINCT p2.nama_po, ', ') 
-                    FROM cmt_surat_jalan sj
-                    JOIN cmt_surat_jalan_detail sjd ON sj.id = sjd.sj_id
-                    JOIN po_detail d2 ON sjd.po_detail_id = d2.id
-                    JOIN po_utama p2 ON d2.po_id = p2.id
+                    SELECT STRING_AGG(DISTINCT p2.nama_po, ', ') FROM cmt_surat_jalan sj JOIN cmt_surat_jalan_detail sjd ON sj.id = sjd.sj_id JOIN po_detail d2 ON sjd.po_detail_id = d2.id JOIN po_utama p2 ON d2.po_id = p2.id
                     WHERE sj.id::TEXT = ANY(STRING_TO_ARRAY(COALESCE(ak.cmt_sj_id, ''), ','))
                 ) as po_vendor,
-                
                 (
-                    SELECT STRING_AGG(DISTINCT p2.customer, ', ') 
-                    FROM cmt_surat_jalan sj
-                    JOIN cmt_surat_jalan_detail sjd ON sj.id = sjd.sj_id
-                    JOIN po_detail d2 ON sjd.po_detail_id = d2.id
-                    JOIN po_utama p2 ON d2.po_id = p2.id
+                    SELECT STRING_AGG(DISTINCT p2.customer, ', ') FROM cmt_surat_jalan sj JOIN cmt_surat_jalan_detail sjd ON sj.id = sjd.sj_id JOIN po_detail d2 ON sjd.po_detail_id = d2.id JOIN po_utama p2 ON d2.po_id = p2.id
                     WHERE sj.id::TEXT = ANY(STRING_TO_ARRAY(COALESCE(ak.cmt_sj_id, ''), ','))
                 ) as customer_vendor
-
             FROM arus_kas ak 
             LEFT JOIN po_utama p ON ak.po_id = p.id 
             WHERE TO_CHAR(ak.tanggal::DATE, 'YYYY-MM') = $1 AND ak.tenant_id = $2
@@ -1675,20 +1664,34 @@ app.get('/laporan-kas', isAdmin, async (req, res) => {
             ORDER BY h.tanggal DESC
         `, [bulanIni, tId]);
 
-        // PERHITUNGAN
-        const prod = parseFloat(data?.prod_bln || 0);
-        const op = parseFloat(data?.op_bln || 0);
+        // ==========================================
+        // EKSEKUSI ILMU EKONOMI: KALKULASI PROFIT
+        // ==========================================
+        
+        // A. Performa Mesin Produksi
+        const prodMesin = parseFloat(data?.prod_bln || 0);
+        const opMesin = parseFloat(data?.op_bln || 0);
+        const labaMesin = prodMesin - opMesin;
+
+        // B. Performa Vendor CMT
+        const omzetCmt = parseFloat(data?.omzet_cmt_bln || 0);
+        const hppCmt = parseFloat(data?.hpp_cmt_bln || 0);
+        const labaCmt = omzetCmt - hppCmt;
+
+        // C. Performa Perusahaan Keseluruhan
+        const bebanTetap = parseFloat(conf.beban_tetap) || 0;
+        const estimasiProfit = labaMesin + labaCmt - bebanTetap;
+
+        // D. Arus Kas Berjalan
         const k_terbayar = parseFloat(data?.k_bayar_bln || 0);
         const profitDitarik = parseFloat(data?.profit_ditarik_bln || 0);
-        
-        const estimasiProfit = prod - op - (parseFloat(conf.beban_tetap) || 0);
         const sisaProfit = estimasiProfit - profitDitarik;
-        const sisaBebanKontrakan = Math.max(0, (parseFloat(conf.beban_tetap) || 0) - k_terbayar);
+        const sisaBebanKontrakan = Math.max(0, bebanTetap - k_terbayar);
 
         res.render('laporan-kas', {
             bulanIni,
-            nilaiProduksi: prod,
-            totalBiaya: op,
+            prodMesin, opMesin, labaMesin,     // Variabel baru Mesin
+            omzetCmt, hppCmt, labaCmt,         // Variabel baru CMT
             sisaHutangRiil: parseFloat(data?.hutang_riil || 0),
             sisaBebanKontrakan,
             estimasiProfit,
@@ -1696,7 +1699,7 @@ app.get('/laporan-kas', isAdmin, async (req, res) => {
             sisaProfit,
             saldoRiil: parseFloat(data?.saldo_laci || 0),
             piutangBerjalan: parseFloat(rowP?.piutang_total || 0),
-            piutangBulanIni, // Variable baru untuk EJS
+            piutangBulanIni,
             monitorHarian: monitorRes.rows || [],
             rincianKas: rincianRes.rows || [],
             config: conf,

@@ -1,242 +1,232 @@
 <%- include('partials/header') %>
 <style>
-    body { font-family: 'Segoe UI', sans-serif; background: #f4f7f6; padding: 10px; }
-    .card { background: white; border-radius: 12px; margin-bottom: 10px; box-shadow: 0 2px 5px rgba(0,0,0,0.05); border: none; }
-    .row-pemasukan { background-color: #f0fff4 !important; }
-    .row-pengeluaran { background-color: #fff5f5 !important; }
+    body { font-family: 'Segoe UI', sans-serif; background: #f4f7f6; padding: 10px; padding-bottom: 80px; }
+    .card { background: white; border-radius: 12px; box-shadow: 0 2px 8px rgba(0,0,0,0.04); border: none; }
+    .row-pemasukan { background-color: #fcfdfe !important; }
+    .row-pengeluaran { background-color: #fff9f9 !important; }
     .text-pemasukan { color: #27ae60; font-weight: bold; }
     .text-pengeluaran { color: #d63031; font-weight: bold; }
-    .compact-table td, .compact-table th { padding: 4px 8px !important; font-size: 11px; }
+    .compact-table td, .compact-table th { padding: 8px !important; font-size: 11px; vertical-align: middle; }
     .sticky-top { position: sticky; top: 0; z-index: 10; background: white; }
     
-    /* Style Overlay Gembok yang dipertebal (0.98) */
+    /* Animasi Loading Transparan yang Cepat & Ringan */
+    #quickLoader {
+        position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+        background: rgba(255, 255, 255, 0.6); backdrop-filter: blur(3px); -webkit-backdrop-filter: blur(3px);
+        z-index: 99999; display: flex; justify-content: center; align-items: center;
+        opacity: 0; visibility: hidden; transition: opacity 0.3s ease;
+    }
+    #quickLoader.show { opacity: 1; visibility: visible; }
+    
+    /* Gembok PRO Halus */
     .locked-overlay {
-        position: absolute; 
-        top: 0; left: 0;
-        width: 100%; height: 100%; 
-        background: rgba(245, 245, 245, 0.98); 
-        backdrop-filter: blur(8px); 
-        -webkit-backdrop-filter: blur(8px); 
-        z-index: 20; 
-        display: flex; flex-direction: column; align-items: center; 
+        position: absolute; top: 0; left: 0; width: 100%; height: 100%; 
+        background: rgba(255, 255, 255, 0.85); backdrop-filter: blur(4px); 
+        z-index: 20; display: flex; flex-direction: column; align-items: center; 
         justify-content: center; cursor: pointer; border-radius: 12px;
     }
+    
+    /* Floating Action Button Khusus HP */
+    .fab-kas {
+        position: fixed; bottom: 20px; right: 20px; z-index: 1050;
+        background: #27ae60; color: white; border-radius: 50px;
+        padding: 12px 20px; box-shadow: 0 4px 12px rgba(39, 174, 96, 0.4);
+        font-weight: bold; text-decoration: none; display: flex; align-items: center; gap: 8px;
+    }
+    @media (min-width: 768px) { .fab-kas { display: none; } } /* Hilang di Desktop */
+    .desktop-kas-btn { display: none; }
+    @media (min-width: 768px) { .desktop-kas-btn { display: inline-block; } }
 </style>
 
-<div class="container-fluid" style="max-width: 900px;">
-    <div class="d-flex justify-content-between align-items-center mb-2">
-        <a href="/dashboard" class="text-decoration-none text-muted small">← Dashboard</a>
-        <h5 class="mb-0 fw-bold">📊 Rapor Keuangan</h5>
-        <a href="/input-kas" class="btn btn-success btn-sm fw-bold">+ KAS</a>
+<div id="quickLoader">
+    <div class="spinner-border text-primary" style="width: 3rem; height: 3rem;" role="status"></div>
+</div>
+
+<div class="container-fluid mx-auto" style="max-width: 1000px;">
+    
+    <div class="d-flex justify-content-between align-items-center mb-3">
+        <a href="/dashboard" class="text-decoration-none text-muted small nav-link-load">← Dashboard</a>
+        <h5 class="mb-0 fw-bold text-dark">Rapor Keuangan</h5>
+        <a href="/input-kas" class="btn btn-success btn-sm fw-bold desktop-kas-btn nav-link-load">+ KAS BARU</a>
     </div>
 
-    <form action="/laporan-kas" method="GET" class="mb-2">
-        <input type="month" name="bulan" value="<%= bulanIni %>" class="form-control form-control-sm" onchange="this.form.submit()">
+    <form action="/laporan-kas" method="GET" class="mb-3" onsubmit="tampilkanLoader()">
+        <input type="month" name="bulan" value="<%= bulanIni %>" class="form-control form-control-sm border-secondary" onchange="this.form.submit()">
     </form>
 
-    <div class="row g-2 mb-2">
-        
-        <div class="col-md-7 d-flex flex-column gap-2">
-            
-            <div class="card shadow-sm" style="border-left: 5px solid #6c5ce7; position: relative; overflow: hidden;">
-                <% if (!isPro) { %>
-                    <div class="locked-overlay" onclick="ajakUpgrade('Analisis Profit')">
-                        <i class="bi bi-lock-fill text-warning fs-3 mb-1"></i>
-                        <span class="badge bg-dark" style="font-size: 8px;">Upgrade PRO Untuk Lihat Profit Bulanan</span>
-                    </div>
-                <% } %>
-                <div class="card-body p-3">
-                    <small class="fw-bold text-uppercase" style="color: #6c5ce7; font-size: 11px;">💰 Performa Owner (Nett)</small>
-                    
-                    <div class="row text-center g-0 mt-2 mb-3">
-                        <div class="col-6">
-                            <small class="text-muted d-block" style="font-size: 10px;">Hasil Kerja Mesin</small>
-                            <strong style="font-size: 14px;">Rp <%= Number(nilaiProduksi || 0).toLocaleString('id-ID') %></strong>
-                        </div>
-                        <div class="col-6 border-start">
-                            <small class="text-muted d-block" style="font-size: 10px;">Beban Operasional</small>
-                            <strong class="text-danger" style="font-size: 14px;">Rp <%= (Number(totalBiaya || 0) + Number(config.beban_tetap || 0)).toLocaleString('id-ID') %></strong>
-                        </div>
-                    </div>
-                    
-                    <div class="bg-dark rounded-3 p-3 shadow-sm mb-3">
-                        <div class="text-center mb-2">
-                            <small class="fw-bold text-white-50" style="font-size: 9px;">TOTAL PROFIT BULAN INI:</small>
-                            <strong class="text-warning d-block" style="font-size: 18px;">
-                                Rp <%= Number(estimasiProfit || 0).toLocaleString('id-ID') %>
-                            </strong>
-                        </div>
-                        <div class="d-flex justify-content-between border-top border-secondary pt-2" style="font-size: 11px;">
-                            <span class="text-white-50">Telah Ditarik:</span>
-                            <span class="text-danger fw-bold">- Rp <%= Number(profitDitarik || 0).toLocaleString('id-ID') %></span>
-                        </div>
-                        <div class="d-flex justify-content-between mt-1" style="font-size: 12px;">
-                            <span class="text-white fw-bold">SISA PROFIT:</span>
-                            <span class="text-success fw-bold">Rp <%= Number(sisaProfit || 0).toLocaleString('id-ID') %></span>
-                        </div>
-                    </div>
-
-                    <div class="alert alert-warning p-2 text-center mb-0 border-warning shadow-sm rounded-3" style="font-size: 10px; background-color: #fffaf0;">
-                        <i class="bi bi-info-circle-fill text-warning mb-1 d-block" style="font-size: 14px;"></i>
-                        <span class="text-muted">Sebagian dari <strong>Sisa Profit</strong> Anda masih berupa piutang:</span><br>
-                        <strong class="text-danger d-block mt-1" style="font-size: 13px;">Rp <%= Number(piutangBulanIni || 0).toLocaleString('id-ID') %></strong>
-                        <span class="text-muted" style="font-size: 9px;">(Sisanya sudah berwujud uang tunai di Saldo Laci)</span>
-                    </div>
-                </div>
-            </div>
-
-            <div class="card shadow-sm" style="border-left: 5px solid #27ae60; position: relative; overflow: hidden; background: #f9fffb;">
-                <% if (!isPro) { %>
-                    <div class="locked-overlay" onclick="ajakUpgrade('Analisis Akumulasi Profit')">
-                        <i class="bi bi-lock-fill text-success fs-5 mb-1"></i>
-                        <small class="fw-bold text-dark" style="font-size: 8px;">Rincian Tabungan Profit Locked</small>
-                    </div>
-                <% } %>
-                <div class="card-body p-2 d-flex justify-content-between align-items-center">
-                    <div>
-                        <small class="fw-bold text-uppercase" style="color: #27ae60; font-size: 10px;">📈 Tabungan Jatah Profit</small>
-                        <h5 class="mb-0 fw-bold" style="color: #2d3436; font-size: 13px;">
-                            Riwayat Profit & Penarikan
-                        </h5>
-                        <a href="/analisis-profit" class="text-decoration-none fw-bold" style="font-size: 10px; color: #27ae60;">LIHAT RINCIAN LOG →</a>
-                    </div>
-                    <div class="text-success opacity-25">
-                        <i class="bi bi-safe2-fill" style="font-size: 2rem;"></i>
-                    </div>
-                </div>
-            </div>
-
-            <div class="card shadow-sm" style="border-left: 5px solid #e17055; background-color: #fff9f7;">
-                <div class="card-body p-2">
-                    <small class="fw-bold text-uppercase" style="color: #e17055; font-size: 10px;">🏥 Kewajiban Kas Saat Ini</small>
-                    <div class="row text-center g-0 mt-1">
-                        <div class="col-6">
-                            <small class="text-muted d-block" style="font-size: 9px;">Sisa Hutang (Total)</small>
-                            <strong class="text-danger" style="font-size: 11px;">Rp <%= Number(sisaHutangRiil || 0).toLocaleString('id-ID') %></strong>
-                        </div>
-                        <div class="col-6 border-start">
-                            <small class="text-muted d-block" style="font-size: 9px;">Sisa Kontrakan</small>
-                            <strong class="text-secondary" style="font-size: 11px;">
-                                <%= sisaBebanKontrakan <= 0 ? 'LUNAS' : 'Rp ' + Number(sisaBebanKontrakan || 0).toLocaleString('id-ID') %>
-                            </strong>
-                        </div>
-                    </div>
-                </div>
-            </div></div>
-
-        <div class="col-md-5">
-            <div class="card shadow-sm h-100" style="position: relative; overflow: hidden;">
-                <% if (!isPro) { %>
-                    <div class="locked-overlay" onclick="ajakUpgrade('Omzet Harian')">
-                        <i class="bi bi-lock-fill text-primary fs-5 mb-1"></i>
-                        <small class="fw-bold text-dark" style="font-size: 8px;">Omzet Harian Locked</small>
-                    </div>
-                <% } %>
-                <div class="p-2 bg-primary text-white fw-bold d-flex align-items-center" style="font-size: 11px; border-radius: 12px 12px 0 0; z-index: 2;">
-                    <i class="bi bi-calendar3 me-2"></i> OMZET HARIAN
-                </div>
-                
-                <div class="table-responsive" style="max-height: 400px; overflow-y: auto;">
-                    <table class="table table-sm table-hover mb-0 compact-table" style="font-size: 11px;">
-                        <tbody>
-                            <% monitorHarian.forEach(m => { %>
-                                <tr>
-                                    <td class="ps-3 py-2 border-bottom">
-                                        <%= new Date(m.tanggal).toLocaleDateString('id-ID', {day:'2-digit', month:'short'}) %>
-                                    </td>
-                                    <td class="text-end fw-bold pe-3 py-2 text-primary border-bottom">
-                                        Rp <%= Number(m.total_harian || 0).toLocaleString('id-ID') %>
-                                    </td>
-                                </tr>
-                            <% }) %>
-                        </tbody>
-                    </table>
-                </div>
+    <div class="row g-2 mb-3">
+        <div class="col-6">
+            <div class="card h-100 p-3 text-center border-start border-4 border-success">
+                <small class="fw-bold text-muted" style="font-size: 10px;">CASH ON HAND (LACI)</small>
+                <h4 class="text-success fw-bold mb-0 mt-1">Rp <%= Number(saldoRiil || 0).toLocaleString('id-ID') %></h4>
             </div>
         </div>
+        <div class="col-6">
+            <div class="card h-100 p-3 text-center bg-dark text-white position-relative overflow-hidden shadow">
+                <% if (!isPro) { %>
+                    <div class="locked-overlay text-dark" onclick="ajakUpgrade('Analisis Profit Nett')">
+                        <i class="bi bi-lock-fill text-warning fs-4"></i>
+                        <span style="font-size: 9px;" class="fw-bold">PRO LOCKED</span>
+                    </div>
+                <% } %>
+                <small class="fw-bold text-white-50" style="font-size: 10px;">TOTAL PROFIT (NETT)</small>
+                <h4 class="text-warning fw-bold mb-0 mt-1">Rp <%= Number(estimasiProfit || 0).toLocaleString('id-ID') %></h4>
+            </div>
+        </div>
+    </div>
 
-    <div class="card shadow-sm mb-2" style="border-left: 5px solid #0984e3; background: #eef7ff; position: relative; overflow: hidden;">
+    <div class="card mb-3 position-relative overflow-hidden">
         <% if (!isPro) { %>
-            <div class="locked-overlay" onclick="ajakUpgrade('Rekap Piutang')" style="flex-direction: row; gap: 10px;">
-                <span class="badge bg-primary px-3 py-2 shadow-sm"><i class="bi bi-lock-fill"></i> Buka Analisis Piutang (PRO)</span>
+            <div class="locked-overlay" onclick="ajakUpgrade('Piramida Laba Mesin vs CMT')">
+                <i class="bi bi-lock-fill text-primary fs-3"></i>
+                <small class="fw-bold mt-1 text-dark">Buka Rincian Laba Mesin & CMT</small>
             </div>
         <% } %>
-        <div class="card-body p-2 d-flex justify-content-between align-items-center">
-            <div>
-                <small class="fw-bold text-uppercase" style="color: #0984e3; font-size: 10px;">🔍 Piutang Berjalan (Akumulatif)</small>
-                <h4 class="mb-0 fw-bold" style="color: #0984e3;">Rp <%= Number(piutangBerjalan || 0).toLocaleString('id-ID') %></h4>
-                <p class="mb-0 text-muted" style="font-size: 9px;">Total hasil kerja mesin yang belum dibayar pelanggan.</p>
+        
+        <div class="card-body p-3">
+            <h6 class="fw-bold text-dark border-bottom pb-2 mb-3"><i class="bi bi-diagram-2"></i> Piramida Laba Kotor</h6>
+            
+            <div class="row g-3">
+                <div class="col-md-6 border-end">
+                    <div class="d-flex align-items-center gap-2 mb-2">
+                        <span class="badge bg-primary"><i class="bi bi-gear-fill"></i></span>
+                        <small class="fw-bold text-dark">Laba Mesin Produksi</small>
+                    </div>
+                    <div class="d-flex justify-content-between" style="font-size: 11px;">
+                        <span class="text-muted">Hasil Kerja Mesin:</span>
+                        <span class="fw-bold text-dark">Rp <%= Number(prodMesin || 0).toLocaleString('id-ID') %></span>
+                    </div>
+                    <div class="d-flex justify-content-between mb-1" style="font-size: 11px;">
+                        <span class="text-muted">Beban Belanja/Operasional:</span>
+                        <span class="text-danger">- Rp <%= Number(opMesin || 0).toLocaleString('id-ID') %></span>
+                    </div>
+                    <div class="d-flex justify-content-between border-top pt-1 mt-1" style="font-size: 12px;">
+                        <span class="fw-bold text-primary">Margin Mesin:</span>
+                        <span class="fw-bold text-success">Rp <%= Number(labaMesin || 0).toLocaleString('id-ID') %></span>
+                    </div>
+                </div>
+
+                <div class="col-md-6">
+                    <div class="d-flex align-items-center gap-2 mb-2">
+                        <span class="badge bg-info text-dark"><i class="bi bi-truck"></i></span>
+                        <small class="fw-bold text-dark">Laba Vendor (CMT)</small>
+                    </div>
+                    <div class="d-flex justify-content-between" style="font-size: 11px;">
+                        <span class="text-muted">Pemasukan PO CMT:</span>
+                        <span class="fw-bold text-dark">Rp <%= Number(omzetCmt || 0).toLocaleString('id-ID') %></span>
+                    </div>
+                    <div class="d-flex justify-content-between mb-1" style="font-size: 11px;">
+                        <span class="text-muted">Dibayarkan ke Vendor:</span>
+                        <span class="text-danger">- Rp <%= Number(hppCmt || 0).toLocaleString('id-ID') %></span>
+                    </div>
+                    <div class="d-flex justify-content-between border-top pt-1 mt-1" style="font-size: 12px;">
+                        <span class="fw-bold text-info">Margin CMT:</span>
+                        <span class="fw-bold text-success">Rp <%= Number(labaCmt || 0).toLocaleString('id-ID') %></span>
+                    </div>
+                </div>
             </div>
-            <div class="text-primary opacity-25">
-                <i class="bi bi-person-badge-fill" style="font-size: 2.5rem;"></i>
+        </div>
+        
+        <div class="card-footer bg-light p-3 border-top-0">
+            <div class="d-flex justify-content-between align-items-center border-bottom pb-2 mb-2" style="font-size: 12px;">
+                <span class="text-muted fw-bold">Telah Ditarik (Jatah Owner):</span>
+                <span class="text-danger fw-bold">- Rp <%= Number(profitDitarik || 0).toLocaleString('id-ID') %></span>
+            </div>
+            <div class="d-flex justify-content-between align-items-center" style="font-size: 13px;">
+                <span class="fw-bold text-dark">Sisa Profit Mengendap:</span>
+                <span class="fw-bold text-success">Rp <%= Number(sisaProfit || 0).toLocaleString('id-ID') %></span>
+            </div>
+            <div class="alert alert-warning p-2 mt-3 mb-0 d-flex align-items-start gap-2" style="font-size: 10px; background-color: #fffaf0; border: 1px solid #ffeeba;">
+                <i class="bi bi-info-circle-fill text-warning mt-1"></i>
+                <div>
+                    Sebagian dari Sisa Profit Anda masih tertahan di tangan pelanggan sebagai Piutang sebesar <strong class="text-danger">Rp <%= Number(piutangBulanIni || 0).toLocaleString('id-ID') %></strong>.
+                </div>
             </div>
         </div>
     </div>
 
-    <div class="card p-2 bg-dark text-white mb-2 shadow">
-        <div class="d-flex justify-content-between align-items-center px-2">
-            <small class="fw-bold" style="font-size: 10px; color: #aaa;">SALDO FISIK LACI (CASH ON HAND):</small>
-            <strong class="text-warning" style="font-size: 18px;">Rp <%= Number(saldoRiil || 0).toLocaleString('id-ID') %></strong>
+    <div class="row g-2 mb-3">
+        <div class="col-6">
+            <div class="card p-2 border-start border-3 border-primary bg-white h-100 position-relative">
+                <% if (!isPro) { %><div class="locked-overlay" onclick="ajakUpgrade('Rekap Piutang')"><i class="bi bi-lock-fill"></i></div><% } %>
+                <small class="text-muted fw-bold" style="font-size: 9px;">PIUTANG BERJALAN</small>
+                <strong class="text-primary" style="font-size: 13px;">Rp <%= Number(piutangBerjalan || 0).toLocaleString('id-ID') %></strong>
+            </div>
+        </div>
+        <div class="col-6">
+            <div class="card p-2 border-start border-3 border-danger bg-white h-100">
+                <small class="text-muted fw-bold" style="font-size: 9px;">SISA HUTANG GLOBAL</small>
+                <strong class="text-danger" style="font-size: 13px;">Rp <%= Number(sisaHutangRiil || 0).toLocaleString('id-ID') %></strong>
+            </div>
         </div>
     </div>
 
-    <div class="card shadow-sm border-0 overflow-hidden">
-        <div class="card-header bg-white p-2">
-            <input type="text" id="liveSearch" class="form-control form-control-sm" placeholder="Cari rincian transaksi..." onkeyup="filterTabel()">
+    <div class="accordion mb-3 shadow-sm rounded-3" id="accordionOmzet" style="border: none;">
+        <div class="accordion-item border-0">
+            <h2 class="accordion-header" id="headingOne">
+                <button class="accordion-button collapsed py-2 fw-bold text-primary bg-white" type="button" data-bs-toggle="collapse" data-bs-target="#collapseOmzet" style="font-size: 12px; box-shadow: none;">
+                    <i class="bi bi-calendar3 me-2"></i> Buka Tabel Omzet Harian Mesin
+                </button>
+            </h2>
+            <div id="collapseOmzet" class="accordion-collapse collapse" data-bs-parent="#accordionOmzet">
+                <div class="accordion-body p-0">
+                    <div class="table-responsive position-relative" style="max-height: 250px; overflow-y: auto;">
+                        <% if (!isPro) { %>
+                            <div class="locked-overlay" onclick="ajakUpgrade('Omzet Harian')"><i class="bi bi-lock-fill text-dark"></i></div>
+                        <% } %>
+                        <table class="table table-sm table-hover mb-0 compact-table border-top">
+                            <thead class="table-light sticky-top"><tr><th>Tanggal</th><th class="text-end">Omzet Kotor</th></tr></thead>
+                            <tbody>
+                                <% monitorHarian.forEach(m => { %>
+                                    <tr>
+                                        <td class="ps-3 text-muted"><%= new Date(m.tanggal).toLocaleDateString('id-ID', {day:'2-digit', month:'short'}) %></td>
+                                        <td class="text-end pe-3 fw-bold text-dark">Rp <%= Number(m.total_harian || 0).toLocaleString('id-ID') %></td>
+                                    </tr>
+                                <% }) %>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
         </div>
-        <div class="table-responsive" style="max-height: 400px; overflow-y: auto;">
-            <table class="table table-hover align-middle mb-0" id="tabelKas" style="font-size: 12px;">
-                <thead class="table-light sticky-top">
+    </div>
+
+    <div class="card">
+        <div class="card-header bg-white p-2 border-bottom-0">
+            <input type="text" id="liveSearch" class="form-control form-control-sm border-secondary" placeholder="🔍 Cari rincian transaksi..." onkeyup="filterTabel()">
+        </div>
+        <div class="table-responsive" style="max-height: 500px; overflow-y: auto;">
+            <table class="table table-hover align-middle mb-0 compact-table" id="tabelKas">
+                <thead class="table-light sticky-top text-muted">
                     <tr>
-                        <th style="width: 85px;">TGL</th>
-                        <th>KATEGORI & KETERANGAN</th> 
-                        <th class="text-end">JUMLAH</th>
-                        <th class="text-center" style="width: 70px;">AKSI</th>
+                        <th style="width: 70px;">Tgl</th>
+                        <th>Keterangan Transaksi</th> 
+                        <th class="text-end">Nominal</th>
+                        <th class="text-center" style="width: 60px;">Aksi</th>
                     </tr>
                 </thead>
                 <tbody>
                     <% rincianKas.forEach(item => { %>
                         <tr class="<%= item.jenis === 'PEMASUKAN' ? 'row-pemasukan' : 'row-pengeluaran' %>">
-                            <td style="font-size: 11px; white-space: nowrap;">
-                                <%= item.tanggal ? new Date(item.tanggal).toLocaleDateString('id-ID', {day:'2-digit', month:'2-digit', year:'numeric'}) : '-' %>
-                            </td>
+                            <td class="text-muted"><%= item.tanggal ? new Date(item.tanggal).toLocaleDateString('id-ID', {day:'2-digit', month:'2-digit'}) : '-' %></td>
                             <td>
-                                <strong><%= item.kategori %></strong>
-                                
+                                <strong class="text-dark d-block"><%= item.kategori %></strong>
                                 <% 
-                                    // Logika penggabungan: Pakai data bordir jika ada, jika tidak pakai data vendor
                                     const finalCustomer = item.customer_bordir || item.customer_vendor;
                                     const finalPO = item.po_bordir || item.po_vendor;
                                 %>
-
-                                <% if (item.nama_vendor) { %>
-                                    <span class="badge bg-danger p-1" style="font-size: 9px; margin-left: 5px;">
-                                        <i class="bi bi-person-badge"></i> <%= item.nama_vendor %>
-                                    </span>
-                                <% } %>
-
-                                <% if (finalCustomer) { %>
-                                    <span class="badge bg-info p-1" style="font-size: 9px; margin-left: 2px;">
-                                        <%= finalCustomer %>
-                                    </span>
-                                <% } %>
-
-                                <% if (finalPO) { %>
-                                    <span class="badge bg-success p-1" style="font-size: 9px; margin-left: 2px;">
-                                        <i class="bi bi-tag-fill"></i> <%= finalPO %>
-                                    </span>
-                                <% } %>
-                                
-                                <br>
-                                <small class="text-muted" style="font-size: 10px;"><%= item.keterangan %></small>
+                                <% if (item.nama_vendor) { %><span class="badge bg-danger p-1" style="font-size: 8px;"><%= item.nama_vendor %></span><% } %>
+                                <% if (finalCustomer) { %><span class="badge bg-primary p-1" style="font-size: 8px;"><%= finalCustomer %></span><% } %>
+                                <% if (finalPO) { %><span class="badge bg-secondary p-1" style="font-size: 8px;"><%= finalPO %></span><% } %>
+                                <div class="text-muted mt-1" style="font-size: 10px; line-height: 1.2;"><%= item.keterangan %></div>
                             </td>
                             <td class="text-end <%= item.jenis === 'PEMASUKAN' ? 'text-pemasukan' : 'text-pengeluaran' %>">
                                 <%= item.jenis === 'PEMASUKAN' ? '+' : '-' %> <%= Number(item.jumlah || 0).toLocaleString('id-ID') %>
                             </td>
                             <td class="text-center">
                                 <div class="btn-group">
-                                    <button class="btn btn-sm p-0 px-1" onclick="persiapanEditKas('<%= item.id %>', '<%= item.tanggal %>', '<%= item.jenis %>', '<%= item.kategori %>', '<%= item.jumlah %>', '<%= item.keterangan %>', '<%= item.po_id %>')">✏️</button>
-                                    <a href="/hapus-kas/<%= item.id %>" class="btn btn-sm p-0 px-1" onclick="return confirm('Hapus transaksi?')">🗑️</a>
+                                    <button class="btn btn-sm p-0 px-1 text-warning" onclick="persiapanEditKas('<%= item.id %>', '<%= item.tanggal %>', '<%= item.jenis %>', '<%= item.kategori %>', '<%= item.jumlah %>', '<%= item.keterangan %>', '<%= item.po_id %>')"><i class="bi bi-pencil-square"></i></button>
+                                    <a href="/hapus-kas/<%= item.id %>" class="btn btn-sm p-0 px-1 text-danger nav-link-load" onclick="return confirm('Hapus transaksi ini secara permanen?')"><i class="bi bi-trash"></i></a>
                                 </div>
                             </td>
                         </tr>
@@ -247,7 +237,12 @@
     </div>
 </div>
 
+<a href="/input-kas" class="fab-kas nav-link-load shadow-lg">
+    <i class="bi bi-plus-lg"></i> KAS
+</a>
+
 <script>
+    // FUNGSI PENCARIAN TABEL KAS
     function filterTabel() {
         let input = document.getElementById("liveSearch").value.toLowerCase();
         let rows = document.querySelectorAll("#tabelKas tbody tr");
@@ -256,7 +251,9 @@
         });
     }
 
+    // FUNGSI EDIT KAS
     function persiapanEditKas(id, tgl, jenis, kat, jml, ket, poId) {
+        tampilkanLoader();
         let d = new Date(tgl);
         let formattedDate = d.toISOString().split('T')[0];
         const data = { id, tgl: formattedDate, jenis, kat, jml, ket, poId: (poId === 'null' || !poId) ? "" : poId };
@@ -264,23 +261,24 @@
         window.location.href = '/input-kas';
     }
 
+    // FUNGSI POPUP PRO
     function ajakUpgrade(fitur) {
         if (typeof Swal !== 'undefined') {
             Swal.fire({
                 title: 'Fitur Terkunci!',
-                text: 'Fitur ' + fitur + ' hanya tersedia untuk pengguna Akun PRO. Tingkatkan manajemen bordir Anda sekarang!',
+                text: 'Analisis ' + fitur + ' hanya tersedia di Akun PRO.',
                 icon: 'warning',
                 showCancelButton: true,
-                confirmButtonColor: '#2ecc71',
-                confirmButtonText: 'Upgrade PRO Sekarang',
+                confirmButtonColor: '#27ae60',
+                confirmButtonText: 'Upgrade PRO',
                 cancelButtonText: 'Nanti Dulu'
             }).then((result) => {
                 if (result.isConfirmed) {
-                    window.open('https://wa.me/+6281315290003?text=Halo%20Admin%20Tatriz,%20saya%20tertarik%20upgrade%20PRO%20untuk%20' + fitur, '_blank');
+                    window.open('https://wa.me/+6281315290003?text=Halo%20Admin,%20saya%20ingin%20upgrade%20PRO%20untuk%20' + fitur, '_blank');
                 }
             });
         } else {
-            alert("Fitur " + fitur + " hanya tersedia untuk Akun PRO.");
+            alert("Fitur " + fitur + " hanya untuk Akun PRO.");
         }
     }
 </script>
