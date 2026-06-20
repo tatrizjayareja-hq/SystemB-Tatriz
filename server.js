@@ -1621,6 +1621,7 @@ app.get('/laporan-kas', isAdmin, async (req, res) => {
         // 3. Query Piutang Berjalan & Bulan Ini
         const sqlPiutang = `SELECT (COALESCE((SELECT SUM(h2.jumlah_setor * d2.harga_customer) FROM hasil_kerja h2 JOIN po_detail d2 ON h2.detail_id = d2.id WHERE h2.tenant_id = $1), 0) - COALESCE((SELECT SUM(jumlah) FROM arus_kas WHERE kategori IN ('PEMBAYARAN BORDIR', 'PELUNASAN', 'DP/CICILAN') AND tenant_id = $1), 0)) as piutang_total`;
         const rowPRes = await db.query(sqlPiutang, [tId]);
+        const rowP = rowPRes.rows[0];
         const sqlPiutangBulanIni = `SELECT COALESCE(SUM(GREATEST(0, (COALESCE((SELECT SUM(h.jumlah_setor * d.harga_customer) FROM hasil_kerja h JOIN po_detail d ON h.detail_id = d.id WHERE h.po_id = p.id), 0) - COALESCE((SELECT SUM(jumlah) FROM arus_kas WHERE po_id = p.id AND kategori IN ('PEMBAYARAN BORDIR', 'PELUNASAN', 'DP/CICILAN')), 0)))), 0) as total_piutang_bulan_ini FROM po_utama p WHERE p.tenant_id = $2 AND EXISTS (SELECT 1 FROM hasil_kerja h WHERE h.po_id = p.id AND TO_CHAR(h.tanggal::DATE, 'YYYY-MM') = $1)`;
         const pbRes = await db.query(sqlPiutangBulanIni, [bulanIni, tId]);
 
