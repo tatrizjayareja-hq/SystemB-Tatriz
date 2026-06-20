@@ -29,7 +29,7 @@
                         <th>Tanggal</th>
                         <th>OP</th>
                         <th>Shift</th>
-                        <th>Nama PO</th>
+                        <th>Mesin</th> <th>Nama PO</th>
                         <th>Nama Bordir</th>
                         <th>Jenis</th>
                         <th>Pemilik</th>
@@ -53,6 +53,13 @@
                         <td><%= row.TANGGAL.split('-').reverse().join('/') %></td>
                         <td class="fw-bold"><%= row.OP %></td>
                         <td class="text-center"><%= row.SHIFT %></td>
+                        
+                        <td class="text-center">
+                            <span class="badge bg-secondary" style="font-size: 10px;">
+                                <%= row.NAMA_MESIN %>
+                            </span>
+                        </td>
+                        
                         <td>
                             <%= row.NAMA_PO %>
                             <% if (isOver) { %>

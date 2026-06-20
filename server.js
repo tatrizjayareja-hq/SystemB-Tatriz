@@ -2528,7 +2528,7 @@ app.get('/daftar-produksi', isAdmin, async (req, res) => {
     const tId = req.session.tenantId;
     const bulanIni = req.query.bulan || new Date().toISOString().slice(0, 7);
 
-    // Query diperbaiki untuk PostgreSQL: TO_CHAR untuk tanggal dan db.query untuk eksekusi
+    // Query DIPERBARUI: Menambahkan kolom NAMA_MESIN dan LEFT JOIN ke tabel mesin
     const sql = `
         SELECT 
             h.id as "ID_PROD", 
@@ -2543,21 +2543,22 @@ app.get('/daftar-produksi', isAdmin, async (req, res) => {
             h.jumlah_setor as "JML", 
             COALESCE(d.harga_operator, 0) as "HARGA_PABRIK", 
             (h.jumlah_setor * COALESCE(d.harga_operator, 0)) as "TOTAL_H_PABRIK",
-            (SELECT SUM(jumlah_setor) FROM hasil_kerja WHERE detail_id = h.detail_id) as "TOTAL_SDH_SETOR"
+            (SELECT SUM(jumlah_setor) FROM hasil_kerja WHERE detail_id = h.detail_id) as "TOTAL_SDH_SETOR",
+            COALESCE(m.nama_mesin, 'Mesin Utama') as "NAMA_MESIN" -- TAMBAHAN
         FROM hasil_kerja h
         JOIN users u ON h.operator_id = u.id
         JOIN po_utama p ON h.po_id = p.id
         JOIN po_detail d ON h.detail_id = d.id
+        LEFT JOIN mesin m ON h.mesin_id = m.id -- JEMBATAN KE DATA MESIN
         WHERE TO_CHAR(h.tanggal::DATE, 'YYYY-MM') = $1 AND h.tenant_id = $2
         ORDER BY h.tanggal DESC, h.id DESC
     `;
 
     try {
-        // Gunakan db.query (PostgreSQL) bukan db.all (SQLite)
         const result = await db.query(sql, [bulanIni, tId]);
         
         res.render('admin/daftar-produksi', { 
-            dataProduksi: result.rows || [], // Data ada di properti .rows
+            dataProduksi: result.rows || [], 
             bulanIni: bulanIni,
             user: req.session 
         });
