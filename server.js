@@ -1608,7 +1608,18 @@ app.get('/laporan-kas', isAdmin, async (req, res) => {
             SELECT 
                 (SELECT COALESCE(SUM(h.jumlah_setor * d.harga_customer), 0) FROM hasil_kerja h JOIN po_detail d ON h.detail_id = d.id WHERE TO_CHAR(h.tanggal::DATE, 'YYYY-MM') = $1 AND h.tenant_id = $2) as prod_bln,
                 (SELECT COALESCE(SUM(jumlah), 0) FROM arus_kas WHERE jenis = 'PENGELUARAN' AND kategori NOT IN ('BIAYA KONTRAKAN', 'BAYAR HUTANG', 'JATAH PROFIT OWNER', 'BAYAR CMT / VENDOR') AND TO_CHAR(tanggal::DATE, 'YYYY-MM') = $1 AND tenant_id = $2) as op_bln,
-                (SELECT COALESCE(SUM(ak.jumlah), 0) FROM arus_kas ak LEFT JOIN po_utama p ON ak.po_id = p.id WHERE ak.jenis = 'PEMASUKAN' AND p.status = 'CMT' AND TO_CHAR(ak.tanggal::DATE, 'YYYY-MM') = $1 AND ak.tenant_id = $2) as omzet_cmt_bln,
+                (SELECT COALESCE(SUM(ak.jumlah), 0) 
+                    FROM arus_kas ak 
+                    WHERE ak.jenis = 'PEMASUKAN' 
+                    AND ak.po_id IS NOT NULL
+                    AND EXISTS (
+                        SELECT 1 FROM po_detail pd 
+                        JOIN cmt_surat_jalan_detail sjd ON pd.id = sjd.po_detail_id 
+                        WHERE pd.po_id = ak.po_id
+                    )
+                    AND TO_CHAR(ak.tanggal::DATE, 'YYYY-MM') = $1 
+                    AND ak.tenant_id = $2
+                    ) as omzet_cmt_bln,
                 (SELECT COALESCE(SUM(jumlah), 0) FROM arus_kas WHERE kategori = 'BAYAR CMT / VENDOR' AND TO_CHAR(tanggal::DATE, 'YYYY-MM') = $1 AND tenant_id = $2) as hpp_cmt_bln,
                 (SELECT COALESCE(SUM(jumlah), 0) FROM arus_kas WHERE kategori = 'BIAYA KONTRAKAN' AND TO_CHAR(tanggal::DATE, 'YYYY-MM') = $1 AND tenant_id = $2) as k_bayar_bln,
                 (SELECT COALESCE(SUM(CASE WHEN kategori = 'HUTANG' THEN jumlah WHEN kategori = 'BAYAR HUTANG' THEN -jumlah ELSE 0 END), 0) FROM arus_kas WHERE tenant_id = $2) as hutang_riil,
@@ -1623,7 +1634,17 @@ app.get('/laporan-kas', isAdmin, async (req, res) => {
             SELECT 
                 (SELECT COALESCE(SUM(h.jumlah_setor * d.harga_customer), 0) FROM hasil_kerja h JOIN po_detail d ON h.detail_id = d.id WHERE h.tenant_id = $1) as prod_all,
                 (SELECT COALESCE(SUM(jumlah), 0) FROM arus_kas WHERE jenis = 'PENGELUARAN' AND kategori NOT IN ('BIAYA KONTRAKAN', 'BAYAR HUTANG', 'JATAH PROFIT OWNER', 'BAYAR CMT / VENDOR') AND tenant_id = $1) as op_all,
-                (SELECT COALESCE(SUM(ak.jumlah), 0) FROM arus_kas ak LEFT JOIN po_utama p ON ak.po_id = p.id WHERE ak.jenis = 'PEMASUKAN' AND p.status = 'CMT' AND ak.tenant_id = $1) as omzet_cmt_all,
+                (SELECT COALESCE(SUM(ak.jumlah), 0) 
+                    FROM arus_kas ak 
+                    WHERE ak.jenis = 'PEMASUKAN' 
+                    AND ak.po_id IS NOT NULL
+                    AND EXISTS (
+                        SELECT 1 FROM po_detail pd 
+                        JOIN cmt_surat_jalan_detail sjd ON pd.id = sjd.po_detail_id 
+                        WHERE pd.po_id = ak.po_id
+                    )
+                    AND ak.tenant_id = $1
+                    ) as omzet_cmt_all,
                 (SELECT COALESCE(SUM(jumlah), 0) FROM arus_kas WHERE kategori = 'BAYAR CMT / VENDOR' AND tenant_id = $1) as hpp_cmt_all,
                 (SELECT COALESCE(SUM(jumlah), 0) FROM arus_kas WHERE kategori = 'JATAH PROFIT OWNER' AND tenant_id = $1) as ditarik_all,
                 (SELECT COALESCE(SUM(jumlah), 0) FROM arus_kas WHERE kategori = 'BIAYA KONTRAKAN' AND tenant_id = $1) as kontrakan_all
