@@ -1722,23 +1722,36 @@ app.get('/hapus-kas/:id', isAdmin, async (req, res) => {
 
 app.get('/input-kas', async (req, res) => {
     if (!req.session.userId) return res.redirect('/');
-    
     const tId = req.session.tenantId;
 
-    // 🔴 PERBAIKAN: Status 'CMT' sekarang diizinkan masuk (dihapus dari NOT IN)
+    // 🔴 PERBAIKAN FINAL: PO Lunas akan muncul HANYA jika tagihan vendor belum dibayar lunas
     const sqlPO = `
-        SELECT id, nama_po, customer, total_harga_customer, status 
-        FROM po_utama 
-        WHERE status NOT IN ('Lunas', 'Design') AND tenant_id = $1
-        ORDER BY tanggal DESC, id DESC
+        SELECT p.id, p.nama_po, p.customer, p.total_harga_customer, p.status
+        FROM po_utama p 
+        WHERE p.tenant_id = $1
+          AND (
+              p.status NOT IN ('Lunas', 'Design') 
+              OR 
+              (
+                  -- Syarat 1: Pernah masuk ke Surat Jalan CMT
+                  EXISTS (
+                      SELECT 1 FROM po_detail pd 
+                      JOIN cmt_surat_jalan_detail sjd ON pd.id = sjd.po_detail_id 
+                      WHERE pd.po_id = p.id
+                  )
+                  AND 
+                  -- Syarat 2: Total Uang Keluar (Bayar Vendor) masih lebih kecil dari Total Tagihan Vendor
+                  (SELECT COALESCE(SUM(ak.jumlah), 0) FROM arus_kas ak WHERE ak.po_id = p.id AND ak.kategori = 'BAYAR CMT / VENDOR') 
+                  < 
+                  (SELECT COALESCE(SUM(sjd.qty_kirim * pd.harga_cmt), 0) FROM po_detail pd JOIN cmt_surat_jalan_detail sjd ON pd.id = sjd.po_detail_id WHERE pd.po_id = p.id)
+              )
+          )
+        ORDER BY p.tanggal DESC, p.id DESC
     `; 
     
     try {
-        // Menggunakan db.query dan .rows untuk kecocokan arsitektur PostgreSQL Anda
         const posResult = await db.query(sqlPO, [tId]);
-        const pos = posResult.rows || [];
-        
-        res.render('input-kas', { pos: pos });
+        res.render('input-kas', { pos: posResult.rows || [] });
     } catch (err) {
         console.error("🔥 Error Load Input Kas:", err.message);
         res.status(500).send("Gagal memuat daftar PO.");
@@ -1752,14 +1765,19 @@ async function updateStatusPO(poId) {
         const poLama = checkPO.rows[0];
         if (!poLama) return;
 
+        // 🔴 PERBAIKAN: Hanya hitung Pemasukan (Uang Masuk dari Customer)
         const dataRes = await db.query(`
             SELECT COALESCE(SUM(jumlah), 0) as total_masuk
             FROM arus_kas 
-            WHERE po_id = $1`, [poId]);
+            WHERE po_id = $1 
+              AND jenis = 'PEMASUKAN' 
+              AND kategori IN ('PEMBAYARAN BORDIR', 'PELUNASAN', 'DP/CICILAN')
+        `, [poId]);
+        
         const totalMasuk = parseFloat(dataRes.rows[0]?.total_masuk || 0);
 
         // 2. Tentukan status baru secara logis
-        let statusBaru = poLama.status; // Pertahankan status awal jika tidak lunas
+        let statusBaru = poLama.status; 
 
         if (totalMasuk >= parseFloat(poLama.total_harga_customer)) {
             statusBaru = 'Lunas';
