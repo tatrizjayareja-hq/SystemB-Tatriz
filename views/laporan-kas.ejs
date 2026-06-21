@@ -160,7 +160,7 @@
                 <% if (!isPro) { %><div class="locked-overlay" onclick="ajakUpgrade('Rekap Piutang')"><i class="bi bi-lock-fill"></i></div><% } %>
                 <div class="d-flex justify-content-between align-items-center">
                     <small class="text-muted fw-bold" style="font-size: 9px;">PIUTANG BERJALAN</small>
-                    <a href="/po-data-v2" class="btn btn-xs btn-outline-primary py-0 px-1 nav-link-load" style="font-size: 9px; border-radius: 4px;">Rincian →</a>
+                    <a href="/piutang-bulanan" class="btn btn-xs btn-outline-primary py-0 px-1 nav-link-load" style="font-size: 9px; border-radius: 4px;">Rincian →</a>
                 </div>
                 <strong class="text-primary mt-1" style="font-size: 13px;">Rp <%= Number(piutangBerjalan || 0).toLocaleString('id-ID') %></strong>
             </div>
