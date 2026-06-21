@@ -3904,23 +3904,24 @@ async function updateStatusPOBawaan(poId, tenantId, dbInstance) {
         const poLama = checkPO.rows[0];
         if (!poLama) return;
 
-        const dataRes = await dbInstance.query("SELECT COALESCE(SUM(jumlah), 0) as total_masuk FROM arus_kas WHERE po_id = $1", [poId]);
+        // PERBAIKAN EXTRA: Pastikan yang dihitung HANYA uang masuk dari pembayaran (bukan pengeluaran/belanja PO)
+        const dataRes = await dbInstance.query("SELECT COALESCE(SUM(jumlah), 0) as total_masuk FROM arus_kas WHERE po_id = $1 AND jenis = 'PEMASUKAN'", [poId]);
         const totalMasuk = parseFloat(dataRes.rows[0]?.total_masuk || 0);
 
         let statusBaru = poLama.status; 
 
         if (totalMasuk >= parseFloat(poLama.total_harga_customer)) {
-            // PENGAMAN: JANGAN JADIKAN LUNAS JIKA FISIK MASIH DI CMT ATAU PRODUKSI
-            if (poLama.status !== 'Produksi' && poLama.status !== 'CMT') {
-                statusBaru = 'Lunas';
-            }
+            // 🌟 PENGAMAN DIHAPUS: Langsung jadikan Lunas apapun status sebelumnya
+            statusBaru = 'Lunas';
         } else if (totalMasuk > 0) {
-            if (poLama.status !== 'Produksi' && poLama.status !== 'CMT') {
-                statusBaru = 'DP/Cicil';
-            }
+            // 🌟 PENGAMAN DIHAPUS: Langsung jadikan DP/Cicil apapun status sebelumnya
+            statusBaru = 'DP/Cicil';
         }
         
-        await dbInstance.query("UPDATE po_utama SET status = $1 WHERE id = $2 AND tenant_id = $3", [statusBaru, poId, tenantId]);
+        // Eksekusi perubahan status ke database
+        if (statusBaru !== poLama.status) {
+            await dbInstance.query("UPDATE po_utama SET status = $1 WHERE id = $2 AND tenant_id = $3", [statusBaru, poId, tenantId]);
+        }
     } catch (err) {
         console.error("🔥 Error Update Status PO Bawaan:", err.message);
     }
