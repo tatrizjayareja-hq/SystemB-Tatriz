@@ -125,7 +125,7 @@
                 </div>
             <% } %>
 
-            <% orders.forEach(po => { 
+            <% orders.forEach((po, index) => {
                 let cardState = "new";
                 if (po.is_over) cardState = "over";
                 else if (po.is_under) cardState = "under";
