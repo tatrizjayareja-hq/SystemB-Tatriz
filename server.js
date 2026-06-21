@@ -513,7 +513,7 @@ app.get('/dashboard', async (req, res) => {
                 COUNT(CASE WHEN status = 'Clear' THEN 1 END) as jml_invoice
             FROM po_utama WHERE tenant_id = $1`, [tId]);
 
-        // 2. Hitung Total Piutang (Status 'Antri' Ikut Serta Dikecualikan)
+        // 2. Hitung Total Piutang (Semua Potensi PO Masuk Dihitung)
         const piutangRes = await db.get(`
             SELECT SUM(sisa_per_po) as total_piutang
             FROM (
@@ -526,7 +526,9 @@ app.get('/dashboard', async (req, res) => {
                     WHERE kategori IN ('PEMBAYARAN BORDIR', 'PELUNASAN', 'DP/CICILAN') 
                     GROUP BY po_id
                 ) bayar ON p.id = bayar.po_id
-                WHERE p.status NOT IN ('Lunas', 'Design', 'Antri') 
+                
+                -- 🌟 PERBAIKAN: 'Antri' dihapus dari pengecualian agar potensi tagihannya ikut dihitung
+                WHERE p.status NOT IN ('Lunas', 'Design') 
                 AND p.tenant_id = $1
             ) subquery 
             WHERE sisa_per_po > 0`, [tId]);
