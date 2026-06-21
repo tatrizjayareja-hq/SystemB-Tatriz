@@ -69,7 +69,7 @@
                     <label class="fw-bold text-muted small mb-1">Target Produksi Harian (Rp)</label>
                     <div class="input-group">
                         <span class="input-group-text bg-light">Rp</span>
-                        <input type="number" id="targetHarian" class="form-control fw-bold" value="1000000" onkeyup="hitungEstimasi()" onchange="hitungEstimasi()">
+                        <input type="number" id="targetHarian" class="form-control fw-bold" value="<%= targetHarian %>" onkeyup="hitungEstimasi()" onchange="simpanTargetGlobal()">
                     </div>
                 </div>
                 <div class="col-md-8 text-muted small pb-2">
@@ -167,6 +167,21 @@
             console.error("Error:", error);
         }
     }
+        async function simpanTargetGlobal() {
+        hitungEstimasi(); // Update tampilan layar admin dulu
+        const targetVal = document.getElementById('targetHarian').value;
+        
+        // Kirim data ke database secara diam-diam
+        try {
+            await fetch('/simpan-target-harian', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ target: targetVal })
+            });
+        } catch (error) {
+            console.error("Gagal menyimpan target ke server", error);
+        }
+    }
 
     // 2. Fungsi Utama Kalkulasi Estimasi
     function hitungEstimasi() {
@@ -212,8 +227,7 @@
     window.onload = function() {
         hitungEstimasi();
     };
-</script>
-<script>
+
         document.addEventListener('DOMContentLoaded', function() {
             const loader = document.getElementById('loaderSistem');
             if (loader) {

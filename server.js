@@ -1379,20 +1379,23 @@ app.get('/jadwal-produksi', isAdmin, async (req, res) => {
     if (!req.session.userId) return res.redirect('/');
     const tId = req.session.tenantId;
 
-    // Proteksi: Hanya Tenant 1, 100, atau Admin Level 2
     if (tId !== 1 && tId !== 100 && req.session.tenantLevel < 2) {
         return res.status(403).send("Akses Ditolak. Khusus Owner/Admin Level 2.");
     }
 
     try {
+        // 🌟 TAMBAHAN: Ambil setting target harian
+        const configRes = await db.query("SELECT target_omzet_harian FROM settings WHERE tenant_id = $1", [tId]);
+        const targetHarian = configRes.rows[0]?.target_omzet_harian || 1000000;
+
         const sqlOrders = `
             SELECT 
-                u.id, u.tanggal, u.nama_po, u.customer, u.status, u.total_harga_customer,
+                u.id, u.tanggal, u.nama_po, u.customer, u.status, u.total_harga_customer, u.urutan_prioritas,
                 (SELECT SUM(jumlah) FROM po_detail WHERE po_id = u.id) as total_qty
             FROM po_utama u 
-            WHERE u.tenant_id = $1 
-              AND u.status IN ('Produksi', 'Antri')
+            WHERE u.tenant_id = $1 AND u.status IN ('Produksi', 'Antri')
             ORDER BY 
+                COALESCE(u.urutan_prioritas, 9999) ASC,
                 CASE WHEN u.status = 'Produksi' THEN 1 ELSE 2 END, 
                 u.tanggal ASC
         `;
@@ -1400,12 +1403,24 @@ app.get('/jadwal-produksi', isAdmin, async (req, res) => {
 
         res.render('jadwal-produksi', { 
             orders: orders.rows, 
+            targetHarian: targetHarian, // 🌟 LEMPAR KE EJS
             user: req.session 
         });
 
     } catch (err) {
         console.error("🔥 Error jadwal-produksi:", err.message);
         res.status(500).send("Gagal memuat data jadwal.");
+    }
+});
+// Rute untuk update target harian dari halaman Jadwal Produksi
+app.post('/simpan-target-harian', isAdmin, async (req, res) => {
+    const { target } = req.body;
+    try {
+        await db.query("UPDATE settings SET target_omzet_harian = $1 WHERE tenant_id = $2", [target, req.session.tenantId]);
+        res.json({ success: true });
+    } catch (err) {
+        console.error("Error simpan target:", err.message);
+        res.status(500).json({ success: false });
     }
 });
 
@@ -2872,8 +2887,8 @@ app.get('/kiosk-produksi', async (req, res) => {
     const tId = req.session.tenantId;
     
     try {
-        const configRes = await db.query("SELECT logo_path, nama_perusahaan FROM settings WHERE tenant_id = $1", [tId]);
-        const config = configRes.rows[0] || { logo_path: '', nama_perusahaan: 'Perusahaan' };
+        const configRes = await db.query("SELECT logo_path, nama_perusahaan, target_omzet_harian FROM settings WHERE tenant_id = $1", [tId]);
+        const config = configRes.rows[0] || { logo_path: '', nama_perusahaan: 'Perusahaan', target_omzet_harian: 1000000 };
 
         // 1. QUERY PO UTAMA (Sama Persis dengan po-data-v2)
         const sqlOrders = `
@@ -2910,6 +2925,7 @@ app.get('/kiosk-produksi', async (req, res) => {
             FROM po_utama u 
             WHERE u.tenant_id = $1 AND u.status IN ('Antri', 'Produksi')
             ORDER BY 
+                COALESCE(u.urutan_prioritas, 9999) ASC,
                 CASE WHEN u.status = 'Produksi' THEN 1 ELSE 2 END,
                 u.tanggal DESC
         `;

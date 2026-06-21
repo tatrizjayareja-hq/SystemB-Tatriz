@@ -7,12 +7,11 @@
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.0/font/bootstrap-icons.css">
     <style>
-        body { background: #1e272e; color: #fff; font-family: 'Segoe UI', sans-serif; overflow-x: hidden; padding-bottom: 30px;}
+        body { background: #1e272e; color: #fff; font-family: 'Segoe UI', sans-serif; overflow-x: hidden; padding-bottom: 30px; user-select: none; -webkit-user-select: none; }
         
         .kiosk-header { background: #0a463c; padding: 15px 20px; box-shadow: 0 4px 10px rgba(0,0,0,0.5); border-bottom: 3px solid #0fb9b1; }
         .logo-img { height: 40px; background: white; padding: 4px; border-radius: 6px; }
         
-        /* Kartu Wrapper Utama */
         .po-card { 
             background: #2d3436; 
             border-left: 6px solid #636e72;
@@ -21,11 +20,9 @@
             box-shadow: 0 4px 6px rgba(0,0,0,0.2);
         }
         
-        /* Area yang bisa diklik */
         .po-card-header { padding: 15px; cursor: pointer; transition: 0.2s; }
         .po-card-header:active { background: rgba(255,255,255,0.05); }
         
-        /* Warna Status */
         .po-card.new { border-left-color: #0fb9b1; }   
         .po-card.under { border-left-color: #f39c12; } 
         .po-card.done { border-left-color: #2ecc71; }  
@@ -33,9 +30,8 @@
 
         .po-title { font-size: 1.15rem; font-weight: bold; color: #fff; line-height: 1.3; }
         
-        /* Area Sub Detail (Di dalam kartu) */
         .collapse-area {
-            background: #1e272e; /* Dibuat lebih gelap */
+            background: #1e272e; 
             padding: 15px;
             border-top: 1px solid #636e72;
             box-shadow: inset 0 5px 10px rgba(0,0,0,0.2);
@@ -61,9 +57,41 @@
         
         .blink-warn { animation: blinker 1.2s linear infinite; }
         @keyframes blinker { 50% { opacity: 0.4; } }
+
+        /* Global Quick Loader Integration */
+        #quickLoader {
+            position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(0, 0, 0, 0.7); backdrop-filter: blur(4px); -webkit-backdrop-filter: blur(4px);
+            z-index: 99999; display: flex; justify-content: center; align-items: center;
+            opacity: 0; visibility: hidden; transition: opacity 0.2s ease-in-out;
+        }
+        #quickLoader.show { opacity: 1; visibility: visible; }
     </style>
 </head>
 <body>
+
+    <body>
+    <% 
+        let targetHarianDB = parseFloat(config.target_omzet_harian) || 1000000;
+        let totalNilaiAntrian = 0;
+        orders.forEach(po => {
+            totalNilaiAntrian += parseFloat(po.total_harga_customer || 0);
+        });
+        
+        let estimasiHariGlobal = Math.ceil(totalNilaiAntrian / targetHarianDB); 
+        
+        let tglSelesaiGlobal = new Date();
+        tglSelesaiGlobal.setDate(tglSelesaiGlobal.getDate() + estimasiHariGlobal);
+        
+        let d = tglSelesaiGlobal.getDate().toString().padStart(2, '0');
+        let m = (tglSelesaiGlobal.getMonth() + 1).toString().padStart(2, '0');
+        let y = tglSelesaiGlobal.getFullYear();
+        let teksTanggalSelesai = `${d}/${m}/${y}`;
+    %>
+
+    <div id="quickLoader">
+        <div class="spinner-border text-primary" style="width: 3rem; height: 3rem;" role="status"></div>
+    </div>
 
     <div class="kiosk-header d-flex justify-content-between align-items-center flex-wrap gap-2 sticky-top">
         <div class="d-flex align-items-center gap-3">
@@ -73,6 +101,11 @@
             <h5 class="mb-0 fw-bold d-none d-sm-block text-light" style="letter-spacing: 1px;">TERMINAL MESIN</h5>
             <h6 class="mb-0 fw-bold d-block d-sm-none text-light">KIOSK PRODUKSI</h6>
         </div>
+        <div class="d-flex align-items-center gap-2">
+        <div class="fs-6 fw-bold bg-warning text-dark px-3 py-1 rounded shadow-sm border border-light">
+            <i class="bi bi-flag-fill"></i> Selesai: <%= teksTanggalSelesai %>
+        </div>
+        <button onclick="toggleKioskFullscreen()" class="btn btn-sm btn-outline-light border-secondary"><i class="bi bi-fullscreen"></i></button>
         <div id="clock" class="fs-6 fw-bold bg-dark px-3 py-1 rounded border border-secondary text-info font-monospace">00:00:00</div>
     </div>
 
@@ -112,9 +145,14 @@
                     <div class="po-card <%= cardState %> shadow-sm">
                         <div class="po-card-header" data-bs-toggle="collapse" data-bs-target="#collapsePO_<%= po.id %>" aria-expanded="false">
                             <div class="d-flex justify-content-between align-items-center mb-2">
-                                <span class="badge <%= po.status === 'Produksi' ? 'bg-success' : 'bg-secondary text-white' %> px-2 py-1 shadow-sm">
-                                    <i class="bi <%= po.status === 'Produksi' ? 'bi-play-fill' : 'bi-pause-fill' %>"></i> <%= po.status %>
-                                </span>
+                                <div class="d-flex gap-1">
+                                    <span class="badge <%= po.status === 'Produksi' ? 'bg-success' : 'bg-secondary text-white' %> px-2 py-1 shadow-sm">
+                                        <i class="bi <%= po.status === 'Produksi' ? 'bi-play-fill' : 'bi-pause-fill' %>"></i> <%= po.status %>
+                                    </span>
+                                    <span class="badge bg-warning text-dark fw-bold shadow-sm" style="border: 1px solid #d35400;">
+                                        <i class="bi bi-list-ol"></i> URUTAN #<%= index + 1 %>
+                                    </span>
+                                </div>
                                 <span class="badge bg-light text-dark fw-bold border"><%= qtyTotal %> Pcs</span>
                             </div>
                             
@@ -152,7 +190,6 @@
 
                                 <% 
                                     const subItems = details.filter(d => d.po_id == po.id); 
-                                    
                                     if (subItems.length === 0) { 
                                 %>
                                     <div class="alert alert-danger text-center small p-2 mb-0 border border-danger">
@@ -198,7 +235,7 @@
     <div class="modal fade" id="modalLoginKiosk" tabindex="-1" data-bs-backdrop="static">
         <div class="modal-dialog modal-dialog-centered">
             <div class="modal-content shadow-lg border-0">
-                <form action="/login-kiosk" method="POST">
+                <form action="/login-kiosk" method="POST" onsubmit="tampilkanLoaderGlobal()">
                     <div class="modal-header bg-dark text-white py-3 border-bottom border-4 border-primary">
                         <h5 class="modal-title fw-bold"><i class="bi bi-person-bounding-box text-primary"></i> IDENTIFIKASI OPERATOR</h5>
                         <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
@@ -239,6 +276,7 @@
 
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
     <script>
+        // Jam digital
         setInterval(() => {
             const now = new Date();
             document.getElementById('clock').innerText = now.toLocaleTimeString('id-ID', { hour12: false });
@@ -253,6 +291,60 @@
             
             document.getElementById('input_password').value = ''; 
             new bootstrap.Modal(document.getElementById('modalLoginKiosk')).show();
+        }
+
+        function tampilkanLoaderGlobal() {
+            const loader = document.getElementById('quickLoader');
+            if (loader) loader.classList.add('show');
+        }
+
+        // ==========================================
+        // 🔒 SISTEM PENGUNCI NAVIGASI KIOSK (ANTI-ESCAPE)
+        // ==========================================
+        
+        // 1. Mencegah aksi klik kanan & tahan layar di tablet (memblokir inspeksi menu peramban)
+        document.addEventListener('contextmenu', event => event.preventDefault());
+
+        // 2. Perangkap tombol BACK (History Trap)
+        function kunciRiwayatBrowser() {
+            window.history.pushState({ noBackExits: true }, "");
+        }
+
+        // Paksakan status awal saat sistem dimuat
+        kunciRiwayatBrowser();
+
+        // Tangkap setiap kali operator mencoba menekan tombol kembali fisik di perangkat
+        window.addEventListener('popstate', function (event) {
+            // Suntikkan kembali riwayat palsu ke depan agar posisi navigasi terkunci di tempat
+            kunciRiwayatBrowser();
+            
+            // Beri notifikasi peringatan halus tanpa mengganggu estetika antarmuka
+            if (typeof Swal !== 'undefined') {
+                Swal.fire({
+                    title: 'Akses Terkunci',
+                    text: 'Gunakan tombol internal aplikasi untuk berpindah halaman.',
+                    icon: 'info',
+                    toast: true,
+                    position: 'top-end',
+                    showConfirmButton: false,
+                    timer: 2500
+                });
+            }
+        });
+
+        // 3. Fitur Layar Penuh Otomatis (Fullscreen Kiosk Mode)
+        function toggleKioskFullscreen() {
+            const doc = window.document;
+            const docEl = doc.documentElement;
+
+            const requestFullscreen = docEl.requestFullscreen || docEl.mozRequestFullScreen || docEl.webkitRequestFullScreen || docEl.msRequestFullscreen;
+            const exitFullscreen = doc.exitFullscreen || doc.mozCancelFullScreen || doc.webkitExitFullscreen || doc.msExitFullscreen;
+
+            if (!doc.fullscreenElement && !doc.mozFullScreenElement && !doc.webkitFullscreenElement && !doc.msFullscreenElement) {
+                requestFullscreen.call(docEl);
+            } else {
+                exitFullscreen.call(doc);
+            }
         }
     </script>
 </body>
