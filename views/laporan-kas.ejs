@@ -25,6 +25,25 @@
     @media (min-width: 768px) { .fab-kas { display: none; } } 
     .desktop-kas-btn { display: none; }
     @media (min-width: 768px) { .desktop-kas-btn { display: inline-block; } }
+
+    /* Trik agar kolom Aksi selalu menempel di kanan layar */
+    .sticky-right-th {
+        position: sticky;
+        right: 0;
+        background-color: #f8f9fa !important; /* Menyamai warna header tabel */
+        z-index: 12; /* Harus lebih tinggi dari sticky-top biasa */
+        box-shadow: -3px 0 5px rgba(0,0,0,0.04); /* Efek bayangan batas */
+    }
+    .sticky-right-td {
+        position: sticky;
+        right: 0;
+        z-index: 2;
+        box-shadow: -3px 0 5px rgba(0,0,0,0.04);
+    }
+    /* Samakan warna background agar teks di bawahnya tidak tembus pandang saat discroll */
+    .row-pemasukan .sticky-right-td { background-color: #fcfdfe !important; }
+    .row-pengeluaran .sticky-right-td { background-color: #fff9f9 !important; }
+
 </style>
 
 <div class="container-fluid mx-auto" style="max-width: 1000px;">
@@ -193,7 +212,7 @@
                         <th style="width: 70px;">Tgl</th>
                         <th>Keterangan Transaksi</th> 
                         <th class="text-end">Nominal</th>
-                        <th class="text-center" style="width: 60px;">Aksi</th>
+                        <th class="text-center sticky-right-th" style="width: 60px;">Aksi</th>
                     </tr>
                 </thead>
                 <tbody>
@@ -214,7 +233,7 @@
                             <td class="text-end <%= item.jenis === 'PEMASUKAN' ? 'text-pemasukan' : 'text-pengeluaran' %>">
                                 <%= item.jenis === 'PEMASUKAN' ? '+' : '-' %> <%= Number(item.jumlah || 0).toLocaleString('id-ID') %>
                             </td>
-                            <td class="text-center">
+                            <td class="text-center sticky-right-td">
                                 <div class="btn-group">
                                     <button class="btn btn-sm p-0 px-1 text-warning" onclick="persiapanEditKas('<%= item.id %>', '<%= item.tanggal %>', '<%= item.jenis %>', '<%= item.kategori %>', '<%= item.jumlah %>', '<%= item.keterangan %>', '<%= item.po_id %>')"><i class="bi bi-pencil-square"></i></button>
                                     <a href="/hapus-kas/<%= item.id %>" class="btn btn-sm p-0 px-1 text-danger nav-link-load" onclick="return confirm('Hapus transaksi ini secara permanen?')"><i class="bi bi-trash"></i></a>
