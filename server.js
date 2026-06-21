@@ -1724,7 +1724,7 @@ app.get('/input-kas', async (req, res) => {
     if (!req.session.userId) return res.redirect('/');
     const tId = req.session.tenantId;
 
-    // 🔴 PERBAIKAN FINAL: PO Lunas akan muncul HANYA jika tagihan vendor belum dibayar lunas
+    // 🔴 KOREKSI NAMA KOLOM: sjd.qty_dikirim
     const sqlPO = `
         SELECT p.id, p.nama_po, p.customer, p.total_harga_customer, p.status
         FROM po_utama p 
@@ -1740,10 +1740,10 @@ app.get('/input-kas', async (req, res) => {
                       WHERE pd.po_id = p.id
                   )
                   AND 
-                  -- Syarat 2: Total Uang Keluar (Bayar Vendor) masih lebih kecil dari Total Tagihan Vendor
+                  -- Syarat 2: Total Kas Keluar < Total Tagihan Vendor (qty_dikirim)
                   (SELECT COALESCE(SUM(ak.jumlah), 0) FROM arus_kas ak WHERE ak.po_id = p.id AND ak.kategori = 'BAYAR CMT / VENDOR') 
                   < 
-                  (SELECT COALESCE(SUM(sjd.qty_kirim * pd.harga_cmt), 0) FROM po_detail pd JOIN cmt_surat_jalan_detail sjd ON pd.id = sjd.po_detail_id WHERE pd.po_id = p.id)
+                  (SELECT COALESCE(SUM(sjd.qty_dikirim * pd.harga_cmt), 0) FROM po_detail pd JOIN cmt_surat_jalan_detail sjd ON pd.id = sjd.po_detail_id WHERE pd.po_id = p.id)
               )
           )
         ORDER BY p.tanggal DESC, p.id DESC
