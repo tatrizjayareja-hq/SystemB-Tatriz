@@ -2584,10 +2584,11 @@ app.get('/daftar-produksi', isAdmin, async (req, res) => {
     const tId = req.session.tenantId;
     const bulanIni = req.query.bulan || new Date().toISOString().slice(0, 7);
 
-    // Query DIPERBARUI: Menambahkan kolom NAMA_MESIN dan LEFT JOIN ke tabel mesin
-    const sql = `
+    // Query 1: Mengambil data log produksi (Ditambahkan h.mesin_id)
+    const sqlProduksi = `
         SELECT 
             h.id as "ID_PROD", 
+            h.mesin_id as "MESIN_ID", -- Tambahan agar tahu ID mesin lama
             TO_CHAR(h.tanggal::DATE, 'YYYY-MM-DD') as "TANGGAL", 
             h.shift as "SHIFT", 
             u.nama_lengkap as "OP", 
@@ -2600,21 +2601,29 @@ app.get('/daftar-produksi', isAdmin, async (req, res) => {
             COALESCE(d.harga_operator, 0) as "HARGA_PABRIK", 
             (h.jumlah_setor * COALESCE(d.harga_operator, 0)) as "TOTAL_H_PABRIK",
             (SELECT SUM(jumlah_setor) FROM hasil_kerja WHERE detail_id = h.detail_id) as "TOTAL_SDH_SETOR",
-            COALESCE(m.nama_mesin, 'Mesin Utama') as "NAMA_MESIN" -- TAMBAHAN
+            COALESCE(m.nama_mesin, 'Mesin Utama') as "NAMA_MESIN"
         FROM hasil_kerja h
         JOIN users u ON h.operator_id = u.id
         JOIN po_utama p ON h.po_id = p.id
         JOIN po_detail d ON h.detail_id = d.id
-        LEFT JOIN mesin m ON h.mesin_id = m.id -- JEMBATAN KE DATA MESIN
+        LEFT JOIN mesin m ON h.mesin_id = m.id
         WHERE TO_CHAR(h.tanggal::DATE, 'YYYY-MM') = $1 AND h.tenant_id = $2
         ORDER BY h.tanggal DESC, h.id DESC
     `;
 
+    // Query 2: Mengambil semua daftar mesin untuk dropdown modal edit
+    const sqlMesin = `SELECT id, nama_mesin FROM mesin WHERE tenant_id = $1 ORDER BY nama_mesin ASC`;
+
     try {
-        const result = await db.query(sql, [bulanIni, tId]);
+        // Jalankan kedua query secara paralel
+        const [resProduksi, resMesin] = await Promise.all([
+            db.query(sqlProduksi, [bulanIni, tId]),
+            db.query(sqlMesin, [tId])
+        ]);
         
         res.render('admin/daftar-produksi', { 
-            dataProduksi: result.rows || [], 
+            dataProduksi: resProduksi.rows || [], 
+            dataMesin: resMesin.rows || [], // Kirim data mesin ke EJS
             bulanIni: bulanIni,
             user: req.session 
         });

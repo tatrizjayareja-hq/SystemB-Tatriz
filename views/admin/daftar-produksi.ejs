@@ -75,7 +75,7 @@
                         <td class="text-center">
                             <div class="btn-group">
                                 <button class="btn btn-sm btn-warning" 
-                                    onclick="editProduksi('<%= row.ID_PROD %>', '<%= row.TANGGAL %>', '<%= row.OP %>', '<%= row.SHIFT %>', '<%= row.NAMA_PO %>', '<%= row.NAMA_BORDIR %>', '<%= row.JENIS_BORDIR %>', '<%= row.JML %>', '<%= row.HARGA_PABRIK %>')">
+                                    onclick="editProduksi('<%= row.ID_PROD %>', '<%= row.TANGGAL %>', '<%= row.OP %>', '<%= row.SHIFT %>', '<%= row.NAMA_PO %>', '<%= row.NAMA_BORDIR %>', '<%= row.JENIS_BORDIR %>', '<%= row.JML %>', '<%= row.HARGA_PABRIK %>', '<%= row.MESIN_ID %>')">
                                     <i class="bi bi-pencil"></i>
                                 </button>
                                 <button class="btn btn-sm btn-danger" 
@@ -131,7 +131,7 @@
                     </div>
 
                     <div class="row">
-                        <div class="col-md-4 mb-3">
+                        <div class="col-md-3 mb-3">
                             <label class="form-label">Shift</label>
                             <select name="shift" id="edit_shift" class="form-select">
                                 <option value="Pagi">Pagi</option>
@@ -139,11 +139,22 @@
                                 <option value="Malam">Malam</option>
                             </select>
                         </div>
-                        <div class="col-md-4 mb-3">
+
+                        <div class="col-md-3 mb-3">
+                            <label class="form-label">Mesin Kerja</label>
+                            <select name="mesin_id" id="edit_mesin" class="form-select" required>
+                                <option value="">-- Pilih Mesin --</option>
+                                <% dataMesin.forEach(m => { %>
+                                    <option value="<%= m.id %>"><%= m.nama_mesin %></option>
+                                <% }) %>
+                            </select>
+                        </div>
+
+                        <div class="col-md-3 mb-3">
                             <label class="form-label">Jumlah</label>
                             <input type="number" name="jumlah" id="edit_jumlah" class="form-control" required>
                         </div>
-                        <div class="col-md-4 mb-3">
+                        <div class="col-md-3 mb-3">
                             <label class="form-label">Harga</label>
                             <input type="number" name="harga" id="edit_harga" class="form-control" required>
                         </div>
@@ -165,7 +176,8 @@
         }
     }
 
-    function editProduksi(id, tgl, op, shift, po, bordir, jenis, jml, harga) {
+    // Tambahkan parameter mesinId di akhir fungsi
+    function editProduksi(id, tgl, op, shift, po, bordir, jenis, jml, harga, mesinId) {
         document.getElementById('edit_id').value = id;
         document.getElementById('edit_tanggal').value = tgl;
         document.getElementById('edit_op').value = op;
@@ -176,10 +188,12 @@
         document.getElementById('edit_jumlah').value = jml;
         document.getElementById('edit_harga').value = harga;
         
+        // Otomatis memilih mesin lama di dropdown select
+        document.getElementById('edit_mesin').value = mesinId;
+        
         var myModal = new bootstrap.Modal(document.getElementById('modalEdit'));
         myModal.show();
     }
-
     document.getElementById('liveSearch').addEventListener('keyup', function() {
         let val = this.value.toLowerCase();
         let rows = document.querySelectorAll('#bodyProduksi tr');
