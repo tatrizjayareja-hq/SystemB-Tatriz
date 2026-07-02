@@ -20,10 +20,17 @@
     </script>
     <style>
         :root {
+            /* Warna Original Tatriz */
             --dark-green: #195e0b;
             --primary-green: #59cf77;
             --accent-green: #48b865;
             --text-gray: #636e72;
+            
+            /* Tambahan Tema World Cup (Emas & Stadion) */
+            --wc-gold: #FFD700;
+            --wc-gold-dark: #DAA520;
+            --wc-pitch-dark: #0d3805;
+            --wc-pitch-light: #144f08;
         }
 
         body, html {
@@ -31,7 +38,15 @@
             padding: 0;
             min-height: 100vh;
             font-family: 'Segoe UI', Roboto, sans-serif;
-            background: linear-gradient(135deg, #195e0b 0%, #48b865 100%);
+            /* Background pola rumput stadion sepak bola dengan efek lampu sorot (vignette) */
+            background: radial-gradient(circle at center, transparent 0%, rgba(0,0,0,0.6) 100%),
+                        repeating-linear-gradient(
+                            90deg,
+                            var(--wc-pitch-dark),
+                            var(--wc-pitch-dark) 40px,
+                            var(--wc-pitch-light) 40px,
+                            var(--wc-pitch-light) 80px
+                        );
             display: flex;
             justify-content: center;
             align-items: center;
@@ -39,7 +54,7 @@
 
         /* --- CONTAINER UTAMA --- */
         .login-container {
-            width: 450px; /* Ukuran ideal untuk form vertikal */
+            width: 450px;
             max-width: 90%;
             margin: 20px auto;
         }
@@ -48,9 +63,11 @@
             background: white;
             border-radius: 20px;
             overflow: hidden;
-            box-shadow: 0 20px 40px rgba(0,0,0,0.3);
+            /* Bayangan dengan nuansa emas tipis */
+            box-shadow: 0 15px 35px rgba(0,0,0,0.5), 0 0 20px rgba(218, 165, 32, 0.2);
             display: flex;
-            flex-direction: column; /* ATAS - BAWAH */
+            flex-direction: column;
+            border: 1px solid rgba(255, 215, 0, 0.3); /* Border emas tipis */
         }
 
         /* --- BAGIAN ATAS: BRANDING --- */
@@ -58,6 +75,18 @@
             background: white;
             padding: 40px 30px 20px;
             text-align: center;
+            position: relative;
+        }
+
+        /* Aksen pita/garis atas bergaya World Cup */
+        .card-header::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 6px;
+            background: linear-gradient(90deg, var(--dark-green), var(--wc-gold), var(--dark-green));
         }
 
         .card-header img {
@@ -70,7 +99,9 @@
             color: var(--dark-green);
             margin: 0;
             font-size: 26px;
-            font-weight: 800;
+            font-weight: 900; /* Dibuat lebih tebal agar lebih bold */
+            text-transform: uppercase;
+            letter-spacing: 1px;
         }
 
         .card-header .tagline {
@@ -82,22 +113,30 @@
 
         /* --- BAGIAN BAWAH: FORM --- */
         .card-body {
+            /* Menggunakan hijau Tatriz dengan pola samar jaring gawang (opsional/visual) */
             background-color: var(--dark-green);
+            background-image: radial-gradient(rgba(255, 255, 255, 0.05) 1px, transparent 1px);
+            background-size: 15px 15px;
             color: white;
             padding: 40px 35px;
+            position: relative;
         }
 
         .card-body h2 {
             margin: 0 0 5px 0;
             font-size: 22px;
             text-align: center;
+            color: var(--wc-gold); /* Teks Emas */
+            text-transform: uppercase;
+            letter-spacing: 2px;
         }
 
         .card-body p {
             font-size: 13px;
-            opacity: 0.7;
+            opacity: 0.8;
             margin-bottom: 25px;
             text-align: center;
+            color: #ecf0f1;
         }
 
         .form-group {
@@ -110,6 +149,7 @@
             margin-bottom: 8px;
             text-transform: uppercase;
             letter-spacing: 1px;
+            color: var(--wc-gold); /* Label aksen emas */
         }
 
         .input-wrapper {
@@ -121,71 +161,76 @@
             left: 15px;
             top: 50%;
             transform: translateY(-50%);
-            color: rgba(255,255,255,0.5);
+            color: var(--wc-gold-dark); /* Ikon Emas */
         }
 
         .input-wrapper input {
             width: 100%;
             padding: 14px 15px 14px 45px;
-            background: rgba(255,255,255,0.1);
-            border: 1px solid rgba(255,255,255,0.2);
+            background: rgba(0, 0, 0, 0.2); /* Lebih gelap sedikit untuk kontras */
+            border: 1px solid rgba(218, 165, 32, 0.4); /* Border emas samar */
             border-radius: 10px;
             color: white;
             box-sizing: border-box;
             outline: none;
             transition: 0.3s;
-            font-size: 16px; /* Mencegah auto-zoom di iPhone */
+            font-size: 16px;
         }
 
         .input-wrapper input:focus {
-            background: rgba(255,255,255,0.15);
-            border-color: var(--primary-green);
-            box-shadow: 0 0 0 4px rgba(89, 207, 119, 0.1);
+            background: rgba(0, 0, 0, 0.4);
+            border-color: var(--wc-gold);
+            box-shadow: 0 0 10px rgba(255, 215, 0, 0.3); /* Glow emas saat ngetik */
         }
 
+        /* Tombol Emas Ala Trofi World Cup */
         .btn-login {
             width: 100%;
             padding: 15px;
-            background: var(--primary-green);
-            color: var(--dark-green);
+            background: linear-gradient(135deg, #FFD700 0%, #DAA520 100%);
+            color: #111;
             border: none;
             border-radius: 10px;
-            font-weight: bold;
+            font-weight: 900;
             font-size: 15px;
             cursor: pointer;
             transition: 0.3s;
             margin-top: 10px;
             text-transform: uppercase;
             letter-spacing: 1px;
+            box-shadow: 0 5px 15px rgba(218, 165, 32, 0.4);
         }
 
         .btn-login:hover {
-            background: white;
-            transform: translateY(-2px);
+            background: linear-gradient(135deg, #FFF8DC 0%, #FFD700 100%);
+            transform: translateY(-3px);
+            box-shadow: 0 8px 20px rgba(218, 165, 32, 0.6);
         }
 
         /* --- FOOTER / LINK --- */
         .card-footer {
             padding: 20px;
             text-align: center;
-            background: #f9f9f9;
+            background: #f1f2f6;
             font-size: 13px;
         }
 
         .card-footer a {
             color: var(--dark-green);
             text-decoration: none;
-            font-weight: bold;
+            font-weight: 900;
+            text-transform: uppercase;
         }
 
         /* Info Sistem Baru */
         .setup-info {
             margin-top: 15px;
             padding: 10px;
-            background: rgba(255, 255, 255, 0.05);
+            background: rgba(255, 215, 0, 0.1); /* Background samar emas */
+            border: 1px solid rgba(255, 215, 0, 0.3);
             border-radius: 8px;
             font-size: 12px;
-            color: #fab1a0;
+            color: var(--wc-gold);
             text-align: center;
         }
 
@@ -203,14 +248,14 @@
         }
         
         .forgot-password-link a {
-            color: #fab1a0;
+            color: #ecf0f1;
             font-size: 11px;
             text-decoration: none;
             transition: 0.2s;
         }
 
         .forgot-password-link a:hover {
-            color: white;
+            color: var(--wc-gold); /* Hover emas */
             text-decoration: underline;
         }
     </style>
@@ -221,7 +266,7 @@
     position: fixed;
     top: 0; left: 0;
     width: 100%; height: 100%;
-    background: rgba(25, 94, 11, 0.95); /* Warna hijau gelap khas Tatriz */
+    background: rgba(13, 56, 5, 0.98); /* Stadion gelap */
     z-index: 9999;
     display: flex;
     flex-direction: column;
@@ -230,13 +275,14 @@
     transition: opacity 0.4s ease, visibility 0.4s ease;
 ">
     <div style="
-        width: 50px; height: 50px;
-        border: 5px solid rgba(255,255,255,0.2);
-        border-top: 5px solid #59cf77; /* Warna hijau muda aksen */
+        width: 60px; height: 60px;
+        border: 5px solid rgba(255, 215, 0, 0.1);
+        border-top: 5px solid #FFD700; /* Warna Emas */
         border-radius: 50%;
         animation: putarLoader 1s linear infinite;
+        box-shadow: 0 0 15px rgba(255, 215, 0, 0.5); /* Efek glow */
     "></div>
-    <p style="color: white; margin-top: 15px; font-weight: bold; font-size: 14px; letter-spacing: 1px;">
+    <p style="color: #FFD700; margin-top: 20px; font-weight: bold; font-size: 14px; letter-spacing: 2px;">
         MEMUAT SISTEM TATRIZ...
     </p>
 </div>
@@ -246,7 +292,6 @@
         0% { transform: rotate(0deg); }
         100% { transform: rotate(360deg); }
     }
-    /* Kelas gaib untuk menghilangkan loader dengan halus */
     .loader-hilang {
         opacity: 0 !important;
         visibility: hidden !important;
@@ -285,21 +330,22 @@
                         <a href="#" onclick="pemicuLupaPassword()">Lupa Password?</a>
                     </div>
 
-                    <button type="submit" class="btn-login">Masuk Sekarang</button>
+                    <button type="submit" class="btn-login"><i class="fas fa-futbol"></i> Masuk Sekarang</button>
                 </form>
-                <div id="areaInstalPWA" style="display: none; margin-top: 20px; padding: 15px; background: rgba(255,255,255,0.1); border: 1px dashed rgba(255,255,255,0.3); border-radius: 10px; text-align: center;">
+                
+                <div id="areaInstalPWA" style="display: none; margin-top: 20px; padding: 15px; background: rgba(0,0,0,0.2); border: 1px dashed rgba(255,215,0,0.5); border-radius: 10px; text-align: center;">
                     <p style="margin: 0 0 10px 0; font-size: 13px; color: white; opacity: 0.9;">
-                        <i class="fas fa-mobile-alt"></i> Gunakan versi aplikasi untuk akses lebih cepat dan nyaman di HP.
+                        <i class="fas fa-mobile-alt" style="color: var(--wc-gold);"></i> Akses secepat pemain andalan! Instal versi HP.
                     </p>
-                    <button id="btnInstalPWA" class="btn-login" style="background: #ffffff; color: #195e0b; margin-top: 0;">
+                    <button id="btnInstalPWA" class="btn-login" style="background: white; color: var(--dark-green); margin-top: 0; box-shadow: none;">
                         <i class="fas fa-download"></i> INSTAL APLIKASI HP
                     </button>
                 </div>
 
                 <% if (isNew) { %>
                 <div class="setup-info">
-                    <i class="fas fa-info-circle"></i> Sistem baru. 
-                    <a href="/register" style="color: white; text-decoration: underline;">Klik Setup Awal</a>
+                    <i class="fas fa-trophy"></i> Sistem baru siap digunakan. 
+                    <a href="/register" style="color: white; text-decoration: underline; font-weight: bold;">Klik Setup Awal</a>
                 </div>
                 <% } %>
             </div>
@@ -320,7 +366,7 @@
             input: 'text',
             inputPlaceholder: 'Ketik username / nama toko...',
             showCancelButton: true,
-            confirmButtonColor: '#25D366', // Warna hijau khas WhatsApp
+            confirmButtonColor: '#DAA520', // Warna tombol SweetAlert diubah jadi Emas agar serasi
             confirmButtonText: '<i class="fab fa-whatsapp"></i> Hubungi Developer',
             cancelButtonText: 'Batal'
         }).then((result) => {
@@ -336,28 +382,19 @@
 const areaInstal = document.getElementById('areaInstalPWA');
 const btnInstal = document.getElementById('btnInstalPWA');
 
-// 1. Deteksi apakah aplikasi sudah berjalan dalam mode standalone (sudah terinstal)
 const isAppInstalled = window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone;
 
-// Jika belum terinstal, tampilkan tombol secara default (untuk desktop/browser yang mendukung)
 if (!isAppInstalled) {
     areaInstal.style.display = 'block';
 }
 
-// 2. Browser mendeteksi bahwa web ini memenuhi syarat PWA
 window.addEventListener('beforeinstallprompt', (e) => {
-    // Cegah banner bawaan browser muncul
     e.preventDefault();
-    // Simpan event ke variabel
     pemicuInstal = e;
-    
-    // Pastikan area tombol tampil di mobile maupun desktop
     areaInstal.style.display = 'block';
 });
 
-// 3. Ketika tombol instalasi diklik
 btnInstal.addEventListener('click', async () => {
-    // Jika browser mendukung pemicu native prompt
     if (pemicuInstal) {
         pemicuInstal.prompt();
         
@@ -366,15 +403,9 @@ btnInstal.addEventListener('click', async () => {
         
         if (outcome === 'accepted') {
             console.log('User menginstal PWA');
-            // Jika mau tombol TETAP ADA setelah instal, jangan sembunyikan kodenya.
-            // Tapi idealnya, jika sudah sukses diinstal, tombol disembunyikan agar rapi:
-            // areaInstal.style.display = 'none'; 
         }
-        
-        // Pemicu dibersihkan agar tidak error di klik berikutnya
         pemicuInstal = null; 
     } else {
-        // Fallback untuk desktop (Chrome/Edge) jika prompt sudah kedaluwarsa atau di iOS Safari
         Swal.fire({
             title: 'Cara Instal Aplikasi',
             html: `
@@ -386,15 +417,13 @@ btnInstal.addEventListener('click', async () => {
                 </div>
             `,
             icon: 'info',
-            confirmButtonColor: '#195e0b'
+            confirmButtonColor: '#DAA520' // Warna Emas juga
         });
     }
 });
 
-// 4. Jika aplikasi benar-benar sukses terinstal, Anda bisa memilih menyembunyikannya atau membiarkannya
 window.addEventListener('appinstalled', () => {
     console.log('PWA berhasil terpasang di sistem.');
-    // Hapus baris di bawah ini jika Anda ingin tombol TETAP muncul bahkan setelah aplikasi terinstal
     areaInstal.style.display = 'none'; 
 });
     </script>
