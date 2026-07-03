@@ -2036,7 +2036,7 @@ app.get('/operator', async (req, res) => {
             FROM po_utama p
             WHERE p.tenant_id = $1 
             AND (
-                p.status = 'Produksi' 
+                p.status = 'Produksi', 'DP/Cicil'
                 OR 
                 (p.status = 'CMT' AND EXISTS (
                     SELECT 1 FROM po_detail d 
