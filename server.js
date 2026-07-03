@@ -2478,7 +2478,7 @@ app.get('/input-kerja-admin', isAdmin, async (req, res) => {
             FROM po_utama u
             WHERE u.tenant_id = $1 
             AND (
-                u.status = 'Produksi', 'DP/Cicil'
+                p.status IN ('Produksi', 'DP/CICIL')
                 OR 
                 (u.status = 'CMT' AND EXISTS (
                     SELECT 1 FROM po_detail d 
