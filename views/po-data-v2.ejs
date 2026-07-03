@@ -153,6 +153,13 @@
         <% } %>
     </div>
 
+    <div class="d-flex d-md-none align-items-center bg-white p-2 mb-2 rounded shadow-sm border">
+        <input type="checkbox" class="form-check-input shadow-sm me-2" id="checkAllMobile" onchange="pilihSemuaTampil(this)" style="transform: scale(1.3); cursor: pointer;">
+        <label class="form-check-label fw-bold text-dark mb-0" for="checkAllMobile" style="font-size: 13px; cursor: pointer;">
+            Pilih Semua PO (Yang Tampil)
+        </label>
+    </div>
+
     <div class="d-block d-md-none" id="mobileDataContainer">
         <% orders.forEach(function(po) { %>
             <div class="card mb-2 shadow-sm mobile-card filter-item <%= po.is_over ? 'over' : (po.is_under ? 'under' : '') %>" 
@@ -165,7 +172,19 @@
                             <input type="checkbox" class="form-check-input mobile-checkbox po-checkbox" value="<%= po.id %>" data-customer="<%= po.customer %>" onchange="updateCounter()">
                             <small class="text-secondary fw-bold"><%= po.nama_po %></small>
                         </div>
-                        <span class="badge bg-light text-dark border"><%= po.qty_tampil || 0 %> Pcs</span>
+                        <div class="text-end">
+                            <span class="badge bg-light text-dark border mb-1"><%= po.qty_tampil || 0 %> Pcs</span><br>
+                            
+                            <% if (po.is_over) { %> 
+                                <span class="blink-warn" style="font-size: 10px;"><i class="bi bi-exclamation-triangle-fill"></i> LEBIH</span>
+                            <% } else if (po.is_under) { %> 
+                                <span class="text-warning fw-bold" style="font-size: 10px;"><i class="bi bi-exclamation-circle-fill"></i> KURANG</span>
+                            <% } else if (po.is_empty) { %> 
+                                <span class="text-secondary fw-bold" style="font-size: 10px;"><i class="bi bi-clock"></i> B. SETOR</span>
+                            <% } else { %> 
+                                <span class="text-success fw-bold" style="font-size: 10px;"><i class="bi bi-check-circle-fill"></i> LENGKAP</span> 
+                            <% } %>
+                        </div>
                     </div>
                     
                     <div class="ps-4 ms-2">
@@ -723,10 +742,18 @@ function validasiSebelumKirim() {
     }
 
     function pilihSemuaTampil(source) {
-        const rows = document.querySelectorAll("#bodyPO tr.clickable-row");
-        rows.forEach(row => {
-            if (row.style.display !== "none") {
-                const checkbox = row.querySelector('.po-checkbox');
+        // 1. Sinkronkan tampilan centang antara Desktop dan Mobile
+        const chkDesktop = document.getElementById('checkAllVisible');
+        const chkMobile = document.getElementById('checkAllMobile');
+        if (chkDesktop) chkDesktop.checked = source.checked;
+        if (chkMobile) chkMobile.checked = source.checked;
+
+        // 2. Pilih semua item (Desktop & Mobile) yang lolos filter
+        const items = document.querySelectorAll(".filter-item");
+        items.forEach(item => {
+            // Hanya centang PO yang tidak disembunyikan oleh kolom pencarian/filter
+            if (item.style.display !== "none") {
+                const checkbox = item.querySelector('.po-checkbox');
                 if (checkbox) checkbox.checked = source.checked;
             }
         });
