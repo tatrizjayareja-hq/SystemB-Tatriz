@@ -3080,76 +3080,82 @@ app.post('/proses-print-gaji', isAdmin, async (req, res) => {
     const { tgl_awal, tgl_akhir, operator_ids, nama, gp, hari_kerja, lembur, bonus, adj_manual, kasbon } = req.body;
 
     try {
-        // AMBIL CONFIG (Gunakan db.get dan placeholder $1)
-        const config = await db.get("SELECT * FROM settings WHERE tenant_id = $1", [tId]);
-        
-        // Ambil variabel fleksibel dari DB
-        const jamReguler = parseInt(config?.jam_kerja_reguler) || 8;
-        const pembagiLembur = parseInt(config?.pembagi_lembur) || 4;
+    const config = await db.get("SELECT * FROM settings WHERE tenant_id = $1", [tId]);
+    
+    const jamReguler = parseInt(config?.jam_kerja_reguler) || 8;
+    const pembagiLembur = parseInt(config?.pembagi_lembur) || 4;
 
-        // Helper untuk memastikan input adalah array (agar tidak error jika hanya 1 karyawan)
-        const toArray = (val) => Array.isArray(val) ? val : [val];
-        
-        const ids = toArray(operator_ids);
-        const nmList = toArray(nama);
-        const gpList = toArray(gp);
-        const hkList = toArray(hari_kerja);
-        const lbList = toArray(lembur);
-        const bnList = toArray(bonus);
-        const adjList = toArray(adj_manual); // Deklarasikan adjList di sini
-        const kbList = toArray(kasbon);
+    // 🔴 TAMBAHAN: Tangkap parameter mode cetak dari URL (?mode=thermal)
+    const printMode = req.query.mode || 'standard';
 
-        let dataGaji = [];
+    const toArray = (val) => Array.isArray(val) ? val : [val];
+    
+    const ids = toArray(operator_ids);
+    const nmList = toArray(nama);
+    const gpList = toArray(gp);
+    const hkList = toArray(hari_kerja);
+    const lbList = toArray(lembur);
+    const bnList = toArray(bonus);
+    const adjList = toArray(adj_manual);
+    const kbList = toArray(kasbon);
 
-        for (let i = 0; i < ids.length; i++) {
-            let gajiPokok = Number(gpList[i]) || 0;
-            let inputHK = String(hkList[i] || "0").replace(',', '.');
-            let jamLembur = Number(lbList[i]) || 0;
-            let bonusTarget = Number(bnList[i]) || 0;
-            let penyesuaian = Number(adjList[i]) || 0; // Ambil nilai Adj dari list
-            let totalKasbon = Number(kbList[i]) || 0;
+    let dataGaji = [];
 
-            let hariFull = 0;
-            let jamSisa = 0;
+    // 🔴 PERBAIKAN: Samakan rumus pengali Hari Minggu dengan frontend
+    const pengaliHariMinggu = 1 + (1 / pembagiLembur);
 
-            if (inputHK.includes('.')) {
-                let bagian = inputHK.split('.');
-                hariFull = parseInt(bagian[0]) || 0;
-                jamSisa = parseInt(bagian[1]) || 0;
-            } else {
-                hariFull = parseInt(inputHK) || 0;
-            }
+    for (let i = 0; i < ids.length; i++) {
+        let gajiPokok = Number(gpList[i]) || 0;
+        let inputHK = String(hkList[i] || "0").replace(',', '.');
+        let lemburHari = Number(lbList[i]) || 0; // Diganti namanya agar tidak bingung (ini satuan hari)
+        let bonusTarget = Number(bnList[i]) || 0;
+        let penyesuaian = Number(adjList[i]) || 0; 
+        let totalKasbon = Number(kbList[i]) || 0;
 
-            // RUMUS FLEKSIBEL (Menggunakan variabel dinamis & penyesuaian manual)
-            let nominalHari = hariFull * gajiPokok;
-            let nominalJamSisa = (gajiPokok / jamReguler) * jamSisa;
-            let nominalLembur = (gajiPokok / pembagiLembur) * jamLembur; 
-            
-            // TOTAL FINAL: Termasuk Penyesuaian (+/-)
-            let totalFinal = nominalHari + nominalJamSisa + nominalLembur + bonusTarget + penyesuaian - totalKasbon;
+        let hariFull = 0;
+        let jamSisa = 0;
 
-            dataGaji.push({
-                nama: nmList[i],
-                gp: gajiPokok,
-                hari_kerja_tampil: inputHK,
-                hari_full: hariFull,
-                jam_sisa: jamSisa,
-                lembur: jamLembur,
-                bonus_target: bonusTarget,
-                adjustment: penyesuaian, // Kirim data adj ke EJS cetak jika ingin ditampilkan
-                kasbon: totalKasbon,
-                totalFinal: Math.round(totalFinal)
-            });
+        if (inputHK.includes('.')) {
+            let bagian = inputHK.split('.');
+            hariFull = parseInt(bagian[0]) || 0;
+            jamSisa = parseInt(bagian[1]) || 0;
+        } else {
+            hariFull = parseInt(inputHK) || 0;
         }
 
-        // Render ke halaman cetak dengan variabel asli (dataGaji, config, user)
-        res.render('admin/cetak-slip', { 
-            dataGaji, 
-            tgl_awal, 
-            tgl_akhir, 
-            config: config || { nama_perusahaan: "Tatriz" }, 
-            user: req.session 
+        let nominalHari = hariFull * gajiPokok;
+        let nominalJamSisa = (gajiPokok / jamReguler) * jamSisa;
+        
+        // 🔴 PERBAIKAN RUMUS LEMBUR: Terapkan pengali hari minggu (GP x 125%)
+        let nominalLembur = lemburHari * (pengaliHariMinggu * gajiPokok); 
+        
+        let totalFinal = nominalHari + nominalJamSisa + nominalLembur + bonusTarget + penyesuaian - totalKasbon;
+
+        dataGaji.push({
+            nama: nmList[i],
+            gp: gajiPokok,
+            hari_kerja_tampil: inputHK,
+            hari_full: hariFull,
+            jam_sisa: jamSisa,
+            lembur: lemburHari, 
+            nominal_lembur: nominalLembur, // Opsional: kirim juga nominal lemburnya untuk dicetak
+            bonus_target: bonusTarget,
+            adjustment: penyesuaian, 
+            kasbon: totalKasbon,
+            totalFinal: Math.round(totalFinal)
         });
+    }
+
+    // 🔴 TAMBAHAN: Arahkan ke template EJS yang berbeda berdasarkan tombol yang diklik
+    const templateCetak = printMode === 'thermal' ? 'admin/cetak-slip-thermal' : 'admin/cetak-slip';
+
+    res.render(templateCetak, { 
+        dataGaji, 
+        tgl_awal, 
+        tgl_akhir, 
+        config: config || { nama_perusahaan: "Tatriz" }, 
+        user: req.session 
+    });
 
     } catch (err) {
         console.error("🔥 Error Proses Slip:", err.message);
