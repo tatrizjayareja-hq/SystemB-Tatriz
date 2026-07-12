@@ -28,6 +28,7 @@ const db = {
         return res.rows;
     }
 };
+const cron = require('node-cron');
 
 pool.on('error', (err) => {
     console.error('🔥 Unexpected error on idle client', err);
@@ -4379,8 +4380,7 @@ app.get('/toggle-tenant-status/:tId/:status', isAdmin, async (req, res) => {
 });
 
 
-const cron = require('node-cron');
-const db = require('./database'); 
+
 
 // Jalan otomatis setiap jam 08:00 pagi
 cron.schedule('0 8 * * *', async () => {
