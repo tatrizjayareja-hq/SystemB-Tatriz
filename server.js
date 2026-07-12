@@ -4379,7 +4379,55 @@ app.get('/toggle-tenant-status/:tId/:status', isAdmin, async (req, res) => {
 });
 
 
+const cron = require('node-cron');
+const db = require('./database'); 
 
+// Jalan otomatis setiap jam 08:00 pagi
+cron.schedule('0 8 * * *', async () => {
+    console.log("Log: Menjalankan pengecekan tagihan tenant bulanan...");
+
+    try {
+        // 1. CARI TENANT YANG JATUH TEMPO 5 HARI LAGI (KECUALI TENANT 1 & 100)
+        const reminderRes = await db.query(`
+            SELECT tenant_id, nomor_wa_admin, jatuh_tempo 
+            FROM settings 
+            WHERE is_active = true 
+            AND tenant_id NOT IN (1, 100) 
+            AND jatuh_tempo = CURRENT_DATE + INTERVAL '5 days'
+        `);
+
+        for (let tenant of reminderRes.rows) {
+            const pesan = `Halo! Kami dari Tatriz mengingatkan bahwa masa aktif sistem Anda akan habis pada tanggal ${tenant.jatuh_tempo}. Mohon segera lakukan pembayaran sewa agar sistem tidak ter-suspend otomatis.`;
+            
+            // Panggil fungsi pengiriman WA Anda di sini
+            // await kirimWhatsApp(tenant.nomor_wa_admin, pesan); 
+            console.log(`Log: Kirim pengingat WA ke Tenant ${tenant.tenant_id}`);
+        }
+
+        // 2. CARI TENANT YANG LEWAT JATUH TEMPO UNTUK SUSPEND (KECUALI TENANT 1 & 100)
+        const suspendRes = await db.query(`
+            SELECT tenant_id, nomor_wa_admin 
+            FROM settings 
+            WHERE is_active = true 
+            AND tenant_id NOT IN (1, 100)
+            AND CURRENT_DATE > jatuh_tempo
+        `);
+
+        for (let tenant of suspendRes.rows) {
+            // Update database untuk suspend
+            await db.query("UPDATE settings SET is_active = false WHERE tenant_id = $1", [tenant.tenant_id]);
+            
+            const pesanSuspend = `Mohon maaf, akses sistem Anda telah ditangguhkan karena melewati batas waktu pembayaran. Silakan hubungi admin untuk mengaktifkannya kembali.`;
+            
+            // await kirimWhatsApp(tenant.nomor_wa_admin, pesanSuspend);
+            
+            console.log(`Log: Tenant ${tenant.tenant_id} telah di-suspend.`);
+        }
+
+    } catch (err) {
+        console.error("🔥 Error pada Cron Billing:", err);
+    }
+});
 
 // --- LOGIKA ROUTES AKAN DI MASUKKAN DI SINI ---
 

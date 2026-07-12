@@ -503,16 +503,24 @@ async function bukaModalCMT(poId, namaPo) {
                         </div>
                         <div class="col-12 col-md-8">
                             <div class="row g-2">
-                                <div class="col-7">
+                                <div class="col-12">
                                     <label class="fw-bold text-muted" style="font-size: 10px; text-transform:uppercase;">Kirim Ke Vendor:</label>
                                     <input type="text" name="nama_vendors" class="form-control form-control-sm border-secondary input-nama-vendor" placeholder="Contoh: Pak Eko / Bordir Luar" style="padding: 8px;" />
                                     <input type="hidden" name="po_detail_ids" value="${item.po_detail_id}" />
-                                    <input type="hidden" name="harga_cmts" value="${item.harga_cmt}" />
                                 </div>
+                                
+                                <div class="col-7">
+                                    <label class="fw-bold text-muted" style="font-size: 10px; text-transform:uppercase;">Harga CMT (Rp):</label>
+                                    <div class="input-group input-group-sm">
+                                        <span class="input-group-text bg-light text-secondary border-secondary">Rp</span>
+                                        <input type="number" name="harga_cmts" class="form-control form-control-sm border-secondary fw-bold" value="${item.harga_cmt || 0}" min="0" style="padding: 8px;" />
+                                    </div>
+                                </div>
+
                                 <div class="col-5">
-                                    <label class="fw-bold text-muted" style="font-size: 10px; text-transform:uppercase;">Qty Kirim (Pcs):</label>
+                                    <label class="fw-bold text-muted" style="font-size: 10px; text-transform:uppercase;">Qty (Pcs):</label>
                                     <input type="number" name="qty_kirims" class="form-control form-control-sm border-secondary fw-bold text-center input-qty-kirim" 
-                                           value="${item.sisa_gudang}" min="0" max="${item.sisa_gudang}" oninput="validasiKetikMaksimal(this)" style="padding: 8px;" />
+                                        value="${item.sisa_gudang}" min="0" max="${item.sisa_gudang}" oninput="validasiKetikMaksimal(this)" style="padding: 8px;" />
                                 </div>
                             </div>
                         </div>

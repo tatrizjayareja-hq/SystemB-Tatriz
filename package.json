@@ -134,6 +134,7 @@
     "negotiator": "^1.0.0",
     "node-abi": "^3.87.0",
     "node-addon-api": "^7.1.1",
+    "node-cron": "^4.6.0",
     "node-gyp": "^8.4.1",
     "nopt": "^5.0.0",
     "npmlog": "^6.0.2",
