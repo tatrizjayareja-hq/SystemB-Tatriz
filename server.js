@@ -564,7 +564,6 @@ app.post('/save-settings-all', upload.single('logo'), async (req, res) => {
     if (!tId) return res.send("<script>alert('Sesi habis, silakan login kembali'); window.location='/';</script>");
 
     try {
-        // PERBAIKAN 1: Mengubah db.get menjadi db.query demi kompatibilitas PostgreSQL
         const oldConfigRes = await db.query("SELECT * FROM settings WHERE tenant_id = $1", [tId]);
         const oldConfig = oldConfigRes.rows[0] || {};
         
@@ -584,9 +583,16 @@ app.post('/save-settings-all', upload.single('logo'), async (req, res) => {
             nominal_bonus_lipat = oldConfig.nominal_bonus_lipat;
         }
 
+        // --- TAMBAHAN BARU: Pastikan nomor HP selalu berawalan 62 dan bersih dari karakter lain ---
+        let noWaValid = '';
+        if (no_hp) {
+            // Hapus karakter non-angka, hapus angka 0 di depan, hapus angka 62 di depan jika ada, lalu tambah 62.
+            let cleanNo = no_hp.replace(/\D/g, '').replace(/^0/, '').replace(/^62/, '');
+            noWaValid = '62' + cleanNo;
+        }
+
         let logoUrl = null;
 
-        // 2. Upload Logo ke Supabase (Jika ada file baru)
         if (req.file) {
             const fileName = `logo-${tId}-${Date.now()}${path.extname(req.file.originalname)}`;
             const { data, error } = await supabase.storage
@@ -601,20 +607,20 @@ app.post('/save-settings-all', upload.single('logo'), async (req, res) => {
             logoUrl = publicData.publicUrl;
         }
 
-        // 3. Susun SQL Update 
-        // PERBAIKAN 2: Menyisipkan is_setup_complete = true langsung di SQL dasar
+        // --- TAMBAHAN BARU: Sisipkan jatuh_tempo di SQL Update ---
         let sql = `UPDATE settings SET 
                     nama_perusahaan = $1, alamat = $2, no_hp = $3, 
                     nominal_buffer = $4, target_bonus = $5, 
                     nominal_bonus_dasar = $6, beban_tetap = $7,
                     jam_kerja_reguler = $8, pembagi_lembur = $9,
                     kelipatan_bonus = $10, nominal_bonus_lipat = $11,
-                    is_setup_complete = true`; 
+                    is_setup_complete = true,
+                    jatuh_tempo = COALESCE(jatuh_tempo, CURRENT_DATE + INTERVAL '30 days')`; 
         
         let params = [
             nama_perusahaan || 'Tatriz Unit', 
             alamat || '', 
-            no_hp || '', 
+            noWaValid, // Gunakan variabel nomor WA yang sudah diformat
             parseFloat(nominal_buffer) || 0, 
             parseFloat(target_bonus) || 0, 
             parseFloat(nominal_bonus_dasar) || 0, 
@@ -625,7 +631,6 @@ app.post('/save-settings-all', upload.single('logo'), async (req, res) => {
             parseInt(nominal_bonus_lipat) || 0
         ];
 
-        // 4. Penanganan Logo Path & Tenant ID (Urutan $ aman tidak berubah)
         if (logoUrl) {
             sql += `, logo_path = $12 WHERE tenant_id = $13`;
             params.push(logoUrl, tId);
@@ -636,7 +641,6 @@ app.post('/save-settings-all', upload.single('logo'), async (req, res) => {
 
         await db.query(sql, params);
 
-        // 5. Tambah Mesin Baru (Jika diisi)
         if (nama_mesin_baru && nama_mesin_baru.trim() !== "") {
             const tLevel = req.session.tenantLevel;
             const canAdd = (isInternal || tLevel >= 2);
@@ -649,7 +653,6 @@ app.post('/save-settings-all', upload.single('logo'), async (req, res) => {
             }
         }
 
-        // PERBAIKAN 3: Matikan session bypass setup dan arahkan langsung ke /dashboard
         req.session.isAdminSetup = false;
         res.send("<script>alert('Semua perubahan berhasil disimpan! Selamat datang di Dashboard.'); window.location='/dashboard';</script>");
 
