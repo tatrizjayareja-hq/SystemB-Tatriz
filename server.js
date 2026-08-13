@@ -1615,8 +1615,13 @@ app.get('/laporan-kas', isAdmin, async (req, res) => {
             SELECT 
                 (SELECT COALESCE(SUM(h.jumlah_setor * d.harga_customer), 0) FROM hasil_kerja h JOIN po_detail d ON h.detail_id = d.id WHERE TO_CHAR(h.tanggal::DATE, 'YYYY-MM') = $1 AND h.tenant_id = $2) as prod_bln,
                 
-                -- Hasil Khusus Mesin 22 (Utuk - utuk)
-                (SELECT COALESCE(SUM(h.jumlah_setor * d.harga_customer), 0) FROM hasil_kerja h JOIN po_detail d ON h.detail_id = d.id WHERE TO_CHAR(h.tanggal::DATE, 'YYYY-MM') = $1 AND h.tenant_id = $2 AND h.mesin_id = 22) as prod_mesin_22_bln,
+                -- Hasil Khusus Mesin 22 (Utuk - utuk) DIPERBAIKI
+                (SELECT COALESCE(SUM(h.jumlah_setor * d.harga_customer), 0) 
+                 FROM hasil_kerja h 
+                 JOIN po_detail d ON h.detail_id = d.id 
+                 WHERE TO_CHAR(h.tanggal::DATE, 'YYYY-MM') = $1 
+                 AND h.tenant_id = $2 
+                 AND h.mesin_id::TEXT = '22') as prod_mesin_22_bln,
                 
                 -- PENGECUALIAN: Jatah khusus tidak dianggap operasional agar profit global tidak turun
                 (SELECT COALESCE(SUM(jumlah), 0) FROM arus_kas WHERE jenis = 'PENGELUARAN' AND kategori NOT IN ('BIAYA KONTRAKAN', 'BAYAR HUTANG', 'JATAH PROFIT OWNER', 'BAYAR CMT / VENDOR', 'JATAH KHUSUS UTUK & CMT') AND TO_CHAR(tanggal::DATE, 'YYYY-MM') = $1 AND tenant_id = $2) as op_bln,
