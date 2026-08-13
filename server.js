@@ -564,7 +564,6 @@ app.post('/save-settings-all', upload.single('logo'), async (req, res) => {
     if (!tId) return res.send("<script>alert('Sesi habis, silakan login kembali'); window.location='/';</script>");
 
     try {
-        // PERBAIKAN 1: Mengubah db.get menjadi db.query demi kompatibilitas PostgreSQL
         const oldConfigRes = await db.query("SELECT * FROM settings WHERE tenant_id = $1", [tId]);
         const oldConfig = oldConfigRes.rows[0] || {};
         
@@ -584,9 +583,16 @@ app.post('/save-settings-all', upload.single('logo'), async (req, res) => {
             nominal_bonus_lipat = oldConfig.nominal_bonus_lipat;
         }
 
+        // --- TAMBAHAN BARU: Pastikan nomor HP selalu berawalan 62 dan bersih dari karakter lain ---
+        let noWaValid = '';
+        if (no_hp) {
+            // Hapus karakter non-angka, hapus angka 0 di depan, hapus angka 62 di depan jika ada, lalu tambah 62.
+            let cleanNo = no_hp.replace(/\D/g, '').replace(/^0/, '').replace(/^62/, '');
+            noWaValid = '62' + cleanNo;
+        }
+
         let logoUrl = null;
 
-        // 2. Upload Logo ke Supabase (Jika ada file baru)
         if (req.file) {
             const fileName = `logo-${tId}-${Date.now()}${path.extname(req.file.originalname)}`;
             const { data, error } = await supabase.storage
@@ -601,20 +607,20 @@ app.post('/save-settings-all', upload.single('logo'), async (req, res) => {
             logoUrl = publicData.publicUrl;
         }
 
-        // 3. Susun SQL Update 
-        // PERBAIKAN 2: Menyisipkan is_setup_complete = true langsung di SQL dasar
+        // --- TAMBAHAN BARU: Sisipkan jatuh_tempo di SQL Update ---
         let sql = `UPDATE settings SET 
                     nama_perusahaan = $1, alamat = $2, no_hp = $3, 
                     nominal_buffer = $4, target_bonus = $5, 
                     nominal_bonus_dasar = $6, beban_tetap = $7,
                     jam_kerja_reguler = $8, pembagi_lembur = $9,
                     kelipatan_bonus = $10, nominal_bonus_lipat = $11,
-                    is_setup_complete = true`; 
+                    is_setup_complete = true,
+                    jatuh_tempo = COALESCE(jatuh_tempo, CURRENT_DATE + INTERVAL '30 days')`; 
         
         let params = [
             nama_perusahaan || 'Tatriz Unit', 
             alamat || '', 
-            no_hp || '', 
+            noWaValid, // Gunakan variabel nomor WA yang sudah diformat
             parseFloat(nominal_buffer) || 0, 
             parseFloat(target_bonus) || 0, 
             parseFloat(nominal_bonus_dasar) || 0, 
@@ -625,7 +631,6 @@ app.post('/save-settings-all', upload.single('logo'), async (req, res) => {
             parseInt(nominal_bonus_lipat) || 0
         ];
 
-        // 4. Penanganan Logo Path & Tenant ID (Urutan $ aman tidak berubah)
         if (logoUrl) {
             sql += `, logo_path = $12 WHERE tenant_id = $13`;
             params.push(logoUrl, tId);
@@ -636,7 +641,6 @@ app.post('/save-settings-all', upload.single('logo'), async (req, res) => {
 
         await db.query(sql, params);
 
-        // 5. Tambah Mesin Baru (Jika diisi)
         if (nama_mesin_baru && nama_mesin_baru.trim() !== "") {
             const tLevel = req.session.tenantLevel;
             const canAdd = (isInternal || tLevel >= 2);
@@ -649,7 +653,6 @@ app.post('/save-settings-all', upload.single('logo'), async (req, res) => {
             }
         }
 
-        // PERBAIKAN 3: Matikan session bypass setup dan arahkan langsung ke /dashboard
         req.session.isAdminSetup = false;
         res.send("<script>alert('Semua perubahan berhasil disimpan! Selamat datang di Dashboard.'); window.location='/dashboard';</script>");
 
@@ -1597,10 +1600,13 @@ app.get('/api/customer-piutang', isAdmin, async (req, res) => {
 app.get('/laporan-kas', isAdmin, async (req, res) => {
     const tId = req.session.tenantId;
     const isPro = (tId === 1 || tId === 100 || req.session.tenantLevel >= 2);
+    
+    // HANYA AKTIF UNTUK TENANT 1
+    const isOwnerSpecial = (tId === 1); 
     const bulanIni = req.query.bulan || new Date().toISOString().slice(0, 7);
     
     try {
-        // 0. Ambil Config (Beban Tetap)
+        // 0. Ambil Config
         const configRes = await db.query("SELECT * FROM settings WHERE tenant_id = $1", [tId]);
         const conf = configRes.rows[0] || { beban_tetap: 0, nominal_buffer: 0 };
 
@@ -1608,7 +1614,13 @@ app.get('/laporan-kas', isAdmin, async (req, res) => {
         const sqlData = `
             SELECT 
                 (SELECT COALESCE(SUM(h.jumlah_setor * d.harga_customer), 0) FROM hasil_kerja h JOIN po_detail d ON h.detail_id = d.id WHERE TO_CHAR(h.tanggal::DATE, 'YYYY-MM') = $1 AND h.tenant_id = $2) as prod_bln,
-                (SELECT COALESCE(SUM(jumlah), 0) FROM arus_kas WHERE jenis = 'PENGELUARAN' AND kategori NOT IN ('BIAYA KONTRAKAN', 'BAYAR HUTANG', 'JATAH PROFIT OWNER', 'BAYAR CMT / VENDOR') AND TO_CHAR(tanggal::DATE, 'YYYY-MM') = $1 AND tenant_id = $2) as op_bln,
+                
+                -- Hasil Khusus Mesin 22 (Utuk - utuk)
+                (SELECT COALESCE(SUM(h.jumlah_setor * d.harga_customer), 0) FROM hasil_kerja h JOIN po_detail d ON h.detail_id = d.id WHERE TO_CHAR(h.tanggal::DATE, 'YYYY-MM') = $1 AND h.tenant_id = $2 AND h.mesin_id = 22) as prod_mesin_22_bln,
+                
+                -- PENGECUALIAN: Jatah khusus tidak dianggap operasional agar profit global tidak turun
+                (SELECT COALESCE(SUM(jumlah), 0) FROM arus_kas WHERE jenis = 'PENGELUARAN' AND kategori NOT IN ('BIAYA KONTRAKAN', 'BAYAR HUTANG', 'JATAH PROFIT OWNER', 'BAYAR CMT / VENDOR', 'JATAH KHUSUS UTUK & CMT') AND TO_CHAR(tanggal::DATE, 'YYYY-MM') = $1 AND tenant_id = $2) as op_bln,
+                
                 (SELECT COALESCE(SUM(ak.jumlah), 0) 
                     FROM arus_kas ak 
                     WHERE ak.jenis = 'PEMASUKAN' 
@@ -1625,7 +1637,10 @@ app.get('/laporan-kas', isAdmin, async (req, res) => {
                 (SELECT COALESCE(SUM(jumlah), 0) FROM arus_kas WHERE kategori = 'BIAYA KONTRAKAN' AND TO_CHAR(tanggal::DATE, 'YYYY-MM') = $1 AND tenant_id = $2) as k_bayar_bln,
                 (SELECT COALESCE(SUM(CASE WHEN kategori = 'HUTANG' THEN jumlah WHEN kategori = 'BAYAR HUTANG' THEN -jumlah ELSE 0 END), 0) FROM arus_kas WHERE tenant_id = $2) as hutang_riil,
                 (SELECT COALESCE(SUM(CASE WHEN jenis = 'PEMASUKAN' THEN jumlah ELSE -jumlah END), 0) FROM arus_kas WHERE tenant_id = $2) as saldo_laci,
-                (SELECT COALESCE(SUM(jumlah), 0) FROM arus_kas WHERE kategori = 'JATAH PROFIT OWNER' AND TO_CHAR(tanggal::DATE, 'YYYY-MM') = $1 AND tenant_id = $2) as profit_ditarik_bln
+                (SELECT COALESCE(SUM(jumlah), 0) FROM arus_kas WHERE kategori = 'JATAH PROFIT OWNER' AND TO_CHAR(tanggal::DATE, 'YYYY-MM') = $1 AND tenant_id = $2) as profit_ditarik_bln,
+                
+                -- Nominal Jatah Khusus yang sudah diambil bulan ini
+                (SELECT COALESCE(SUM(jumlah), 0) FROM arus_kas WHERE kategori = 'JATAH KHUSUS UTUK & CMT' AND TO_CHAR(tanggal::DATE, 'YYYY-MM') = $1 AND tenant_id = $2) as tarik_khusus_bln
         `;
         const dataRes = await db.query(sqlData, [bulanIni, tId]);
         const data = dataRes.rows[0];
@@ -1634,7 +1649,10 @@ app.get('/laporan-kas', isAdmin, async (req, res) => {
         const sqlAkumulasi = `
             SELECT 
                 (SELECT COALESCE(SUM(h.jumlah_setor * d.harga_customer), 0) FROM hasil_kerja h JOIN po_detail d ON h.detail_id = d.id WHERE h.tenant_id = $1) as prod_all,
-                (SELECT COALESCE(SUM(jumlah), 0) FROM arus_kas WHERE jenis = 'PENGELUARAN' AND kategori NOT IN ('BIAYA KONTRAKAN', 'BAYAR HUTANG', 'JATAH PROFIT OWNER', 'BAYAR CMT / VENDOR') AND tenant_id = $1) as op_all,
+                
+                -- PENGECUALIAN Jatah Khusus dari operasional All Time
+                (SELECT COALESCE(SUM(jumlah), 0) FROM arus_kas WHERE jenis = 'PENGELUARAN' AND kategori NOT IN ('BIAYA KONTRAKAN', 'BAYAR HUTANG', 'JATAH PROFIT OWNER', 'BAYAR CMT / VENDOR', 'JATAH KHUSUS UTUK & CMT') AND tenant_id = $1) as op_all,
+                
                 (SELECT COALESCE(SUM(ak.jumlah), 0) 
                     FROM arus_kas ak 
                     WHERE ak.jenis = 'PEMASUKAN' 
@@ -1647,7 +1665,10 @@ app.get('/laporan-kas', isAdmin, async (req, res) => {
                     AND ak.tenant_id = $1
                     ) as omzet_cmt_all,
                 (SELECT COALESCE(SUM(jumlah), 0) FROM arus_kas WHERE kategori = 'BAYAR CMT / VENDOR' AND tenant_id = $1) as hpp_cmt_all,
-                (SELECT COALESCE(SUM(jumlah), 0) FROM arus_kas WHERE kategori = 'JATAH PROFIT OWNER' AND tenant_id = $1) as ditarik_all,
+                
+                -- Gabungkan penarikan Jatah Owner biasa & Jatah Khusus agar Sisa Profit All-Time akurat
+                (SELECT COALESCE(SUM(jumlah), 0) FROM arus_kas WHERE kategori IN ('JATAH PROFIT OWNER', 'JATAH KHUSUS UTUK & CMT') AND tenant_id = $1) as ditarik_all,
+                
                 (SELECT COALESCE(SUM(jumlah), 0) FROM arus_kas WHERE kategori = 'BIAYA KONTRAKAN' AND tenant_id = $1) as kontrakan_all
         `;
         const akumulasiRes = await db.query(sqlAkumulasi, [tId]);
@@ -1668,7 +1689,7 @@ app.get('/laporan-kas', isAdmin, async (req, res) => {
         const rincianRes = await db.query(`SELECT ak.*, p.customer as customer_bordir, p.nama_po as po_bordir, (SELECT STRING_AGG(DISTINCT sj.nama_vendor, ', ') FROM cmt_surat_jalan sj WHERE sj.id::TEXT = ANY(STRING_TO_ARRAY(COALESCE(ak.cmt_sj_id, ''), ','))) as nama_vendor, (SELECT STRING_AGG(DISTINCT p2.nama_po, ', ') FROM cmt_surat_jalan sj JOIN cmt_surat_jalan_detail sjd ON sj.id = sjd.sj_id JOIN po_detail d2 ON sjd.po_detail_id = d2.id JOIN po_utama p2 ON d2.po_id = p2.id WHERE sj.id::TEXT = ANY(STRING_TO_ARRAY(COALESCE(ak.cmt_sj_id, ''), ','))) as po_vendor, (SELECT STRING_AGG(DISTINCT p2.customer, ', ') FROM cmt_surat_jalan sj JOIN cmt_surat_jalan_detail sjd ON sj.id = sjd.sj_id JOIN po_detail d2 ON sjd.po_detail_id = d2.id JOIN po_utama p2 ON d2.po_id = p2.id WHERE sj.id::TEXT = ANY(STRING_TO_ARRAY(COALESCE(ak.cmt_sj_id, ''), ','))) as customer_vendor FROM arus_kas ak LEFT JOIN po_utama p ON ak.po_id = p.id WHERE TO_CHAR(ak.tanggal::DATE, 'YYYY-MM') = $1 AND ak.tenant_id = $2 ORDER BY ak.tanggal DESC, ak.id DESC`, [bulanIni, tId]);
         const monitorRes = await db.query(`SELECT TO_CHAR(h.tanggal::DATE, 'YYYY-MM-DD') as tanggal, SUM(h.jumlah_setor * d.harga_customer) as total_harian FROM hasil_kerja h JOIN po_detail d ON h.detail_id = d.id WHERE TO_CHAR(h.tanggal::DATE, 'YYYY-MM') = $1 AND h.tenant_id = $2 GROUP BY h.tanggal ORDER BY h.tanggal DESC`, [bulanIni, tId]);
 
-        // Kalkulasi Bulan Ini
+        // Kalkulasi Standar
         const prodMesin = parseFloat(data?.prod_bln || 0);
         const opMesin = parseFloat(data?.op_bln || 0);
         const labaMesin = prodMesin - opMesin;
@@ -1679,6 +1700,12 @@ app.get('/laporan-kas', isAdmin, async (req, res) => {
         const estimasiProfit = labaMesin + labaCmt - bebanTetap;
         const profitDitarik = parseFloat(data?.profit_ditarik_bln || 0);
 
+        // Kalkulasi Khusus Tenant 1 (Utuk - utuk & CMT)
+        const prodMesin22 = parseFloat(data?.prod_mesin_22_bln || 0);
+        const tarikKhusus = parseFloat(data?.tarik_khusus_bln || 0);
+        const alokasiKhusus = labaCmt + prodMesin22; 
+        const sisaAlokasiKhusus = alokasiKhusus - tarikKhusus;
+
         res.render('laporan-kas', {
             bulanIni,
             prodMesin, opMesin, labaMesin,
@@ -1687,14 +1714,17 @@ app.get('/laporan-kas', isAdmin, async (req, res) => {
             sisaBebanKontrakan: Math.max(0, bebanTetap - parseFloat(data?.k_bayar_bln || 0)),
             estimasiProfit, profitDitarik, 
             sisaProfitBulanIni: estimasiProfit - profitDitarik,
-            sisaProfitAkumulasi, // Variabel baru untuk penenang Owner
+            sisaProfitAkumulasi,
             saldoRiil: parseFloat(data?.saldo_laci || 0),
             piutangBerjalan: parseFloat(rowP?.piutang_total || 0),
             piutangBulanIni: parseFloat(pbRes.rows[0].total_piutang_bulan_ini),
             monitorHarian: monitorRes.rows || [],
             rincianKas: rincianRes.rows || [],
             config: conf,
-            isPro: isPro
+            isPro: isPro,
+            
+            // Variabel Ekstra Khusus Tenant 1
+            isOwnerSpecial, prodMesin22, tarikKhusus, alokasiKhusus, sisaAlokasiKhusus
         });
 
     } catch (err) {

@@ -90,8 +90,12 @@
                     <input type="text" name="nama_perusahaan" value="<%= config.nama_perusahaan %>" required>
                 </div>
                 <div class="form-group">
-                    <label>Nomor HP / WhatsApp</label>
-                    <input type="text" name="no_hp" value="<%= config.no_hp %>">
+                    <label>Nomor WA Admin (Untuk Tagihan)</label>
+                    <div style="display: flex; align-items: center; border: 1px solid #ddd; border-radius: 8px; overflow: hidden; background: #f8f9fa;">
+                        <span style="padding: 12px; font-weight: bold; color: #555; border-right: 1px solid #ddd;">+62</span>
+                        <input type="text" name="no_hp" value="<%= config.no_hp ? config.no_hp.toString().replace(/^62/, '') : '' %>" required oninput="formatNomorWA(this)" style="border: none; border-radius: 0; flex: 1;">
+                    </div>
+                    <small style="font-size: 9px; color: #e74c3c; margin-top: 5px; display: block;">*Wajib diisi. Nomor ini akan menerima WA pengingat masa aktif sistem.</small>
                 </div>
                 <div class="form-group">
                     <label>Alamat Workshop</label>
@@ -305,6 +309,24 @@
             }
         });
     }
+
+    // --- Fungsi Format Nomor WA ---
+function formatNomorWA(input) {
+    // Hapus semua karakter selain angka (mencegah user mengetik spasi atau huruf)
+    let nomor = input.value.replace(/\D/g, '');
+    
+    // Jika user mengetik angka 0 di awal, langsung hapus
+    if (nomor.startsWith('0')) {
+        nomor = nomor.substring(1);
+    }
+    // Jika user mengetik 62 di awal, langsung potong
+    if (nomor.startsWith('62')) {
+        nomor = nomor.substring(2);
+    }
+    
+    // Kembalikan nilai yang sudah bersih ke dalam kolom input
+    input.value = nomor;
+}
 </script>
 </body>
 </html>
