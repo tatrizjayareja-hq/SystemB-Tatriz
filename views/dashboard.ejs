@@ -1,336 +1,387 @@
-<!DOCTYPE html>
-<html lang="id">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Dashboard - <%= config.nama_perusahaan %></title>
-    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.1/font/bootstrap-icons.css">
-    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
-    <link rel="manifest" href="/manifest.json">
-    <meta name="theme-color" content="#0a463c">
-    <script>
-      if ('serviceWorker' in navigator) {
-        window.addEventListener('load', () => {
-          navigator.serviceWorker.register('/service-worker.js')
-            .then(reg => console.log('PWA Tatriz Berhasil Aktif!', reg.scope))
-            .catch(err => console.error('PWA Tatriz Gagal:', err));
-        });
-      }
-    </script>
-    <style>
-        /* CSS Dashboard Original & Gembok */
-        .menu-locked { opacity: 0.6; position: relative; }
-        .menu-locked i.bi-lock-fill { 
-            font-size: 12px; 
-            color: #f39c12; 
-            margin-left: auto; 
-        }
-        .border-aman { border-top: 4px solid #2ecc71; }
-        .border-kritis { border-top: 4px solid #ff4757; }
-        .badge-aman { background-color: #2ecc71; }
-        .badge-kritis { background-color: #ff4757; }
-        :root {
-            --primary: #2ecc71; --dark: #0a463c; --light: #ecf0ec;
-            --danger: #ff4757; --info: #3498db; --warning: #f39c12;
-        }
-        body { font-family: 'Segoe UI', sans-serif; margin: 0; background: var(--light); color: var(--dark); padding-bottom: 50px; }
-        .top-nav { 
-            background: var(--dark); color: white; padding: 15px 20px; 
-            display: flex; justify-content: space-between; align-items: center;
-            position: sticky; top: 0; z-index: 1000; box-shadow: 0 2px 10px rgba(0,0,0,0.1);
-        }
-        .top-nav img { height: 30px; background: white; border-radius: 4px; padding: 2px; }
-        .container { padding: 15px; max-width: 800px; margin: auto; }
-        .card-finance { background: white; border-radius: 20px; padding: 20px; margin-bottom: 20px; box-shadow: 0 10px 25px rgba(0,0,0,0.05); }
-        .status-badge { padding: 4px 12px; border-radius: 20px; font-size: 11px; font-weight: bold; color: white; }
-        .stats-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; margin-bottom: 20px; }
-        .stat-item { background: white; padding: 10px 5px; border-radius: 12px; text-align: center; box-shadow: 0 2px 5px rgba(0,0,0,0.03); }
-        .stat-item small { font-size: 9px; color: #7f8c8d; font-weight: bold; display: block; }
-        .stat-item b { font-size: 16px; color: var(--dark); }
-        .shortcut-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 12px; margin-bottom: 20px; }
-        .btn-main { 
-            background: white; padding: 20px 10px; border-radius: 15px; text-decoration: none;
-            color: var(--dark); font-weight: bold; display: flex; flex-direction: column; 
-            align-items: center; gap: 8px; border: 1px solid #eee; transition: 0.2s;
-            box-shadow: 0 4px 6px rgba(0,0,0,0.02);
-        }
-        .btn-main i { font-size: 24px; }
-        .menu-card { background: white; border-radius: 15px; overflow: hidden; margin-bottom: 20px; box-shadow: 0 4px 10px rgba(0,0,0,0.03); }
-        .menu-item { 
-            display: flex; align-items: center; padding: 14px 20px; 
-            text-decoration: none; color: var(--dark); border-bottom: 1px solid #f1f1f1;
-            font-size: 14px;
-        }
-        .menu-item i { margin-right: 15px; color: #7f8c8d; font-size: 18px; width: 25px; text-align: center; }
-        .piutang-banner { background: var(--dark); color: white; padding: 20px; border-radius: 15px; text-align: center; margin-top: 10px; }
-        
-        /* Animasi halu saat buka gembok */
-        #profitSection { animation: fadeIn 0.3s ease-in; }
-        @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
-    </style>
-</head>
-<body>
-    <div id="loaderSistem" style="
-    position: fixed;
-    top: 0; left: 0;
-    width: 100%; height: 100%;
-    background: #195e0b; /* Warna hijau gelap khas Tatriz */
-    z-index: 99999; /* Dipastikan paling atas menutupi semua menu */
-    display: flex;
-    flex-direction: column;
-    justify-content: center;
-    align-items: center;
-    transition: opacity 0.3s ease, visibility 0.3s ease;
-">
-    <div class="spinner-tatriz"></div>
-    <p style="color: white; margin-top: 18px; font-weight: bold; font-size: 14px; letter-spacing: 1px; font-family: sans-serif; text-align: center;">
-        MEMUAT SISTEM TATRIZ...
-    </p>
-</div>
+<%- include('partials/header') %>
+
+<!-- Library Chart.js untuk Grafik -->
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 
 <style>
-    .spinner-tatriz {
-        width: 50px; height: 50px;
-        border: 5px solid rgba(255,255,255,0.2);
-        border-top: 5px solid #59cf77; /* Warna hijau muda aksen */
+    body { background-color: #f4f7f9; padding-bottom: 80px; font-family: 'Segoe UI', sans-serif; }
+    
+    /* --- WALLET CARD (Kartu Saldo Premium) --- */
+    .wallet-card {
+        background: linear-gradient(135deg, #0a463c 0%, #117a65 100%);
+        color: white;
+        border-radius: 20px;
+        padding: 25px;
+        position: relative;
+        overflow: hidden;
+        box-shadow: 0 10px 20px rgba(10, 70, 60, 0.2);
+    }
+    .wallet-card::after {
+        content: ''; position: absolute; top: -50%; right: -20%;
+        width: 200px; height: 200px; background: rgba(255,255,255,0.1);
         border-radius: 50%;
-        animation: putarLoaderTatriz 1s linear infinite;
     }
-    @keyframes putarLoaderTatriz {
-        0% { transform: rotate(0deg); }
-        100% { transform: rotate(360deg); }
+    .wallet-card-kritis {
+        background: linear-gradient(135deg, #c0392b 0%, #e74c3c 100%);
+        box-shadow: 0 10px 20px rgba(231, 76, 60, 0.2);
     }
-    /* Kelas untuk menghilangkan loader dengan halus */
-    .loader-hilang {
-        opacity: 0 !important;
-        visibility: hidden !important;
+
+    /* --- MENU GRID (App Drawer Style) --- */
+    .menu-grid {
+        display: grid;
+        grid-template-columns: repeat(4, 1fr);
+        gap: 15px;
     }
+    @media (max-width: 768px) {
+        .menu-grid { grid-template-columns: repeat(3, 1fr); gap: 10px; }
+    }
+    @media (max-width: 480px) {
+        .menu-grid { grid-template-columns: repeat(2, 1fr); }
+    }
+    
+    .app-icon-btn {
+        background: white;
+        border-radius: 16px;
+        padding: 15px 10px;
+        text-align: center;
+        text-decoration: none;
+        color: #2c3e50;
+        box-shadow: 0 4px 10px rgba(0,0,0,0.03);
+        transition: all 0.2s ease-in-out;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        position: relative;
+        border: 1px solid #f1f2f6;
+    }
+    .app-icon-btn:hover {
+        transform: translateY(-5px);
+        box-shadow: 0 8px 15px rgba(0,0,0,0.08);
+        color: #2ecc71;
+    }
+    .app-icon-btn i {
+        font-size: 28px;
+        margin-bottom: 8px;
+        color: #0a463c;
+    }
+    .app-icon-btn span {
+        font-size: 11px;
+        font-weight: 700;
+        line-height: 1.2;
+    }
+    .app-icon-btn.locked { opacity: 0.7; }
+    .app-icon-btn.locked i { color: #95a5a6; }
+    .locked-badge {
+        position: absolute; top: 8px; right: 8px;
+        background: #f39c12; color: white;
+        font-size: 9px; padding: 2px 6px; border-radius: 10px; font-weight: bold;
+    }
+    .pro-badge {
+        position: absolute; top: 8px; right: 8px;
+        background: linear-gradient(135deg, #FFD700 0%, #DAA520 100%); color: #000;
+        font-size: 8px; padding: 2px 5px; border-radius: 6px; font-weight: 900;
+    }
+
+    /* --- CHART PANELS --- */
+    .chart-panel {
+        background: white; border-radius: 16px; padding: 20px;
+        box-shadow: 0 4px 10px rgba(0,0,0,0.03); border: 1px solid #f1f2f6;
+    }
+    .chart-container { position: relative; height: 250px; width: 100%; }
 </style>
 
-    <nav class="top-nav">
-        <div style="display: flex; align-items: center; gap: 10px;">
-            <img src="<%= config.logo_path %>" alt="Logo">
-            <span style="font-weight: 800; font-size: 14px; letter-spacing: 0.5px;"><%= config.nama_perusahaan %></span>
-        </div>
-        <a href="/logout" style="color: var(--danger); font-size: 20px;"><i class="bi bi-box-arrow-right"></i></a>
-    </nav>
+<div class="container-fluid mx-auto" style="max-width: 1000px; padding: 15px;">
 
-    <div class="container">
-
-        <% if (typeof jumlahMasalah !== 'undefined' && jumlahMasalah > 0) { %>
-            <a href="/daftar-produksi" style="text-decoration: none; background: #fff5f5; border: 1px solid var(--danger); padding: 12px; border-radius: 12px; margin-bottom: 15px; display: flex; align-items: center; gap: 10px;">
-                <i class="bi bi-exclamation-triangle-fill" style="color: var(--danger); font-size: 20px;"></i>
-                <div style="flex: 1;">
-                    <strong style="color: var(--danger); font-size: 13px;">ADA MASALAH PRODUKSI</strong><br>
-                    <span style="color: #747d8c; font-size: 11px;"><%= jumlahMasalah %> rincian melebihi target. Cek sekarang!</span>
-                </div>
-            </a>
-        <% } %>
-
-        <div class="card-finance <%= uangKunci.statusAman ? 'border-aman' : 'border-kritis' %>">
-            <div style="display: flex; justify-content: space-between; align-items: flex-start;">
-                <div>
-                    <small style="font-weight: bold; color: #7f8c8d; text-transform: uppercase; font-size: 10px;">Saldo Kas Laci (Riil)</small>
-                    <h2 style="margin: 0; color: var(--dark); font-weight: 800;">
-                        <span id="labelSaldo">Rp ******</span>
-                        <span id="valSaldo" style="display: none;">Rp <%= uangKunci.saldoLaci.toLocaleString('id-ID') %></span>
-                        <i class="bi bi-eye-slash" id="toggleEye" onclick="togglePrivasi()" style="margin-left: 10px; cursor: pointer; color: #95a5a6; font-size: 16px;"></i>
-                    </h2>
-                </div>
-                
-                <span class="status-badge <%= uangKunci.statusAman ? 'badge-aman' : 'badge-kritis' %>">
-                    <%= uangKunci.statusAman ? '🛡️ AMAN' : '⚠️ KRITIS' %>
-                </span>
+    <!-- ALERT MASALAH PRODUKSI -->
+    <% if (typeof jumlahMasalah !== 'undefined' && jumlahMasalah > 0) { %>
+        <a href="/daftar-produksi" class="d-flex align-items-center gap-3 p-3 mb-4 rounded-4 text-decoration-none shadow-sm" style="background: #fff5f5; border: 1px solid #ff4757;">
+            <i class="bi bi-exclamation-triangle-fill text-danger fs-2"></i>
+            <div>
+                <strong class="text-danger" style="font-size: 14px;">ADA MASALAH PRODUKSI</strong><br>
+                <span class="text-muted" style="font-size: 12px;"><%= jumlahMasalah %> rincian melebihi target. Cek sekarang!</span>
             </div>
+            <i class="bi bi-chevron-right text-danger ms-auto"></i>
+        </a>
+    <% } %>
 
-            <% if (user.tenantId === 1 || user.tenantId === 100 || user.tenantLevel >= 2) { %>
-                <div id="profitSection" style="display: none; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 15px; padding-top: 15px; border-top: 1px dotted #ddd;">
+    <div class="row g-4 mb-4">
+        <!-- KIRI: WALLET CARD -->
+        <div class="col-12 col-lg-5">
+            <div class="wallet-card <%= !uangKunci.statusAman ? 'wallet-card-kritis' : '' %> h-100 d-flex flex-column justify-content-between">
+                <div class="d-flex justify-content-between align-items-start mb-4">
                     <div>
-                        <small style="color: #95a5a6; font-size: 10px; font-weight: bold;">🔒 UANG DIKUNCI</small><br>
-                        <strong style="font-size: 13px;">Rp <%= uangKunci.totalUangDikunci.toLocaleString('id-ID') %></strong>
+                        <small class="fw-bold text-white-50" style="font-size: 11px; letter-spacing: 1px;">SALDO KAS (LACI)</small>
+                        <h2 class="fw-bold mb-0 mt-1 d-flex align-items-center gap-2">
+                            <span id="labelSaldo">Rp ******</span>
+                            <span id="valSaldo" style="display: none;">Rp <%= uangKunci.saldoLaci.toLocaleString('id-ID') %></span>
+                            <i class="bi bi-eye-slash fs-5 text-white-50 ms-2" id="toggleEye" onclick="togglePrivasi()" style="cursor: pointer;"></i>
+                        </h2>
                     </div>
-                    <div style="text-align: right;">
-                        <small style="color: #95a5a6; font-size: 10px; font-weight: bold;">💰 PROFIT SIAP TARIK</small><br>
-                        <strong style="font-size: 16px; color: var(--primary);">Rp <%= uangKunci.profitBolehAmbil.toLocaleString('id-ID') %></strong>
+                    <span class="badge <%= uangKunci.statusAman ? 'bg-success' : 'bg-warning text-dark' %> rounded-pill px-3 py-2 shadow-sm">
+                        <%= uangKunci.statusAman ? '🛡️ AMAN' : '⚠️ KRITIS' %>
+                    </span>
+                </div>
+
+                <% if (isPro) { %>
+                    <div id="profitSection" style="display: none;" class="row g-2 pt-3 border-top border-light border-opacity-25 mt-auto">
+                        <div class="col-6">
+                            <small class="text-white-50 fw-bold" style="font-size: 10px;">🔒 UANG DIKUNCI</small>
+                            <div class="fw-bold" style="font-size: 14px;">Rp <%= uangKunci.totalUangDikunci.toLocaleString('id-ID') %></div>
+                        </div>
+                        <div class="col-6 text-end">
+                            <small class="text-white-50 fw-bold" style="font-size: 10px;">💰 PROFIT SIAP TARIK</small>
+                            <div class="fw-bold text-warning" style="font-size: 16px;">Rp <%= uangKunci.profitBolehAmbil.toLocaleString('id-ID') %></div>
+                        </div>
                     </div>
-                </div>
-                <div id="profitHidden" style="text-align: center; margin-top: 10px; font-size: 10px; color: #bdc3c7;">
-                    Klik ikon mata untuk melihat analisis profit
-                </div>
-            <% } else { %>
-                <div onclick="ajakUpgrade('Analisis Profit Riil')" style="margin-top: 15px; padding: 15px; background: #f8f9fa; border-radius: 12px; cursor: pointer; border: 1px dashed #ddd; text-align: center;">
-                    <span style="font-size: 11px; color: #7f8c8d; font-weight: bold;"><i class="bi bi-lock-fill"></i> Lihat Detail Uang Kunci & Profit Bersih</span>
-                    <br><small style="color: var(--primary); font-size: 9px;">Hanya Tersedia di Akun PRO</small>
-                </div>
-            <% } %>
-        </div>
-
-        <div class="stats-grid">
-            <div class="stat-item" style="border-bottom: 3px solid var(--warning);"><small>DESIGN</small><b><%= stats.jml_design %></b></div>
-            <div class="stat-item" style="border-bottom: 3px solid #e67e22;"><small>ANTRI</small><b><%= stats.jml_antri %></b></div>
-            <div class="stat-item" style="border-bottom: 3px solid var(--info);"><small>PROSES</small><b><%= stats.jml_produksi %></b></div>
-            <div class="stat-item" style="border-bottom: 3px solid var(--primary);"><small>CLEAR</small><b><%= stats.jml_invoice %></b></div>
-        </div>
-
-        <p style="font-weight: 800; font-size: 11px; color: #7f8c8d; text-transform: uppercase; margin-bottom: 10px;">Aksi Cepat</p>
-        <div class="shortcut-grid">
-            <a href="/po-baru-v2" class="btn-main" style="background: var(--dark); color: white; border: none;">
-                <i class="bi bi-plus-circle-fill" style="color: var(--primary);"></i>
-                <span>INPUT PO</span>
-            </a>
-            <a href="/input-kas" class="btn-main">
-                <i class="bi bi-wallet2" style="color: var(--info);"></i>
-                <span>INPUT KAS</span>
-            </a>
-        </div>
-
-        <p style="font-weight: 800; font-size: 11px; color: #7f8c8d; text-transform: uppercase; margin-bottom: 10px;">Semua Laporan & Data</p>
-        <div class="menu-card">
-            <a href="/po-data-v2" class="menu-item"><i class="bi bi-journal-text"></i> Data Pesanan (PO)</a>
-            <a href="/laporan-kas" class="menu-item"><i class="bi bi-cash-stack"></i> Laporan Keuangan</a>
-            <a href="/input-kerja-admin" class="menu-item"><i class="bi bi-plus-circle-fill"></i> Input Data Operator <small style="font-size: 9px; color: #95a5a6; margin-left: 5px;">Admin</small></a>
-            <a href="/daftar-produksi" class="menu-item"><i class="bi bi-list-check"></i> Log Produksi Harian</a>
-            <% if (user.tenantId === 1 || user.tenantId === 100 || user.tenantLevel >= 2) { %>
-                <a href="/jadwal-produksi" class="menu-item">
-                    <i class="bi bi-calendar-range"></i> Jadwal Produksi
-                    <small style="color: var(--warning); font-size: 9px; margin-left: auto;">PRO</small>
-                </a>
-            <% } else { %>
-                <a href="javascript:void(0)" onclick="ajakUpgrade('Atur Jadwal Produksi')" class="menu-item menu-locked">
-                    <i class="bi bi-calendar-range"></i> Jadwal Produksi 
-                    <i class="bi bi-lock-fill"></i>
-                </a>
-            <% } %>
-            <% if (user.tenantId === 1 || user.tenantId === 100 || user.tenantLevel >= 2) { %>
-                <a href="/performa-operator" class="menu-item">
-                    <i class="bi bi-bar-chart-line"></i> Performa Operator 
-                    <small style="color: var(--warning); font-size: 9px; margin-left: auto;">PRO</small>
-                </a>
-            <% } else { %>
-                <a href="javascript:void(0)" onclick="ajakUpgrade('Analisis Performa')" class="menu-item menu-locked">
-                    <i class="bi bi-bar-chart-line"></i> Performa Operator 
-                    <i class="bi bi-lock-fill"></i>
-                </a>
-            <% } %>
-            <% if (user.tenantId === 1 || user.tenantId === 100 || user.tenantLevel >= 2) { %>
-                <a href="/kiosk-produksi" class="menu-item" target="_blank">
-                    <i class="bi bi-display"></i> Terminal Kiosk Produksi
-                    <small style="color: var(--warning); font-size: 9px; margin-left: auto;">PRO</small>
-                </a>
-            <% } else { %>
-                <a href="javascript:void(0)" onclick="ajakUpgrade('Terminal Kiosk Produksi')" class="menu-item menu-locked">
-                    <i class="bi bi-display"></i> Terminal Kiosk Produksi 
-                    <i class="bi bi-lock-fill"></i>
-                </a>
-            <% } %>
-            <a href="/input-gaji" class="menu-item"><i class="bi bi-calculator"></i> Hitung Gaji Karyawan</a>
-            <a href="/nota-manual" class="menu-item"><i class="bi bi-printer"></i> Cetak Nota Manual</a>
-            <a href="/piutang-customer" class="menu-item"><i class="bi bi-receipt"></i> Cetak Nota / Customer</a>
-            <a href="/karyawan" class="menu-item"><i class="bi bi-people"></i> Manajemen Karyawan</a>            
-            <a href="/setup-auth" class="menu-item"><i class="bi bi-gear"></i> Pengaturan Sistem</a>
-
-            <div style="border-top: 2px dashed #eee; margin-top: 5px; padding-top: 5px; background: #fdfdfd;">
-                <% if (user.tenantId === 1 || user.tenantId === 100 || user.tenantLevel >= 2) { %>
-                    <a href="/admin/data-cmt" class="menu-item"><i class="bi bi-briefcase"></i> Data Order CMT <small style="color: var(--warning); font-size: 9px; margin-left: auto;">PRO</small></a>
-                    <a href="/cek-balance" class="menu-item"><i class="bi bi-shield-check"></i> Cek Audit Balance <small style="color: var(--warning); font-size: 9px; margin-left: auto;">PRO</small></a>
-                    <a href="/backup-database" class="menu-item" style="color: var(--warning);"><i class="bi bi-cloud-download"></i> Backup Database</a>
-                    
+                    <div id="profitHidden" class="text-center text-white-50 mt-auto" style="font-size: 11px;">
+                        Klik ikon mata untuk melihat rincian profit
+                    </div>
                 <% } else { %>
-                    <a href="javascript:void(0)" onclick="ajakUpgrade('Pengelolaan CMT')" class="menu-item menu-locked">
-                        <i class="bi bi-briefcase"></i> Data Order CMT 
-                        <i class="bi bi-lock-fill"></i>
-                    </a>
-                    <a href="javascript:void(0)" onclick="ajakUpgrade('Audit Balance')" class="menu-item menu-locked">
-                        <i class="bi bi-shield-check"></i> Cek Audit Balance 
-                        <i class="bi bi-lock-fill"></i>
-                    </a>
-                    <a href="javascript:void(0)" onclick="ajakUpgrade('Cloud Backup')" class="menu-item menu-locked">
-                        <i class="bi bi-cloud-download"></i> Backup Database 
-                        <i class="bi bi-lock-fill"></i>
-                    </a>
+                    <div class="mt-auto pt-3 border-top border-light border-opacity-25 text-center cursor-pointer" onclick="ajakUpgrade('Analisis Profit Riil')">
+                        <span class="text-white-50" style="font-size: 12px;"><i class="bi bi-lock-fill text-warning"></i> Lihat Profit (Akun PRO)</span>
+                    </div>
                 <% } %>
             </div>
         </div>
 
-        <% if (user.tenantId === 1 || user.tenantId === 100 || user.tenantLevel >= 2) { %>
-            <div class="piutang-banner">
-                <small style="color: #a4b0be; font-weight: bold; font-size: 10px; text-transform: uppercase;">Total Uang di Luar (Piutang)</small>
-                <h2 style="color: #ff4757; margin: 5px 0; font-weight: 800;">
-                    Rp <%= (totalPiutangSemua || 0).toLocaleString('id-ID') %>
-                </h2>
-                <a href="/piutang-customer" style="color: var(--primary); text-decoration: none; font-size: 11px; font-weight: bold;">BUAT PENAGIHAN SEKARANG →</a>
+        <!-- KANAN: STATISTIK PO (QUICK STATS) -->
+        <div class="col-12 col-lg-7">
+            <h6 class="fw-bold text-dark mb-3"><i class="bi bi-activity text-success me-2"></i>Status Pesanan (PO)</h6>
+            <div class="row g-2 h-75">
+                <div class="col-3">
+                    <div class="bg-white rounded-4 p-3 text-center h-100 shadow-sm border border-light d-flex flex-column justify-content-center">
+                        <small class="text-muted fw-bold mb-1" style="font-size: 10px;">DESIGN</small>
+                        <h3 class="fw-bold text-dark mb-0"><%= stats.jml_design %></h3>
+                    </div>
+                </div>
+                <div class="col-3">
+                    <div class="bg-white rounded-4 p-3 text-center h-100 shadow-sm border border-light d-flex flex-column justify-content-center">
+                        <small class="text-muted fw-bold mb-1" style="font-size: 10px;">ANTRI</small>
+                        <h3 class="fw-bold text-warning mb-0"><%= stats.jml_antri %></h3>
+                    </div>
+                </div>
+                <div class="col-3">
+                    <div class="bg-white rounded-4 p-3 text-center h-100 shadow-sm border border-light d-flex flex-column justify-content-center">
+                        <small class="text-muted fw-bold mb-1" style="font-size: 10px;">PROSES</small>
+                        <h3 class="fw-bold text-primary mb-0"><%= stats.jml_produksi %></h3>
+                    </div>
+                </div>
+                <div class="col-3">
+                    <div class="bg-white rounded-4 p-3 text-center h-100 shadow-sm border border-light d-flex flex-column justify-content-center">
+                        <small class="text-muted fw-bold mb-1" style="font-size: 10px;">CLEAR</small>
+                        <h3 class="fw-bold text-success mb-0"><%= stats.jml_invoice %></h3>
+                    </div>
+                </div>
             </div>
-        <% } %>
-
-        <% if (user.tenantId === 1) { %>
-            <div style="margin-top: 15px; text-align: center;">
-                <a href="/master-users" class="menu-item" style="justify-content: center; background: #2d3436; color: white; border-radius: 10px; border: none;">
-                    <i class="bi bi-shield-lock-fill" style="color: #f1c40f; margin-right: 8px;"></i> 
-                    DEVELOPER MODE
-                </a>
-            </div>
-        <% } %>
-
-        <div style="text-align: center; margin-top: 30px; opacity: 0.5; font-size: 10px;">
-            &copy; 2026 <%= config.nama_perusahaan %> | Tatriz SystemB v2.1
         </div>
     </div>
 
-    <script>
-        function togglePrivasi() {
-            const val = document.getElementById('valSaldo');
-            const label = document.getElementById('labelSaldo');
-            const eye = document.getElementById('toggleEye');
-            const profit = document.getElementById('profitSection');
-            const profitHidden = document.getElementById('profitHidden');
+    <!-- AREA GRAFIK ANALITIK -->
+    <div class="row g-4 mb-5">
+        <div class="col-12 col-lg-8">
+            <div class="chart-panel h-100">
+                <h6 class="fw-bold text-dark mb-3">Tren Keuangan (6 Bulan Terakhir)</h6>
+                <div class="chart-container">
+                    <canvas id="financeChart"></canvas>
+                </div>
+            </div>
+        </div>
+        <div class="col-12 col-lg-4">
+            <div class="chart-panel h-100">
+                <h6 class="fw-bold text-dark mb-3">Distribusi PO Saat Ini</h6>
+                <div class="chart-container">
+                    <canvas id="poChart"></canvas>
+                </div>
+            </div>
+        </div>
+    </div>
 
-            if (val.style.display === 'none') {
-                val.style.display = 'inline';
-                label.style.display = 'none';
-                eye.classList.replace('bi-eye-slash', 'bi-eye');
-                if(profit) profit.style.display = 'grid';
-                if(profitHidden) profitHidden.style.display = 'none';
-            } else {
-                val.style.display = 'none';
-                label.style.display = 'inline';
-                eye.classList.replace('bi-eye', 'bi-eye-slash');
-                if(profit) profit.style.display = 'none';
-                if(profitHidden) profitHidden.style.display = 'block';
-            }
-        }
+    <!-- MENU NAVIGASI GRID (App Drawer) -->
+    <h6 class="fw-bold text-dark mb-3"><i class="bi bi-grid-fill text-primary me-2"></i>Menu Utama</h6>
+    <div class="menu-grid mb-4">
+        <a href="/po-baru-v2" class="app-icon-btn" style="background: #e8f5e9; border-color: #2ecc71;">
+            <i class="bi bi-plus-circle-fill text-success"></i><span>INPUT PO</span>
+        </a>
+        <a href="/input-kas" class="app-icon-btn" style="background: #e3f2fd; border-color: #3498db;">
+            <i class="bi bi-wallet2 text-primary"></i><span>INPUT KAS</span>
+        </a>
+        <a href="/po-data-v2" class="app-icon-btn">
+            <i class="bi bi-journal-text text-info"></i><span>Data PO</span>
+        </a>
+        <a href="/laporan-kas" class="app-icon-btn">
+            <i class="bi bi-cash-stack text-success"></i><span>Lap. Keuangan</span>
+        </a>
+        <a href="/daftar-produksi" class="app-icon-btn">
+            <i class="bi bi-list-check text-warning"></i><span>Log Produksi</span>
+        </a>
+        <a href="/piutang-customer" class="app-icon-btn">
+            <i class="bi bi-receipt text-danger"></i><span>Cetak Tagihan</span>
+        </a>
+        
+        <% if (isPro) { %>
+            <a href="/jadwal-produksi" class="app-icon-btn">
+                <span class="pro-badge">PRO</span><i class="bi bi-calendar-range text-primary"></i><span>Jadwal Prod</span>
+            </a>
+            <a href="/performa-operator" class="app-icon-btn">
+                <span class="pro-badge">PRO</span><i class="bi bi-bar-chart-line text-success"></i><span>Performa Op</span>
+            </a>
+            <a href="/admin/data-cmt" class="app-icon-btn">
+                <span class="pro-badge">PRO</span><i class="bi bi-briefcase text-dark"></i><span>Vendor CMT</span>
+            </a>
+            <a href="/kiosk-produksi" target="_blank" class="app-icon-btn">
+                <span class="pro-badge">PRO</span><i class="bi bi-display text-info"></i><span>Kiosk Prod</span>
+            </a>
+            <a href="/cek-balance" class="app-icon-btn">
+                <span class="pro-badge">PRO</span><i class="bi bi-shield-check text-warning"></i><span>Audit Balance</span>
+            </a>
+        <% } else { %>
+            <a href="javascript:void(0)" onclick="ajakUpgrade('Jadwal Produksi')" class="app-icon-btn locked">
+                <span class="locked-badge"><i class="bi bi-lock-fill text-white"></i></span><i class="bi bi-calendar-range"></i><span>Jadwal Prod</span>
+            </a>
+            <a href="javascript:void(0)" onclick="ajakUpgrade('Performa Operator')" class="app-icon-btn locked">
+                <span class="locked-badge"><i class="bi bi-lock-fill text-white"></i></span><i class="bi bi-bar-chart-line"></i><span>Performa Op</span>
+            </a>
+            <a href="javascript:void(0)" onclick="ajakUpgrade('Pengelolaan CMT')" class="app-icon-btn locked">
+                <span class="locked-badge"><i class="bi bi-lock-fill text-white"></i></span><i class="bi bi-briefcase"></i><span>Vendor CMT</span>
+            </a>
+            <a href="javascript:void(0)" onclick="ajakUpgrade('Terminal Kiosk')" class="app-icon-btn locked">
+                <span class="locked-badge"><i class="bi bi-lock-fill text-white"></i></span><i class="bi bi-display"></i><span>Kiosk Prod</span>
+            </a>
+            <a href="javascript:void(0)" onclick="ajakUpgrade('Audit Balance')" class="app-icon-btn locked">
+                <span class="locked-badge"><i class="bi bi-lock-fill text-white"></i></span><i class="bi bi-shield-check"></i><span>Audit Balance</span>
+            </a>
+        <% } %>
 
-        function ajakUpgrade(fitur) {
-            Swal.fire({
-                title: 'Fitur Terkunci!',
-                text: 'Fitur ' + fitur + ' hanya tersedia untuk pengguna Akun PRO. Tingkatkan performa manajemen bordir Anda sekarang!',
-                icon: 'warning',
-                showCancelButton: true,
-                confirmButtonColor: '#2ecc71',
-                cancelButtonColor: '#7f8c8d',
-                confirmButtonText: 'Hubungi Developer (Upgrade)',
-                cancelButtonText: 'Nanti Dulu'
-            }).then((result) => {
-                if (result.isConfirmed) {
-                    window.open('https://wa.me/+6281315290003?text=Halo%20Admin%20Tatriz,%20saya%20tertarik%20untuk%20upgrade%20ke%20Akun%20PRO', '_blank');
-                }
-            });
+        <a href="/karyawan" class="app-icon-btn"><i class="bi bi-people text-secondary"></i><span>Karyawan</span></a>
+        <a href="/setup-auth" class="app-icon-btn"><i class="bi bi-gear text-secondary"></i><span>Pengaturan</span></a>
+    </div>
+
+    <!-- PIUTANG BANNER -->
+    <% if (isPro) { %>
+        <div class="p-4 rounded-4 shadow-sm text-center mb-4" style="background: linear-gradient(135deg, #2c3e50 0%, #34495e 100%);">
+            <small class="text-white-50 fw-bold" style="font-size: 11px; letter-spacing: 1px;">TOTAL UANG DI LUAR (PIUTANG)</small>
+            <h2 class="text-danger fw-bold my-2">Rp <%= (totalPiutangSemua || 0).toLocaleString('id-ID') %></h2>
+            <a href="/piutang-customer" class="btn btn-outline-light btn-sm fw-bold px-4 mt-2 rounded-pill">BUAT PENAGIHAN SEKARANG →</a>
+        </div>
+    <% } %>
+
+    <!-- DEVELOPER MODE -->
+    <% if (user.tenantId === 1) { %>
+        <div class="text-center mb-4">
+            <a href="/master-users" class="btn btn-dark fw-bold rounded-pill px-4 shadow-sm">
+                <i class="bi bi-shield-lock-fill text-warning me-2"></i> DEVELOPER MODE
+            </a>
+        </div>
+    <% } %>
+
+    <div class="text-center text-muted mt-5" style="font-size: 11px;">
+        &copy; 2026 <%= config.nama_perusahaan %> | Tatriz SystemB v2.1
+    </div>
+
+</div>
+
+<script>
+    // --- TOGGLE PRIVASI WALLET ---
+    function togglePrivasi() {
+        const val = document.getElementById('valSaldo');
+        const label = document.getElementById('labelSaldo');
+        const eye = document.getElementById('toggleEye');
+        const profit = document.getElementById('profitSection');
+        const profitHidden = document.getElementById('profitHidden');
+
+        if (val.style.display === 'none') {
+            val.style.display = 'inline';
+            label.style.display = 'none';
+            eye.classList.replace('bi-eye-slash', 'bi-eye');
+            if(profit) profit.style.display = 'flex';
+            if(profitHidden) profitHidden.style.display = 'none';
+        } else {
+            val.style.display = 'none';
+            label.style.display = 'inline';
+            eye.classList.replace('bi-eye', 'bi-eye-slash');
+            if(profit) profit.style.display = 'none';
+            if(profitHidden) profitHidden.style.display = 'block';
         }
-    </script>
-    <script>
-        document.addEventListener('DOMContentLoaded', function() {
-            const loader = document.getElementById('loaderSistem');
-            if (loader) {
-                setTimeout(function() {
-                    loader.classList.add('loader-hilang');
-                }, 200);
+    }
+
+    // --- ALERT UPGRADE ---
+    function ajakUpgrade(fitur) {
+        Swal.fire({
+            title: '<span style="color: #DAA520;">Fitur Premium</span>',
+            html: `Akses cepat ke <b>${fitur}</b> terkunci di paket standar.<br><br>Upgrade ke <b>PRO</b> sekarang untuk mengoptimalkan manajemen bisnis Anda!`,
+            icon: 'info', iconColor: '#DAA520',
+            showCancelButton: true, confirmButtonColor: '#28a745', cancelButtonColor: '#6c757d',
+            confirmButtonText: '<i class="bi bi-rocket-takeoff"></i> Hubungi Developer',
+            cancelButtonText: 'Tutup', reverseButtons: true
+        }).then((result) => {
+            if (result.isConfirmed) {
+                window.open('https://wa.me/+6281315290003?text=Halo%20Admin%20Tatriz,%20saya%20tertarik%20upgrade%20PRO%20untuk%20fitur%20' + fitur, '_blank');
             }
         });
-        setTimeout(function() {
-            const loader = document.getElementById('loaderSistem');
-            if (loader && !loader.classList.contains('loader-hilang')) {
-                loader.classList.add('loader-hilang');
+    }
+
+    // --- INISIALISASI CHART.JS ---
+    document.addEventListener("DOMContentLoaded", function() {
+        // 1. Grafik Doughnut (Status PO) - Mengambil dari variabel EJS bawaan
+        const ctxPO = document.getElementById('poChart').getContext('2d');
+        new Chart(ctxPO, {
+            type: 'doughnut',
+            data: {
+                labels: ['Design', 'Antri', 'Proses', 'Clear'],
+                datasets: [{
+                    data: [
+                        Number('<%= stats.jml_design || 0 %>'),
+                        Number('<%= stats.jml_antri || 0 %>'),
+                        Number('<%= stats.jml_produksi || 0 %>'),
+                        Number('<%= stats.jml_invoice || 0 %>')
+                    ],
+                    backgroundColor: ['#6c757d', '#ffc107', '#0d6efd', '#28a745'],
+                    borderWidth: 2
+                }]
+            },
+            options: {
+                responsive: true, maintainAspectRatio: false,
+                plugins: { legend: { position: 'bottom', labels: { boxWidth: 10, font: {size: 11} } } },
+                cutout: '65%'
             }
-        }, 4000);
-    </script>
-</body>
-</html>
+        });
+
+        // 2. Grafik Bar (Pemasukan vs Pengeluaran)
+        /* CATATAN: 
+           Grafik ini menggunakan data dummy sementara karena di backend dashboard.ejs 
+           sebelumnya belum ada lemparan data array tren bulanan. 
+           Nanti di controller Node.js Anda, kirimkan variabel array ke EJS.
+        */
+        const ctxFinance = document.getElementById('financeChart').getContext('2d');
+        new Chart(ctxFinance, {
+            type: 'bar',
+            data: {
+                labels: ['Jan', 'Feb', 'Mar', 'Apr', 'Mei', 'Jun'], // Ganti dengan data bulan dinamis dari backend
+                datasets: [
+                    {
+                        label: 'Pemasukan',
+                        data: [15000000, 18000000, 12000000, 22000000, 25000000, 20000000], // Ganti dengan data asli
+                        backgroundColor: '#28a745',
+                        borderRadius: 4
+                    },
+                    {
+                        label: 'Pengeluaran',
+                        data: [8000000, 9000000, 7000000, 11000000, 10000000, 8500000], // Ganti dengan data asli
+                        backgroundColor: '#dc3545',
+                        borderRadius: 4
+                    }
+                ]
+            },
+            options: {
+                responsive: true, maintainAspectRatio: false,
+                scales: {
+                    y: { beginAtZero: true, ticks: { callback: function(value) { return 'Rp ' + (value/1000000) + 'Jt'; } } }
+                },
+                plugins: { legend: { position: 'top', labels: { boxWidth: 10, font: {size: 11} } } }
+            }
+        });
+    });
+</script>
+
+<%- include('partials/footer') %>
