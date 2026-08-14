@@ -21,17 +21,19 @@
             box-shadow: 0 2px 10px rgba(0,0,0,0.1);
         }
         
-        .nav-item { margin: 0 2px; }
+        .nav-item { margin: 0 1px; } /* Margin diperkecil */
         
         .nav-link { 
             color: rgba(255, 255, 255, 0.85) !important; 
-            font-size: 14.5px; 
+            font-size: 13.5px; /* Sedikit diperkecil agar muat 1 baris */
             font-weight: 500; 
             display: flex; 
             align-items: center; 
-            gap: 8px;
+            gap: 5px; /* Jarak ikon dan teks dipersempit */
+            padding: 8px 10px !important; 
             transition: all 0.3s;
             border-radius: 6px;
+            white-space: nowrap; /* Mencegah teks menu patah ke baris baru */
         }
         
         .nav-link:hover { 
@@ -48,7 +50,7 @@
             border-radius: 4px;
             font-weight: 800;
             letter-spacing: 0.5px;
-            margin-left: 2px;
+            margin-left: 4px;
         }
 
         /* GLOBAL QUICK LOADER */
@@ -62,9 +64,9 @@
         #quickLoader.show { opacity: 1; visibility: visible; }
 
         /* Penyesuaian Khusus HP (Mobile View) */
-        @media (max-width: 991px) {
+        @media (max-width: 1199px) { /* Mengikuti navbar-expand-xl */
             .navbar-nav { padding: 15px 0; }
-            .nav-link { padding: 12px 15px; margin-bottom: 5px; }
+            .nav-link { padding: 12px 15px !important; margin-bottom: 5px; font-size: 15px; }
             .btn-logout-mobile { margin-top: 10px; text-align: center; justify-content: center; }
         }
     </style>
@@ -75,11 +77,14 @@
         <div class="spinner-border text-success" style="width: 3rem; height: 3rem;" role="status"></div>
     </div>
     
-    <!-- Cek Akses Level (Tenant 1, 100, atau Level >= 2) -->
+    <!-- Cek Akses Level -->
     <% const isPro = (user.tenantId === 1 || user.tenantId === 100 || user.tenantLevel >= 2); %>
 
-    <nav class="navbar navbar-expand-lg navbar-dark bg-dark mb-4 sticky-top navbar-custom">
-        <div class="container">
+    <!-- PERUBAHAN: navbar-expand-lg diubah ke navbar-expand-xl -->
+    <nav class="navbar navbar-expand-xl navbar-dark bg-dark mb-4 sticky-top navbar-custom">
+        <!-- PERUBAHAN: container diubah ke container-fluid px-3 -->
+        <div class="container-fluid px-3 px-xl-4">
+            
              <!-- Brand Logo -->
             <a class="navbar-brand nav-link-load d-flex align-items-center" href="/dashboard" style="gap: 10px;">
                 <img src="<%= config.logo_path %>" alt="Logo" style="height: 35px; width: auto; object-fit: contain; border-radius: 4px;">
@@ -93,15 +98,16 @@
 
             <!-- Daftar Menu Shortcut -->
             <div class="collapse navbar-collapse" id="navbarMenu">
-                <ul class="navbar-nav ms-auto align-items-lg-center">
-                    <!-- Menu Dashboard Eksplisit -->
+                <ul class="navbar-nav ms-auto align-items-xl-center">
+                    
+                    <!-- Menu Dashboard -->
                     <li class="nav-item">
                         <a class="nav-link nav-link-load" href="/dashboard">
                             <i class="bi bi-house-door"></i> Dashboard
                         </a>
                     </li>
                     
-                    <!-- Menu Standar (Bisa diakses semua level) -->
+                    <!-- Menu Standar -->
                     <li class="nav-item">
                         <a class="nav-link nav-link-load" href="/po-data-v2">
                             <i class="bi bi-journal-text"></i> Data PO
@@ -119,11 +125,11 @@
                     </li>
                     <li class="nav-item">
                         <a class="nav-link nav-link-load" href="/daftar-produksi">
-                            <i class="bi bi-list-check"></i> Log Produksi
+                            <i class="bi bi-list-check"></i> Log Prod
                         </a>
                     </li>
 
-                    <!-- Menu PRO: Data CMT -->
+                    <!-- Menu PRO -->
                     <li class="nav-item">
                         <% if (isPro) { %>
                             <a class="nav-link nav-link-load" href="/admin/data-cmt">
@@ -131,13 +137,11 @@
                             </a>
                         <% } else { %>
                             <a class="nav-link" href="javascript:void(0)" onclick="ajakUpgrade('Data CMT')">
-                                <i class="bi bi-people-fill"></i> Data CMT
-                                <span class="badge-pro">PRO</span>
+                                <i class="bi bi-people-fill"></i> Data CMT <span class="badge-pro">PRO</span>
                             </a>
                         <% } %>
                     </li>
 
-                    <!-- Menu PRO: Jadwal Produksi -->
                     <li class="nav-item">
                         <% if (isPro) { %>
                             <a class="nav-link nav-link-load" href="/jadwal-produksi">
@@ -145,13 +149,11 @@
                             </a>
                         <% } else { %>
                             <a class="nav-link" href="javascript:void(0)" onclick="ajakUpgrade('Jadwal Produksi')">
-                                <i class="bi bi-calendar-range"></i> Jadwal
-                                <span class="badge-pro">PRO</span>
+                                <i class="bi bi-calendar-range"></i> Jadwal <span class="badge-pro">PRO</span>
                             </a>
                         <% } %>
                     </li>
 
-                    <!-- Menu PRO: Performa Operator -->
                     <li class="nav-item">
                         <% if (isPro) { %>
                             <a class="nav-link nav-link-load" href="/performa-operator">
@@ -159,14 +161,13 @@
                             </a>
                         <% } else { %>
                             <a class="nav-link" href="javascript:void(0)" onclick="ajakUpgrade('Performa Operator')">
-                                <i class="bi bi-bar-chart-line"></i> Performa
-                                <span class="badge-pro">PRO</span>
+                                <i class="bi bi-bar-chart-line"></i> Performa <span class="badge-pro">PRO</span>
                             </a>
                         <% } %>
                     </li>
 
                     <!-- Tombol Logout -->
-                    <li class="nav-item ms-lg-3">
+                    <li class="nav-item ms-xl-2 mt-2 mt-xl-0">
                         <a class="nav-link text-danger bg-danger bg-opacity-10 btn-logout-mobile px-3" href="/logout">
                             <i class="bi bi-box-arrow-right"></i> Logout
                         </a>
@@ -193,8 +194,6 @@
                 reverseButtons: true
             }).then((result) => {
                 if (result.isConfirmed) {
-                    // Opsional: Redirect ke halaman kontak admin atau info harga paket
-                    // window.location.href = '/halaman-upgrade';
                     Swal.fire('Hubungi Admin!', 'Silakan hubungi tim developer untuk mengaktifkan paket PRO Anda.', 'success');
                 }
             });
