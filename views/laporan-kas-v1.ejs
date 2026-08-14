@@ -1,0 +1,343 @@
+<%- include('partials/header') %>
+
+<style>
+    /* Style Khusus Halaman Ini (Tidak Mengganggu Global) */
+    body { background: #f4f7f6; padding-bottom: 80px; }
+    .card { background: white; border-radius: 12px; box-shadow: 0 2px 8px rgba(0,0,0,0.04); border: none; }
+    .row-pemasukan { background-color: #fcfdfe !important; }
+    .row-pengeluaran { background-color: #fff9f9 !important; }
+    .text-pemasukan { color: #27ae60; font-weight: bold; }
+    .text-pengeluaran { color: #d63031; font-weight: bold; }
+    .compact-table td, .compact-table th { padding: 8px !important; font-size: 11px; vertical-align: middle; }
+    .sticky-top { position: sticky; top: 0; z-index: 10; background: white; }
+    
+    .locked-overlay {
+        position: absolute; top: 0; left: 0; width: 100%; height: 100%; 
+        background: rgba(255, 255, 255, 0.85); backdrop-filter: blur(4px); 
+        z-index: 20; display: flex; flex-direction: column; align-items: center; 
+        justify-content: center; cursor: pointer; border-radius: 12px;
+    }
+    
+    .fab-kas {
+        position: fixed; bottom: 20px; right: 20px; z-index: 1050;
+        background: #27ae60; color: white; border-radius: 50px;
+        padding: 12px 20px; box-shadow: 0 4px 12px rgba(39, 174, 96, 0.4);
+        font-weight: bold; text-decoration: none; display: flex; align-items: center; gap: 8px;
+    }
+    @media (min-width: 768px) { .fab-kas { display: none; } } 
+    .desktop-kas-btn { display: none; }
+    @media (min-width: 768px) { .desktop-kas-btn { display: inline-block; } }
+
+    /* Trik agar kolom Aksi selalu menempel di kanan layar */
+    .sticky-right-th {
+        position: sticky;
+        right: 0;
+        background-color: #f8f9fa !important; 
+        z-index: 12; 
+        box-shadow: -3px 0 5px rgba(0,0,0,0.04); 
+    }
+    .sticky-right-td {
+        position: sticky;
+        right: 0;
+        z-index: 2;
+        box-shadow: -3px 0 5px rgba(0,0,0,0.04);
+    }
+    /* Samakan warna background agar teks di bawahnya tidak tembus pandang saat discroll */
+    .row-pemasukan .sticky-right-td { background-color: #fcfdfe !important; }
+    .row-pengeluaran .sticky-right-td { background-color: #fff9f9 !important; }
+
+    /* --- TAMBAHAN: Efek Rotasi Panah untuk Collapse Baru --- */
+    .toggle-icon { transition: transform 0.3s ease; }
+    .btn-collapse-custom[aria-expanded="true"] .toggle-icon { transform: rotate(180deg); }
+</style>
+
+<div class="container-fluid mx-auto" style="max-width: 1000px; padding: 15px;">
+    
+    <!-- Header Control Area -->
+    <div class="d-flex justify-content-between align-items-center mb-3">
+        <h5 class="mb-0 fw-bold text-dark"><i class="bi bi-wallet2 text-success me-1"></i> Rapor Keuangan</h5>
+        <a href="/input-kas" class="btn btn-success btn-sm fw-bold desktop-kas-btn nav-link-load shadow-sm">
+            <i class="bi bi-plus-lg"></i> KAS BARU
+        </a>
+    </div>
+
+    <!-- Filter Bulan -->
+    <form action="/laporan-kas" method="GET" class="mb-3">
+        <input type="month" name="bulan" value="<%= bulanIni %>" class="form-control form-control-sm border-secondary shadow-sm" style="max-width: 200px;" onchange="this.form.submit()">
+    </form>
+
+    <div class="row g-2 mb-3">
+        <div class="col-12 col-md-4">
+            <div class="card h-100 p-3 border-start border-4 border-success">
+                <small class="fw-bold text-muted" style="font-size: 10px;">CASH ON HAND (LACI)</small>
+                <h4 class="text-success fw-bold mb-0 mt-1">Rp <%= Number(saldoRiil || 0).toLocaleString('id-ID') %></h4>
+            </div>
+        </div>
+        <div class="col-6 col-md-4">
+            <div class="card h-100 p-3 bg-dark text-white position-relative shadow-sm">
+                <% if (!isPro) { %>
+                    <div class="locked-overlay text-dark" onclick="ajakUpgrade('Analisis Profit Nett')">
+                        <i class="bi bi-lock-fill text-warning fs-4"></i><span style="font-size: 9px;" class="fw-bold">PRO LOCKED</span>
+                    </div>
+                <% } %>
+                <small class="fw-bold text-white-50" style="font-size: 10px;">PROFIT BULAN INI</small>
+                <h5 class="<%= estimasiProfit < 0 ? 'text-danger' : 'text-warning' %> fw-bold mb-0 mt-1">Rp <%= Number(estimasiProfit || 0).toLocaleString('id-ID') %></h5>
+            </div>
+        </div>
+        <div class="col-6 col-md-4">
+            <div class="card h-100 p-3 bg-primary text-white position-relative shadow-sm">
+                <% if (!isPro) { %>
+                    <div class="locked-overlay text-dark" onclick="ajakUpgrade('Tabungan Profit All-Time')">
+                        <i class="bi bi-lock-fill text-primary fs-4"></i><span style="font-size: 9px;" class="fw-bold">PRO LOCKED</span>
+                    </div>
+                <% } %>
+                <small class="fw-bold text-white-50" style="font-size: 10px;">TABUNGAN PROFIT (ALL-TIME)</small>
+                <h5 class="text-white fw-bold mb-0 mt-1">Rp <%= Number(sisaProfitAkumulasi || 0).toLocaleString('id-ID') %></h5>
+                <a href="/analisis-profit" class="text-white-50 text-decoration-none nav-link-load mt-2" style="font-size: 10px;"><i class="bi bi-journal-text"></i> Rincian & Riwayat →</a>
+            </div>
+        </div>
+    </div>
+
+    <div class="card mb-3 position-relative overflow-hidden">
+        <% if (!isPro) { %>
+            <div class="locked-overlay" onclick="ajakUpgrade('Piramida Laba Mesin vs CMT')">
+                <i class="bi bi-lock-fill text-primary fs-3"></i>
+                <small class="fw-bold mt-1 text-dark">Buka Rincian Laba Mesin & CMT</small>
+            </div>
+        <% } %>
+        
+        <div class="card-body p-3">
+            <h6 class="fw-bold text-dark border-bottom pb-2 mb-3"><i class="bi bi-diagram-2"></i> Rincian Margin (Bulan Ini)</h6>
+           
+            <!-- Card Jatah Khusus Owner (Hanya Tenant 1) - Menggunakan Collapse Biasa Tanpa Bug Accordion -->
+            <% if (typeof isOwnerSpecial !== 'undefined' && isOwnerSpecial) { %>
+                <div class="card border-0 shadow-sm rounded-3 mb-3 border-start border-4 border-warning">
+                    <button class="btn btn-light w-100 text-start py-2 px-3 fw-bold text-dark d-flex justify-content-between align-items-center bg-white btn-collapse-custom" 
+                            type="button" data-bs-toggle="collapse" data-bs-target="#collapseOwner" aria-expanded="false" aria-controls="collapseOwner" style="font-size: 13px; box-shadow: none;">
+                        <div class="d-flex align-items-center">
+                            <i class="bi bi-star-fill text-warning me-2"></i> Alokasi Pribadi Owner
+                        </div>
+                        <div class="d-flex align-items-center">
+                            <span class="badge bg-warning text-dark me-2" style="font-size: 9px;">CMT & UTUK-UTUK</span>
+                            <i class="bi bi-chevron-down toggle-icon text-muted"></i>
+                        </div>
+                    </button>
+                    <div class="collapse" id="collapseOwner">
+                        <div class="card-body p-3 bg-white border-top border-light">
+                            <div class="row g-2 mb-2">
+                                <div class="col-6">
+                                    <small class="text-muted" style="font-size: 11px;">Margin Vendor (CMT)</small>
+                                    <div class="fw-bold text-info">Rp <%= Number(labaCmt || 0).toLocaleString('id-ID') %></div>
+                                </div>
+                                <div class="col-6">
+                                    <small class="text-muted" style="font-size: 11px;">Omzet Utuk-utuk</small>
+                                    <div class="fw-bold text-primary">Rp <%= Number(prodMesin22 || 0).toLocaleString('id-ID') %></div>
+                                </div>
+                            </div>
+                            
+                            <div class="d-flex justify-content-between border-top pt-2 mt-2" style="font-size: 12px;">
+                                <span class="fw-bold text-dark">Total Jatah Tersedia:</span>
+                                <span class="fw-bold text-success">Rp <%= Number(alokasiKhusus || 0).toLocaleString('id-ID') %></span>
+                            </div>
+                            <div class="d-flex justify-content-between mt-1" style="font-size: 12px;">
+                                <span class="text-muted">Telah Ditarik:</span>
+                                <span class="text-danger">- Rp <%= Number(tarikKhusus || 0).toLocaleString('id-ID') %></span>
+                            </div>
+                            <div class="d-flex justify-content-between bg-light p-2 rounded mt-2 border" style="font-size: 13px;">
+                                <span class="fw-bold text-dark">SISA BISA DITARIK:</span>
+                                <span class="fw-bold <%= sisaAlokasiKhusus < 0 ? 'text-danger' : 'text-success' %>">Rp <%= Number(sisaAlokasiKhusus || 0).toLocaleString('id-ID') %></span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            <% } %>
+
+            <div class="row g-3">
+                <div class="col-md-6 border-end">
+                    <div class="d-flex align-items-center gap-2 mb-2">
+                        <span class="badge bg-primary"><i class="bi bi-gear-fill"></i></span>
+                        <small class="fw-bold text-dark">Laba Mesin Produksi</small>
+                    </div>
+                    <div class="d-flex justify-content-between" style="font-size: 11px;">
+                        <span class="text-muted">Hasil Kerja Mesin:</span>
+                        <span class="fw-bold text-dark">Rp <%= Number(prodMesin || 0).toLocaleString('id-ID') %></span>
+                    </div>
+                    <div class="d-flex justify-content-between mb-1" style="font-size: 11px;">
+                        <span class="text-muted">Beban Belanja/Operasional:</span>
+                        <span class="text-danger">- Rp <%= Number(opMesin || 0).toLocaleString('id-ID') %></span>
+                    </div>
+                    <div class="d-flex justify-content-between border-top pt-1 mt-1" style="font-size: 12px;">
+                        <span class="fw-bold text-primary">Margin Mesin:</span>
+                        <span class="fw-bold <%= labaMesin < 0 ? 'text-danger' : 'text-success' %>">Rp <%= Number(labaMesin || 0).toLocaleString('id-ID') %></span>
+                    </div>
+                </div>
+
+                <div class="col-md-6">
+                    <div class="d-flex align-items-center gap-2 mb-2">
+                        <span class="badge bg-info text-dark"><i class="bi bi-truck"></i></span>
+                        <small class="fw-bold text-dark">Laba Vendor (CMT)</small>
+                    </div>
+                    <div class="d-flex justify-content-between" style="font-size: 11px;">
+                        <span class="text-muted">Pemasukan PO CMT:</span>
+                        <span class="fw-bold text-dark">Rp <%= Number(omzetCmt || 0).toLocaleString('id-ID') %></span>
+                    </div>
+                    <div class="d-flex justify-content-between mb-1" style="font-size: 11px;">
+                        <span class="text-muted">Dibayarkan ke Vendor:</span>
+                        <span class="text-danger">- Rp <%= Number(hppCmt || 0).toLocaleString('id-ID') %></span>
+                    </div>
+                    <div class="d-flex justify-content-between border-top pt-1 mt-1" style="font-size: 12px;">
+                        <span class="fw-bold text-info">Margin CMT:</span>
+                        <span class="fw-bold <%= labaCmt < 0 ? 'text-danger' : 'text-success' %>">Rp <%= Number(labaCmt || 0).toLocaleString('id-ID') %></span>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <div class="card-footer bg-light p-3 border-top-0">
+            <div class="d-flex justify-content-between align-items-center border-bottom pb-2 mb-2" style="font-size: 12px;">
+                <span class="text-muted fw-bold">Telah Ditarik (Jatah Owner):</span>
+                <span class="text-danger fw-bold">- Rp <%= Number(profitDitarik || 0).toLocaleString('id-ID') %></span>
+            </div>
+            <div class="d-flex justify-content-between align-items-center" style="font-size: 13px;">
+                <span class="fw-bold text-dark">Sisa Profit Mengendap (Bulan Ini):</span>
+                <span class="fw-bold <%= sisaProfitBulanIni < 0 ? 'text-danger' : 'text-success' %>">Rp <%= Number(sisaProfitBulanIni || 0).toLocaleString('id-ID') %></span>
+            </div>
+        </div>
+    </div>
+
+    <div class="row g-2 mb-3">
+        <div class="col-6">
+            <div class="card p-2 border-start border-3 border-primary bg-white h-100 position-relative">
+                <% if (!isPro) { %><div class="locked-overlay" onclick="ajakUpgrade('Rekap Piutang')"><i class="bi bi-lock-fill"></i></div><% } %>
+                <div class="d-flex justify-content-between align-items-center">
+                    <small class="text-muted fw-bold" style="font-size: 9px;">PIUTANG BERJALAN</small>
+                    <a href="/piutang-bulanan" class="btn btn-xs btn-outline-primary py-0 px-1 nav-link-load" style="font-size: 9px; border-radius: 4px;">Rincian →</a>
+                </div>
+                <strong class="text-primary mt-1" style="font-size: 13px;">Rp <%= Number(piutangBerjalan || 0).toLocaleString('id-ID') %></strong>
+            </div>
+        </div>
+        <div class="col-6">
+            <div class="card p-2 border-start border-3 border-danger bg-white h-100">
+                <small class="text-muted fw-bold" style="font-size: 9px;">SISA HUTANG GLOBAL</small>
+                <strong class="text-danger mt-1" style="font-size: 13px;">Rp <%= Number(sisaHutangRiil || 0).toLocaleString('id-ID') %></strong>
+            </div>
+        </div>
+    </div>
+
+    <!-- Tabel Omzet Harian - Menggunakan Collapse Biasa Tanpa Bug Accordion -->
+    <div class="card border-0 shadow-sm rounded-3 mb-3">
+        <button class="btn btn-light w-100 text-start py-2 px-3 fw-bold text-primary d-flex justify-content-between align-items-center bg-white btn-collapse-custom" 
+                type="button" data-bs-toggle="collapse" data-bs-target="#collapseOmzet" aria-expanded="false" aria-controls="collapseOmzet" style="font-size: 12px; box-shadow: none;">
+            <span><i class="bi bi-calendar3 me-2"></i> Buka Tabel Omzet Harian Mesin</span>
+            <i class="bi bi-chevron-down toggle-icon text-muted"></i>
+        </button>
+        <div class="collapse" id="collapseOmzet">
+            <div class="card-body p-0 border-top border-light">
+                <div class="table-responsive position-relative" style="max-height: 250px; overflow-y: auto;">
+                    <% if (!isPro) { %><div class="locked-overlay" onclick="ajakUpgrade('Omzet Harian')"><i class="bi bi-lock-fill text-dark"></i></div><% } %>
+                    <table class="table table-sm table-hover mb-0 compact-table">
+                        <thead class="table-light sticky-top"><tr><th>Tanggal</th><th class="text-end">Omzet Kotor</th></tr></thead>
+                        <tbody>
+                            <% monitorHarian.forEach(m => { %>
+                                <tr>
+                                    <td class="ps-3 text-muted"><%= new Date(m.tanggal).toLocaleDateString('id-ID', {day:'2-digit', month:'short'}) %></td>
+                                    <td class="text-end pe-3 fw-bold text-dark">Rp <%= Number(m.total_harian || 0).toLocaleString('id-ID') %></td>
+                                </tr>
+                            <% }) %>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="card">
+        <div class="card-header bg-white p-2 border-bottom-0">
+            <input type="text" id="liveSearch" class="form-control form-control-sm border-secondary shadow-sm" placeholder="🔍 Cari rincian transaksi..." onkeyup="filterTabel()">
+        </div>
+        <div class="table-responsive" style="max-height: 500px; overflow-y: auto;">
+            <table class="table table-hover align-middle mb-0 compact-table" id="tabelKas">
+                <thead class="table-light sticky-top text-muted">
+                    <tr>
+                        <th style="width: 70px;">Tgl</th>
+                        <th>Keterangan Transaksi</th> 
+                        <th class="text-end">Nominal</th>
+                        <th class="text-center sticky-right-th" style="width: 60px;">Aksi</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <% rincianKas.forEach(item => { %>
+                        <tr class="<%= item.jenis === 'PEMASUKAN' ? 'row-pemasukan' : 'row-pengeluaran' %>">
+                            <td class="text-muted"><%= item.tanggal ? new Date(item.tanggal).toLocaleDateString('id-ID', {day:'2-digit', month:'2-digit'}) : '-' %></td>
+                            <td>
+                                <strong class="text-dark d-block"><%= item.kategori %></strong>
+                                <% 
+                                    const finalCustomer = item.customer_bordir || item.customer_vendor;
+                                    const finalPO = item.po_bordir || item.po_vendor;
+                                %>
+                                <% if (item.nama_vendor) { %><span class="badge bg-danger p-1" style="font-size: 8px;"><%= item.nama_vendor %></span><% } %>
+                                <% if (finalCustomer) { %><span class="badge bg-primary p-1" style="font-size: 8px;"><%= finalCustomer %></span><% } %>
+                                <% if (finalPO) { %><span class="badge bg-secondary p-1" style="font-size: 8px;"><%= finalPO %></span><% } %>
+                                <div class="text-muted mt-1" style="font-size: 10px; line-height: 1.2;"><%= item.keterangan %></div>
+                            </td>
+                            <td class="text-end <%= item.jenis === 'PEMASUKAN' ? 'text-pemasukan' : 'text-pengeluaran' %>">
+                                <%= item.jenis === 'PEMASUKAN' ? '+' : '-' %> <%= Number(item.jumlah || 0).toLocaleString('id-ID') %>
+                            </td>
+                            <td class="text-center sticky-right-td">
+                                <div class="btn-group">
+                                    <a href="/print-kas/<%= item.id %>" target="_blank" class="btn btn-sm p-0 px-1 text-primary" title="Print Bukti Transaksi">
+                                        <i class="bi bi-printer"></i>
+                                    </a>
+                                    <button class="btn btn-sm p-0 px-1 text-warning" onclick="persiapanEditKas('<%= item.id %>', '<%= item.tanggal %>', '<%= item.jenis %>', '<%= item.kategori %>', '<%= item.jumlah %>', '<%= item.keterangan %>', '<%= item.po_id %>')"><i class="bi bi-pencil-square"></i></button>
+                                    <a href="/hapus-kas/<%= item.id %>" class="btn btn-sm p-0 px-1 text-danger nav-link-load" onclick="return confirm('Hapus transaksi ini secara permanen?')"><i class="bi bi-trash"></i></a>
+                                </div>
+                            </td>
+                        </tr>
+                    <% }) %>
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+<a href="/input-kas" class="fab-kas nav-link-load shadow-lg"><i class="bi bi-plus-lg"></i> KAS</a>
+
+<script>
+    function filterTabel() {
+        let input = document.getElementById("liveSearch").value.toLowerCase();
+        let rows = document.querySelectorAll("#tabelKas tbody tr");
+        rows.forEach(row => {
+            row.style.display = row.innerText.toLowerCase().includes(input) ? "" : "none";
+        });
+    }
+
+    function persiapanEditKas(id, tgl, jenis, kat, jml, ket, poId) {
+        let d = new Date(tgl);
+        let formattedDate = d.toISOString().split('T')[0];
+        const data = { id, tgl: formattedDate, jenis, kat, jml, ket, poId: (poId === 'null' || !poId) ? "" : poId };
+        sessionStorage.setItem('editDataKas', JSON.stringify(data));
+        window.location.href = '/input-kas';
+    }
+
+    function ajakUpgrade(fitur) {
+        if (typeof Swal !== 'undefined') {
+            Swal.fire({
+                title: 'Fitur Terkunci!',
+                text: 'Analisis ' + fitur + ' hanya tersedia di Akun PRO.',
+                icon: 'warning',
+                showCancelButton: true,
+                confirmButtonColor: '#27ae60',
+                confirmButtonText: 'Upgrade PRO',
+                cancelButtonText: 'Nanti Dulu'
+            }).then((result) => {
+                if (result.isConfirmed) {
+                    window.open('https://wa.me/+6281315290003?text=Halo%20Admin,%20saya%20ingin%20upgrade%20PRO%20untuk%20' + fitur, '_blank');
+                }
+            });
+        } else {
+            alert("Fitur " + fitur + " hanya untuk Akun PRO.");
+        }
+    }
+</script>
+
+<%- include('partials/footer') %>
