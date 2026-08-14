@@ -42,42 +42,39 @@
 </style>
 
 <div class="container-fluid">
-    <div class="d-flex justify-content-between align-items-center mb-3">
-        <a href="/dashboard" class="text-decoration-none text-muted fw-bold">
-            <i class="bi bi-arrow-left"></i> <span class="d-none d-md-inline">Kembali</span>
-        </a>
-        <div class="btn-group shadow-sm">
-            <% if (user.tenantId === 1 || user.tenantId === 100 || user.tenantLevel >= 2) { %>
-                <a href="/admin/data-cmt" class="btn btn-primary btn-sm fw-bold px-2 px-md-4"><i class="bi bi-people-fill"></i> <span class="d-none d-md-inline">CMT</span></a>
-            <% } %>
-            <a href="/po-baru-v2" class="btn btn-success btn-sm fw-bold px-2 px-md-4"><i class="bi bi-plus-lg"></i> PO <span class="d-none d-md-inline">BARU</span></a>
-            <a href="/daftar-produksi" class="btn btn-primary btn-sm fw-bold px-2 px-md-4"><i class="bi bi-speedometer2"></i> PROD</a>
-        </div>
-    </div>
-
+    
     <div class="card shadow-sm border-0 mb-3">
-        <div class="card-body py-2">
-            <div class="row g-2 align-items-center">
-                <div class="col-12 col-md-5">
-                    <input type="text" id="liveSearch" class="form-control form-control-sm" placeholder="🔍 Cari PO / Customer..." onkeyup="jalankanFilter()">
-                </div>
-                <div class="col-6 col-md-3">
-                    <select id="filterStatus" class="form-select form-select-sm" onchange="jalankanFilter()">
-                        <option value="ALL">- Semua Status -</option>
-                        <option value="Design">Design</option>
-                        <option value="Antri">Antri</option>
-                        <option value="Produksi">Produksi</option>
-                        <option value="CMT">CMT (Luar)</option>
-                        <option value="QC">QC</option>
-                        <option value="Clear">Clear</option>
-                        <option value="DP/Cicil">DP/Cicil</option>
-                        <option value="Lunas">Lunas</option>
-                    </select>
-                </div>
-                <div class="col-6 col-md-4 d-flex align-items-center">
-                    <div class="form-check form-switch ms-2">
-                        <input class="form-check-input" type="checkbox" id="checkLunas" onchange="sinkronLunas(this)">
-                        <label class="form-check-label fw-bold small" for="checkLunas">Hide Lunas</label>
+            <div class="card-body py-2">
+                <div class="row g-2 align-items-center">
+                    <!-- Kolom Pencarian -->
+                    <div class="col-12 col-md-4">
+                        <input type="text" id="liveSearch" class="form-control form-control-sm" placeholder="🔍 Cari PO / Customer..." onkeyup="jalankanFilter()">
+                    </div>
+                    
+                    <!-- Kolom Status -->
+                    <div class="col-5 col-md-3">
+                        <select id="filterStatus" class="form-select form-select-sm" onchange="jalankanFilter()">
+                            <option value="ALL">- Semua Status -</option>
+                            <option value="Design">Design</option>
+                            <option value="Antri">Antri</option>
+                            <option value="Produksi">Produksi</option>
+                            <option value="CMT">CMT (Luar)</option>
+                            <option value="QC">QC</option>
+                            <option value="Clear">Clear</option>
+                            <option value="DP/Cicil">DP/Cicil</option>
+                            <option value="Lunas">Lunas</option>
+                        </select>
+                    </div>
+                    
+                    <!-- Kolom Switch Hide Lunas & Tombol PO BARU -->
+                    <div class="col-7 col-md-5 d-flex justify-content-between align-items-center pl-2">
+                        <div class="form-check form-switch ms-1 mb-0">
+                            <input class="form-check-input mt-1" type="checkbox" id="checkLunas" onchange="sinkronLunas(this)">
+                            <label class="form-check-label fw-bold text-muted" style="font-size: 12px;" for="checkLunas">Hide Lunas</label>
+                        </div>
+                        <a href="/po-baru-v2" class="btn btn-success btn-sm fw-bold shadow-sm d-flex align-items-center gap-1">
+                            <i class="bi bi-plus-circle"></i> PO BARU
+                        </a>
                     </div>
                 </div>
             </div>
