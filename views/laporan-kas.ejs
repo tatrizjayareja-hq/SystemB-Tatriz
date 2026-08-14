@@ -45,6 +45,10 @@
     /* Samakan warna background agar teks di bawahnya tidak tembus pandang saat discroll */
     .row-pemasukan .sticky-right-td { background-color: #fcfdfe !important; }
     .row-pengeluaran .sticky-right-td { background-color: #fff9f9 !important; }
+
+    /* --- TAMBAHAN: Efek Rotasi Panah untuk Collapse Baru --- */
+    .toggle-icon { transition: transform 0.3s ease; }
+    .btn-collapse-custom[aria-expanded="true"] .toggle-icon { transform: rotate(180deg); }
 </style>
 
 <div class="container-fluid mx-auto" style="max-width: 1000px; padding: 15px;">
@@ -105,48 +109,49 @@
         <div class="card-body p-3">
             <h6 class="fw-bold text-dark border-bottom pb-2 mb-3"><i class="bi bi-diagram-2"></i> Rincian Margin (Bulan Ini)</h6>
            
-                <!-- Card Jatah Khusus Owner (Hanya Tenant 1) - Model Buka Tutup -->
-                    <% if (typeof isOwnerSpecial !== 'undefined' && isOwnerSpecial) { %>
-                        <div class="accordion mb-3 shadow-sm rounded-3" id="accordionOwner" style="border: none;">
-                            <div class="accordion-item border-start border-4 border-warning">
-                                <h2 class="accordion-header" id="headingOwner">
-                                    <button class="accordion-button collapsed py-2 fw-bold text-dark bg-white" type="button" data-bs-toggle="collapse" data-bs-target="#collapseOwner" style="box-shadow: none; font-size: 13px;">
-                                        <div class="d-flex align-items-center w-100">
-                                            <i class="bi bi-star-fill text-warning me-2"></i> Alokasi Pribadi Owner
-                                            <span class="badge bg-warning text-dark ms-auto me-3" style="font-size: 9px;">CMT & UTUK-UTUK</span>
-                                        </div>
-                                    </button>
-                                </h2>
-                                <div id="collapseOwner" class="accordion-collapse collapse">
-                                    <div class="accordion-body p-3 bg-white">
-                                        <div class="row g-2 mb-2">
-                                            <div class="col-6">
-                                                <small class="text-muted" style="font-size: 11px;">Margin Vendor (CMT)</small>
-                                                <div class="fw-bold text-info">Rp <%= Number(labaCmt || 0).toLocaleString('id-ID') %></div>
-                                            </div>
-                                            <div class="col-6">
-                                                <small class="text-muted" style="font-size: 11px;">Omzet Utuk-utuk</small>
-                                                <div class="fw-bold text-primary">Rp <%= Number(prodMesin22 || 0).toLocaleString('id-ID') %></div>
-                                            </div>
-                                        </div>
-                                        
-                                        <div class="d-flex justify-content-between border-top pt-2 mt-2" style="font-size: 12px;">
-                                            <span class="fw-bold text-dark">Total Jatah Tersedia:</span>
-                                            <span class="fw-bold text-success">Rp <%= Number(alokasiKhusus || 0).toLocaleString('id-ID') %></span>
-                                        </div>
-                                        <div class="d-flex justify-content-between mt-1" style="font-size: 12px;">
-                                            <span class="text-muted">Telah Ditarik:</span>
-                                            <span class="text-danger">- Rp <%= Number(tarikKhusus || 0).toLocaleString('id-ID') %></span>
-                                        </div>
-                                        <div class="d-flex justify-content-between bg-light p-2 rounded mt-2 border" style="font-size: 13px;">
-                                            <span class="fw-bold text-dark">SISA BISA DITARIK:</span>
-                                            <span class="fw-bold <%= sisaAlokasiKhusus < 0 ? 'text-danger' : 'text-success' %>">Rp <%= Number(sisaAlokasiKhusus || 0).toLocaleString('id-ID') %></span>
-                                        </div>
-                                    </div>
+            <!-- Card Jatah Khusus Owner (Hanya Tenant 1) - Menggunakan Collapse Biasa Tanpa Bug Accordion -->
+            <% if (typeof isOwnerSpecial !== 'undefined' && isOwnerSpecial) { %>
+                <div class="card border-0 shadow-sm rounded-3 mb-3 border-start border-4 border-warning">
+                    <button class="btn btn-light w-100 text-start py-2 px-3 fw-bold text-dark d-flex justify-content-between align-items-center bg-white btn-collapse-custom" 
+                            type="button" data-bs-toggle="collapse" data-bs-target="#collapseOwner" aria-expanded="false" aria-controls="collapseOwner" style="font-size: 13px; box-shadow: none;">
+                        <div class="d-flex align-items-center">
+                            <i class="bi bi-star-fill text-warning me-2"></i> Alokasi Pribadi Owner
+                        </div>
+                        <div class="d-flex align-items-center">
+                            <span class="badge bg-warning text-dark me-2" style="font-size: 9px;">CMT & UTUK-UTUK</span>
+                            <i class="bi bi-chevron-down toggle-icon text-muted"></i>
+                        </div>
+                    </button>
+                    <div class="collapse" id="collapseOwner">
+                        <div class="card-body p-3 bg-white border-top border-light">
+                            <div class="row g-2 mb-2">
+                                <div class="col-6">
+                                    <small class="text-muted" style="font-size: 11px;">Margin Vendor (CMT)</small>
+                                    <div class="fw-bold text-info">Rp <%= Number(labaCmt || 0).toLocaleString('id-ID') %></div>
+                                </div>
+                                <div class="col-6">
+                                    <small class="text-muted" style="font-size: 11px;">Omzet Utuk-utuk</small>
+                                    <div class="fw-bold text-primary">Rp <%= Number(prodMesin22 || 0).toLocaleString('id-ID') %></div>
                                 </div>
                             </div>
+                            
+                            <div class="d-flex justify-content-between border-top pt-2 mt-2" style="font-size: 12px;">
+                                <span class="fw-bold text-dark">Total Jatah Tersedia:</span>
+                                <span class="fw-bold text-success">Rp <%= Number(alokasiKhusus || 0).toLocaleString('id-ID') %></span>
+                            </div>
+                            <div class="d-flex justify-content-between mt-1" style="font-size: 12px;">
+                                <span class="text-muted">Telah Ditarik:</span>
+                                <span class="text-danger">- Rp <%= Number(tarikKhusus || 0).toLocaleString('id-ID') %></span>
+                            </div>
+                            <div class="d-flex justify-content-between bg-light p-2 rounded mt-2 border" style="font-size: 13px;">
+                                <span class="fw-bold text-dark">SISA BISA DITARIK:</span>
+                                <span class="fw-bold <%= sisaAlokasiKhusus < 0 ? 'text-danger' : 'text-success' %>">Rp <%= Number(sisaAlokasiKhusus || 0).toLocaleString('id-ID') %></span>
+                            </div>
                         </div>
-                    <% } %>
+                    </div>
+                </div>
+            <% } %>
+
             <div class="row g-3">
                 <div class="col-md-6 border-end">
                     <div class="d-flex align-items-center gap-2 mb-2">
@@ -219,29 +224,28 @@
         </div>
     </div>
 
-    <div class="accordion mb-3 shadow-sm rounded-3" id="accordionOmzet" style="border: none;">
-        <div class="accordion-item border-0">
-            <h2 class="accordion-header" id="headingOne">
-                <button class="accordion-button collapsed py-2 fw-bold text-primary bg-white" type="button" data-bs-toggle="collapse" data-bs-target="#collapseOmzet" style="font-size: 12px; box-shadow: none;">
-                    <i class="bi bi-calendar3 me-2"></i> Buka Tabel Omzet Harian Mesin
-                </button>
-            </h2>
-            <div id="collapseOmzet" class="accordion-collapse collapse">
-                <div class="accordion-body p-0">
-                    <div class="table-responsive position-relative" style="max-height: 250px; overflow-y: auto;">
-                        <% if (!isPro) { %><div class="locked-overlay" onclick="ajakUpgrade('Omzet Harian')"><i class="bi bi-lock-fill text-dark"></i></div><% } %>
-                        <table class="table table-sm table-hover mb-0 compact-table border-top">
-                            <thead class="table-light sticky-top"><tr><th>Tanggal</th><th class="text-end">Omzet Kotor</th></tr></thead>
-                            <tbody>
-                                <% monitorHarian.forEach(m => { %>
-                                    <tr>
-                                        <td class="ps-3 text-muted"><%= new Date(m.tanggal).toLocaleDateString('id-ID', {day:'2-digit', month:'short'}) %></td>
-                                        <td class="text-end pe-3 fw-bold text-dark">Rp <%= Number(m.total_harian || 0).toLocaleString('id-ID') %></td>
-                                    </tr>
-                                <% }) %>
-                            </tbody>
-                        </table>
-                    </div>
+    <!-- Tabel Omzet Harian - Menggunakan Collapse Biasa Tanpa Bug Accordion -->
+    <div class="card border-0 shadow-sm rounded-3 mb-3">
+        <button class="btn btn-light w-100 text-start py-2 px-3 fw-bold text-primary d-flex justify-content-between align-items-center bg-white btn-collapse-custom" 
+                type="button" data-bs-toggle="collapse" data-bs-target="#collapseOmzet" aria-expanded="false" aria-controls="collapseOmzet" style="font-size: 12px; box-shadow: none;">
+            <span><i class="bi bi-calendar3 me-2"></i> Buka Tabel Omzet Harian Mesin</span>
+            <i class="bi bi-chevron-down toggle-icon text-muted"></i>
+        </button>
+        <div class="collapse" id="collapseOmzet">
+            <div class="card-body p-0 border-top border-light">
+                <div class="table-responsive position-relative" style="max-height: 250px; overflow-y: auto;">
+                    <% if (!isPro) { %><div class="locked-overlay" onclick="ajakUpgrade('Omzet Harian')"><i class="bi bi-lock-fill text-dark"></i></div><% } %>
+                    <table class="table table-sm table-hover mb-0 compact-table">
+                        <thead class="table-light sticky-top"><tr><th>Tanggal</th><th class="text-end">Omzet Kotor</th></tr></thead>
+                        <tbody>
+                            <% monitorHarian.forEach(m => { %>
+                                <tr>
+                                    <td class="ps-3 text-muted"><%= new Date(m.tanggal).toLocaleDateString('id-ID', {day:'2-digit', month:'short'}) %></td>
+                                    <td class="text-end pe-3 fw-bold text-dark">Rp <%= Number(m.total_harian || 0).toLocaleString('id-ID') %></td>
+                                </tr>
+                            <% }) %>
+                        </tbody>
+                    </table>
                 </div>
             </div>
         </div>
