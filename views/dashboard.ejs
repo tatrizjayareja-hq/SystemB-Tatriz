@@ -1,5 +1,8 @@
 <%- include('partials/header') %>
 
+<!-- Deklarasi Variabel Akses Level -->
+<% const isPro = (user.tenantId === 1 || user.tenantId === 100 || user.tenantLevel >= 2); %>
+
 <!-- Library Chart.js untuk Grafik -->
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 
