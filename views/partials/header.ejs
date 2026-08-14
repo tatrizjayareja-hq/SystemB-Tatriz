@@ -80,9 +80,10 @@
 
     <nav class="navbar navbar-expand-lg navbar-dark bg-dark mb-4 sticky-top navbar-custom">
         <div class="container">
-            <!-- Brand Logo -->
-            <a class="navbar-brand nav-link-load fw-bold" href="/dashboard">
-                <i class="bi bi-boxes text-success me-2"></i><%= config.nama_perusahaan %>
+             <!-- Brand Logo -->
+            <a class="navbar-brand nav-link-load d-flex align-items-center" href="/dashboard" style="gap: 10px;">
+                <img src="<%= config.logo_path %>" alt="Logo" style="height: 35px; width: auto; object-fit: contain; border-radius: 4px;">
+                <span style="font-weight: 800; font-size: 16px; letter-spacing: 0.5px;"><%= config.nama_perusahaan %></span>
             </a>
             
             <!-- Tombol Hamburger untuk HP -->
