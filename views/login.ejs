@@ -8,7 +8,7 @@
     <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
 
     <link rel="manifest" href="/manifest.json">
-    <meta name="theme-color" content="#ce1126"> <!-- Merah Kemerdekaan -->
+    <meta name="theme-color" content="#e3000f">
     <script>
       if ('serviceWorker' in navigator) {
         window.addEventListener('load', () => {
@@ -20,12 +20,11 @@
     </script>
     <style>
         :root {
-            /* Tema Kemerdekaan Indonesia (Merah Putih) */
+            /* Warna Kemerdekaan */
             --merah-utama: #e3000f;
-            --merah-gelap: #8b0000;
-            --merah-pudar: rgba(227, 0, 15, 0.2);
+            --merah-gelap: #a8000b;
+            --putih-bg: #f4f6f9; /* Putih keabu-abuan agar teduh di mata */
             --putih-utama: #ffffff;
-            --putih-tulang: #f8f9fa;
             --teks-abu: #636e72;
         }
 
@@ -34,8 +33,20 @@
             padding: 0;
             min-height: 100vh;
             font-family: 'Segoe UI', Roboto, sans-serif;
-            /* Background gradien Merah elegan */
-            background: radial-gradient(circle at top right, var(--merah-utama) 0%, var(--merah-gelap) 100%);
+            background-color: var(--putih-bg);
+            
+            /* KODE PEMBENTUK GAMBAR/BENTUK (Tanpa Lurus) */
+            /* Menggunakan radial-gradient untuk membentuk lengkungan merah di atas dan siluet di sudut */
+            background-image: 
+                /* 1. Membentuk gelombang lengkung (curve) merah solid besar dari atas turun ke tengah */
+                radial-gradient(150% 120% at 50% -20%, var(--merah-utama) 0%, var(--merah-gelap) 30%, transparent 30.2%),
+                
+                /* 2. Membentuk lingkaran abstrak (glow) merah tipis di kiri bawah */
+                radial-gradient(circle at 10% 90%, rgba(227, 0, 15, 0.08) 0%, transparent 40%),
+                
+                /* 3. Membentuk lingkaran abstrak (glow) merah tipis di kanan tengah */
+                radial-gradient(circle at 90% 60%, rgba(227, 0, 15, 0.05) 0%, transparent 40%);
+            
             display: flex;
             justify-content: center;
             align-items: center;
@@ -46,17 +57,19 @@
             width: 450px;
             max-width: 90%;
             margin: 20px auto;
+            position: relative;
+            z-index: 10; /* Agar form berada di atas background lengkung */
         }
 
         .login-card {
             background: white;
             border-radius: 20px;
             overflow: hidden;
-            /* Bayangan dengan nuansa merah tipis */
-            box-shadow: 0 15px 35px rgba(0,0,0,0.5), 0 0 20px rgba(227, 0, 15, 0.4);
+            /* Bayangan diperlembut agar menyatu dengan background terang */
+            box-shadow: 0 15px 35px rgba(0,0,0,0.15), 0 5px 15px rgba(227, 0, 15, 0.1);
             display: flex;
             flex-direction: column;
-            border: 1px solid rgba(255, 255, 255, 0.3);
+            border: 1px solid rgba(227, 0, 15, 0.1);
         }
 
         /* --- BAGIAN ATAS: BRANDING --- */
@@ -67,7 +80,6 @@
             position: relative;
         }
 
-        /* Aksen pita/garis atas merah putih */
         .card-header::before {
             content: '';
             position: absolute;
@@ -75,8 +87,8 @@
             left: 0;
             width: 100%;
             height: 6px;
-            background: linear-gradient(90deg, var(--merah-utama) 50%, var(--putih-utama) 50%);
-            border-bottom: 1px solid #ddd;
+            /* Gradasi miring (diagonal) untuk pita bendera merah putih */
+            background: linear-gradient(135deg, var(--merah-utama) 50%, #f1f2f6 50%);
         }
 
         .card-header img {
@@ -86,7 +98,7 @@
         }
 
         .card-header h1 {
-            color: var(--merah-utama);
+            color: var(--merah-gelap);
             margin: 0;
             font-size: 26px;
             font-weight: 900;
@@ -103,20 +115,19 @@
 
         /* --- BAGIAN BAWAH: FORM --- */
         .card-body {
-            /* Background merah gelap dengan pola elegan */
-            background-color: var(--merah-gelap);
-            background-image: radial-gradient(rgba(255, 255, 255, 0.05) 1px, transparent 1px);
-            background-size: 15px 15px;
-            color: white;
+            /* Warna card body dibuat lebih soft (bukan merah full) dengan gradasi diagonal tipis */
+            background: linear-gradient(135deg, #ffffff 0%, #fff0f1 100%);
+            color: #333;
             padding: 40px 35px;
             position: relative;
+            border-top: 1px dashed rgba(227, 0, 15, 0.2);
         }
 
         .card-body h2 {
             margin: 0 0 5px 0;
             font-size: 22px;
             text-align: center;
-            color: var(--putih-utama);
+            color: var(--merah-utama);
             text-transform: uppercase;
             letter-spacing: 2px;
             font-weight: 800;
@@ -124,10 +135,9 @@
 
         .card-body p {
             font-size: 13px;
-            opacity: 0.9;
             margin-bottom: 25px;
             text-align: center;
-            color: #f1f2f6;
+            color: var(--teks-abu);
         }
 
         .form-group {
@@ -140,7 +150,8 @@
             margin-bottom: 8px;
             text-transform: uppercase;
             letter-spacing: 1px;
-            color: var(--putih-utama);
+            color: var(--merah-gelap);
+            font-weight: bold;
         }
 
         .input-wrapper {
@@ -152,17 +163,17 @@
             left: 15px;
             top: 50%;
             transform: translateY(-50%);
-            color: var(--putih-utama);
-            opacity: 0.7;
+            color: var(--merah-utama);
+            opacity: 0.8;
         }
 
         .input-wrapper input {
             width: 100%;
             padding: 14px 15px 14px 45px;
-            background: rgba(0, 0, 0, 0.2); 
-            border: 1px solid rgba(255, 255, 255, 0.4); 
+            background: var(--putih-utama);
+            border: 1px solid rgba(227, 0, 15, 0.3);
             border-radius: 10px;
-            color: white;
+            color: #333;
             box-sizing: border-box;
             outline: none;
             transition: 0.3s;
@@ -170,21 +181,21 @@
         }
 
         .input-wrapper input::placeholder {
-            color: rgba(255, 255, 255, 0.5);
+            color: #aaa;
         }
 
         .input-wrapper input:focus {
-            background: rgba(0, 0, 0, 0.4);
-            border-color: var(--putih-utama);
-            box-shadow: 0 0 10px rgba(255, 255, 255, 0.3);
+            border-color: var(--merah-utama);
+            box-shadow: 0 0 8px rgba(227, 0, 15, 0.2);
+            background: #fff;
         }
 
-        /* Tombol Putih Ala Kemerdekaan */
+        /* Tombol Merah Kemerdekaan */
         .btn-login {
             width: 100%;
             padding: 15px;
-            background: var(--putih-utama);
-            color: var(--merah-utama);
+            background: linear-gradient(135deg, var(--merah-utama) 0%, var(--merah-gelap) 100%);
+            color: var(--putih-utama);
             border: none;
             border-radius: 10px;
             font-weight: 900;
@@ -194,21 +205,22 @@
             margin-top: 10px;
             text-transform: uppercase;
             letter-spacing: 1px;
-            box-shadow: 0 5px 15px rgba(0, 0, 0, 0.2);
+            box-shadow: 0 5px 15px rgba(227, 0, 15, 0.3);
         }
 
         .btn-login:hover {
-            background: var(--putih-tulang);
+            background: linear-gradient(135deg, var(--merah-gelap) 0%, var(--merah-utama) 100%);
             transform: translateY(-3px);
-            box-shadow: 0 8px 20px rgba(0, 0, 0, 0.4);
+            box-shadow: 0 8px 20px rgba(227, 0, 15, 0.4);
         }
 
         /* --- FOOTER / LINK --- */
         .card-footer {
             padding: 20px;
             text-align: center;
-            background: var(--putih-tulang);
+            background: var(--putih-bg);
             font-size: 13px;
+            border-top: 1px solid #eaeaea;
         }
 
         .card-footer a {
@@ -222,11 +234,11 @@
         .setup-info {
             margin-top: 15px;
             padding: 10px;
-            background: rgba(255, 255, 255, 0.15); 
-            border: 1px solid rgba(255, 255, 255, 0.4);
+            background: rgba(227, 0, 15, 0.05); 
+            border: 1px solid rgba(227, 0, 15, 0.2);
             border-radius: 8px;
             font-size: 12px;
-            color: var(--putih-utama);
+            color: var(--merah-gelap);
             text-align: center;
         }
 
@@ -235,6 +247,11 @@
             .login-container { width: 95%; }
             .card-header { padding: 30px 20px 15px; }
             .card-body { padding: 30px 20px; }
+            body, html {
+                /* Sesuaikan lengkungan background untuk mobile */
+                background-image: 
+                    radial-gradient(150% 100% at 50% -10%, var(--merah-utama) 0%, var(--merah-gelap) 25%, transparent 25.2%);
+            }
         }
 
         .forgot-password-link {
@@ -244,14 +261,14 @@
         }
         
         .forgot-password-link a {
-            color: rgba(255, 255, 255, 0.8);
+            color: var(--teks-abu);
             font-size: 11px;
             text-decoration: none;
             transition: 0.2s;
         }
 
         .forgot-password-link a:hover {
-            color: var(--putih-utama);
+            color: var(--merah-utama);
             text-decoration: underline;
         }
     </style>
@@ -262,7 +279,7 @@
     position: fixed;
     top: 0; left: 0;
     width: 100%; height: 100%;
-    background: rgba(139, 0, 0, 0.98); /* Merah gelap */
+    background: #f4f6f9; /* Diubah jadi terang agar senada */
     z-index: 9999;
     display: flex;
     flex-direction: column;
@@ -272,14 +289,14 @@
 ">
     <div style="
         width: 60px; height: 60px;
-        border: 5px solid rgba(255, 255, 255, 0.2);
-        border-top: 5px solid #ffffff; /* Warna Putih */
+        border: 5px solid rgba(227, 0, 15, 0.2);
+        border-top: 5px solid #e3000f; /* Warna Merah */
         border-radius: 50%;
         animation: putarLoader 1s linear infinite;
-        box-shadow: 0 0 15px rgba(255, 255, 255, 0.5); /* Efek glow putih */
+        box-shadow: 0 0 15px rgba(227, 0, 15, 0.3);
     "></div>
-    <p style="color: #ffffff; margin-top: 20px; font-weight: bold; font-size: 14px; letter-spacing: 2px;">
-        MEMUAT SISTEM TATRIZ...
+    <p style="color: #e3000f; margin-top: 20px; font-weight: bold; font-size: 14px; letter-spacing: 2px;">
+        MEMUAT SISTEM...
     </p>
 </div>
 
@@ -329,19 +346,19 @@
                     <button type="submit" class="btn-login"><i class="fas fa-flag"></i> Masuk Sekarang</button>
                 </form>
                 
-                <div id="areaInstalPWA" style="display: none; margin-top: 20px; padding: 15px; background: rgba(0,0,0,0.2); border: 1px dashed rgba(255,255,255,0.5); border-radius: 10px; text-align: center;">
-                    <p style="margin: 0 0 10px 0; font-size: 13px; color: white; opacity: 0.9;">
-                        <i class="fas fa-mobile-alt" style="color: var(--putih-utama);"></i> Akses lebih cepat & merdeka! Instal versi HP.
+                <div id="areaInstalPWA" style="display: none; margin-top: 20px; padding: 15px; background: rgba(227,0,15,0.05); border: 1px dashed rgba(227,0,15,0.3); border-radius: 10px; text-align: center;">
+                    <p style="margin: 0 0 10px 0; font-size: 13px; color: var(--merah-gelap); opacity: 0.9;">
+                        <i class="fas fa-mobile-alt" style="color: var(--merah-utama);"></i> Akses lebih cepat & merdeka! Instal versi HP.
                     </p>
-                    <button id="btnInstalPWA" class="btn-login" style="background: white; color: var(--merah-utama); margin-top: 0; box-shadow: none;">
-                        <i class="fas fa-download"></i> INSTAL APLIKASI HP
+                    <button id="btnInstalPWA" class="btn-login" style="background: white; color: var(--merah-utama); border: 1px solid var(--merah-utama); margin-top: 0; box-shadow: none;">
+                        <i class="fas fa-download"></i> INSTAL APLIKASI
                     </button>
                 </div>
 
                 <% if (isNew) { %>
                 <div class="setup-info">
                     <i class="fas fa-fire"></i> Sistem baru siap digunakan. 
-                    <a href="/register" style="color: white; text-decoration: underline; font-weight: bold;">Klik Setup Awal</a>
+                    <a href="/register" style="color: var(--merah-utama); text-decoration: underline; font-weight: bold;">Klik Setup Awal</a>
                 </div>
                 <% } %>
             </div>
@@ -362,7 +379,7 @@
             input: 'text',
             inputPlaceholder: 'Ketik username / nama toko...',
             showCancelButton: true,
-            confirmButtonColor: '#e3000f', // Warna merah khas bendera
+            confirmButtonColor: '#e3000f', 
             confirmButtonText: '<i class="fab fa-whatsapp"></i> Hubungi Developer',
             cancelButtonText: 'Batal'
         }).then((result) => {
@@ -413,7 +430,7 @@ btnInstal.addEventListener('click', async () => {
                 </div>
             `,
             icon: 'info',
-            confirmButtonColor: '#e3000f' // Warna merah kemerdekaan
+            confirmButtonColor: '#e3000f' 
         });
     }
 });
