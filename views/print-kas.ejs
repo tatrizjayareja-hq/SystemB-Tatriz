@@ -3,70 +3,222 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Bukti Transaksi - <%= kas.kategori %></title>
+    <title>Bukti Transaksi - <%= kas.id %></title>
     <style>
-        body { font-family: 'Courier New', Courier, monospace; color: #000; background: #fff; margin: 0; padding: 20px; font-size: 14px; }
-        .print-container { max-width: 800px; margin: 0 auto; border: 1px solid #000; padding: 30px; }
-        .header { text-align: center; border-bottom: 2px dashed #000; padding-bottom: 10px; margin-bottom: 20px; }
-        .header h2 { margin: 0; font-size: 22px; text-transform: uppercase; }
-        .header p { margin: 5px 0 0; font-size: 12px; }
-        .info-table { width: 100%; border-collapse: collapse; margin-bottom: 20px; }
-        .info-table td { padding: 4px 0; vertical-align: top; }
-        .info-table td:first-child { width: 150px; font-weight: bold; }
-        
-        /* Tabel Rincian */
-        .detail-table { width: 100%; border-collapse: collapse; margin-bottom: 20px; font-size: 13px; }
-        .detail-table th, .detail-table td { border: 1px solid #000; padding: 8px; }
-        .detail-table th { background-color: #f0f0f0; text-align: center; }
-        .text-right { text-align: right; }
-        .text-center { text-align: center; }
-
-        .nominal-box { font-size: 20px; font-weight: bold; text-align: right; padding: 15px; border: 2px solid #000; margin-bottom: 30px; }
-        .signature-area { display: flex; justify-content: space-between; margin-top: 50px; }
-        .signature-box { text-align: center; width: 200px; }
-        .signature-line { border-bottom: 1px solid #000; height: 60px; margin-bottom: 5px; }
-        .no-print { text-align: center; margin-bottom: 20px; }
-        .no-print button { padding: 10px 20px; font-size: 16px; cursor: pointer; }
-        
         @media print {
+            @page { 
+                size: 105mm 148mm; /* Standar Ukuran A6 */
+                margin: 0; 
+            }
+            body { 
+                -webkit-print-color-adjust: exact; 
+                print-color-adjust: exact; 
+                margin: 0; 
+                background: white;
+            }
             .no-print { display: none !important; }
-            body { padding: 0; }
-            .print-container { border: none; padding: 0; }
+            .nota-container { box-shadow: none !important; border: none !important; }
         }
+
+        body { 
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; 
+            background: #e9ecef; 
+            margin: 0; 
+            padding: 20px; 
+            display: flex; 
+            justify-content: center; 
+        }
+        
+        .nota-container {
+            width: 105mm;
+            min-height: 148mm; /* Menjaga proporsi A6 di layar */
+            background: white;
+            padding: 8mm;
+            box-sizing: border-box;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+            display: flex;
+            flex-direction: column;
+            position: relative;
+        }
+        
+        /* Header Area */
+        .header-nota { 
+            border-bottom: 2px solid #2c3e50; 
+            padding-bottom: 6px; 
+            margin-bottom: 12px; 
+            display: flex; 
+            justify-content: space-between; 
+            align-items: flex-end; 
+        }
+        .header-left h2 { 
+            margin: 0; 
+            font-size: 15px; 
+            text-transform: uppercase; 
+            letter-spacing: 0.5px; 
+            color: #2c3e50; 
+        }
+        .header-left p { 
+            margin: 2px 0 0; 
+            font-size: 8px; 
+            color: #7f8c8d; 
+        }
+        .header-right { text-align: right; }
+        .header-right .badge { 
+            background: #34495e; 
+            color: white; 
+            padding: 2px 6px; 
+            font-size: 8px; 
+            font-weight: bold; 
+            border-radius: 3px; 
+            display: inline-block; 
+            margin-bottom: 3px; 
+        }
+        .header-right .tx-id { font-size: 10px; font-weight: bold; color: #333; }
+        
+        /* Info Grid (Lebih Hemat Ruang) */
+        .info-grid { 
+            display: grid; 
+            grid-template-columns: 1fr 1fr; 
+            gap: 6px; 
+            margin-bottom: 12px; 
+            font-size: 9px; 
+        }
+        .info-item { display: flex; flex-direction: column; }
+        .info-label { color: #95a5a6; font-size: 7.5px; font-weight: bold; text-transform: uppercase; margin-bottom: 1px; }
+        .info-value { font-weight: 600; color: #2c3e50; }
+
+        /* Tabel Rincian */
+        .table-rincian { 
+            width: 100%; 
+            border-collapse: collapse; 
+            margin-bottom: 10px; 
+            font-size: 9px; 
+        }
+        .table-rincian th { 
+            background: #f8f9fa; 
+            border-bottom: 1px solid #34495e; 
+            border-top: 1px solid #34495e; 
+            padding: 5px 2px; 
+            text-align: left; 
+            color: #2c3e50;
+        }
+        .table-rincian td { 
+            border-bottom: 1px dashed #bdc3c7; 
+            padding: 5px 2px; 
+            vertical-align: top; 
+        }
+        .text-center { text-align: center; }
+        .text-right { text-align: right; }
+        
+        /* Area Total Bawah */
+        .total-section { 
+            margin-top: auto; /* Mendorong total & TTD ke bawah */
+            padding-top: 10px; 
+        }
+        .summary-row { 
+            display: flex; 
+            justify-content: space-between; 
+            font-size: 9px; 
+            margin-bottom: 4px; 
+            color: #555;
+        }
+        .grand-total { 
+            display: flex; 
+            justify-content: space-between; 
+            font-size: 13px; 
+            font-weight: bold; 
+            border-top: 2px solid #2c3e50; 
+            padding-top: 6px; 
+            margin-top: 2px; 
+            color: #000;
+        }
+        
+        /* Area TTD */
+        .ttd-section { 
+            display: flex; 
+            justify-content: space-between; 
+            margin-top: 25px; 
+            font-size: 9px; 
+            text-align: center; 
+            color: #333;
+        }
+        .ttd-box { width: 45%; }
+        .ttd-space { height: 40px; }
+
+        /* Tombol Cetak */
+        .no-print { position: fixed; top: 15px; right: 15px; z-index: 100; }
+        .btn-print { 
+            background: #27ae60; 
+            color: white; 
+            border: none; 
+            padding: 10px 20px; 
+            border-radius: 6px; 
+            font-weight: bold; 
+            cursor: pointer; 
+            font-size: 13px;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.2);
+        }
+        .btn-print:hover { background: #219653; }
     </style>
 </head>
 <body>
-
     <div class="no-print">
-        <button onclick="window.print()">🖨️ Cetak Sekarang</button>
-        <button onclick="window.close()">Tutup</button>
+        <button class="btn-print" onclick="window.print()">🖨️ Cetak A6</button>
     </div>
 
-    <div class="print-container">
-        <div class="header">
-            <h2>BUKTI TRANSAKSI KAS</h2>
-            <p>ID Transaksi: #KAS-<%= kas.id %> | Dicetak pada: <%= new Date().toLocaleString('id-ID') %></p>
+    <div class="nota-container">
+        <!-- Header -->
+        <div class="header-nota">
+            <div class="header-left">
+                <h2>BUKTI TRANSAKSI KAS</h2>
+                <p>Dicetak: <%= new Date().toLocaleString('id-ID', {day:'2-digit', month:'short', year:'numeric', hour:'2-digit', minute:'2-digit'}) %></p>
+            </div>
+            <div class="header-right">
+                <div class="badge"><%= kas.jenis === 'PEMASUKAN' ? 'KAS MASUK' : 'KAS KELUAR' %></div>
+                <div class="tx-id">#KAS-<%= kas.id %></div>
+            </div>
         </div>
 
-        <table class="info-table">
-            <tr><td>Tanggal</td><td>: <%= new Date(kas.tanggal).toLocaleDateString('id-ID', { weekday: 'long', day: '2-digit', month: 'long', year: 'numeric' }) %></td></tr>
-            <tr><td>Jenis Kas</td><td>: <%= kas.jenis %></td></tr>
-            <tr><td>Kategori</td><td>: <%= kas.kategori %></td></tr>
-            <% if (kas.nama_po) { %><tr><td>Kaitan PO</td><td>: <%= kas.nama_po %> <% if(kas.customer) { %>(Customer: <%= kas.customer %>)<% } %></td></tr><% } %>
-            <% if (kas.nama_vendor) { %><tr><td>Vendor (CMT)</td><td>: <%= kas.nama_vendor %></td></tr><% } %>
-            <tr><td>Keterangan</td><td>: <%= kas.keterangan || '-' %></td></tr>
-        </table>
+        <!-- Info Transaksi -->
+        <div class="info-grid">
+            <div class="info-item">
+                <span class="info-label">Kategori</span>
+                <span class="info-value"><%= kas.kategori %></span>
+            </div>
+            <div class="info-item">
+                <span class="info-label">Tanggal Transaksi</span>
+                <span class="info-value"><%= new Date(kas.tanggal).toLocaleDateString('id-ID', { day: '2-digit', month: 'short', year: 'numeric' }) %></span>
+            </div>
+            
+            <% if (kas.nama_po) { %>
+            <div class="info-item" style="grid-column: span 2;">
+                <span class="info-label">Terkait PO / Customer</span>
+                <span class="info-value"><%= kas.nama_po %> <% if(kas.customer){ %>— <%= kas.customer %><% } %></span>
+            </div>
+            <% } %>
+            
+            <% if (kas.nama_vendor) { %>
+            <div class="info-item" style="grid-column: span 2;">
+                <span class="info-label">Vendor CMT</span>
+                <span class="info-value"><%= kas.nama_vendor %></span>
+            </div>
+            <% } %>
+            
+            <div class="info-item" style="grid-column: span 2;">
+                <span class="info-label">Catatan Keterangan</span>
+                <span class="info-value" style="font-weight: normal; font-style: italic;"><%= kas.keterangan || '-' %></span>
+            </div>
+        </div>
 
-        <!-- TABEL RINCIAN ITEM (Muncul jika ada data PO terkait) -->
+        <!-- Tabel Rincian -->
         <% if (rincianItems && rincianItems.length > 0) { %>
-            <div style="font-weight: bold; margin-bottom: 5px;">Rincian Pekerjaan / Order:</div>
-            <table class="detail-table">
+            <table class="table-rincian">
                 <thead>
                     <tr>
-                        <th>Nama Item</th>
-                        <th style="width: 50px;">Qty</th>
-                        <th style="width: 120px;">Harga Satuan</th>
-                        <th style="width: 150px;">Total</th>
+                        <th>Rincian Order</th>
+                        <th class="text-center" style="width: 20px;">Qty</th>
+                        <th class="text-right" style="width: 55px;">Harga</th>
+                        <th class="text-right" style="width: 65px;">Total</th>
                     </tr>
                 </thead>
                 <tbody>
@@ -78,41 +230,55 @@
                     <tr>
                         <td><%= item.nama_item %></td>
                         <td class="text-center"><%= item.qty %></td>
-                        <td class="text-right">Rp <%= Number(item.harga).toLocaleString('id-ID') %></td>
-                        <td class="text-right">Rp <%= Number(item.subtotal).toLocaleString('id-ID') %></td>
+                        <td class="text-right"><%= Number(item.harga).toLocaleString('id-ID') %></td>
+                        <td class="text-right"><%= Number(item.subtotal).toLocaleString('id-ID') %></td>
                     </tr>
                     <% }) %>
                 </tbody>
-                <tfoot>
-                    <tr>
-                        <th colspan="3" class="text-right">Estimasi Total Nilai PO/SJ:</th>
-                        <th class="text-right">Rp <%= Number(grandTotalDetail).toLocaleString('id-ID') %></th>
-                    </tr>
-                </tfoot>
             </table>
         <% } %>
 
-        <div class="nominal-box">
-            NOMINAL <%= kas.jenis === 'PEMASUKAN' ? 'DITERIMA' : 'DIBAYARKAN' %>: <br>
-            <span style="font-size: 28px;">Rp <%= Number(kas.jumlah).toLocaleString('id-ID') %></span>
+        <!-- Bagian Bawah (Otomatis menempel di bawah walau item sedikit) -->
+        <div class="total-section">
+            <% if (rincianItems && rincianItems.length > 0) { %>
+                <div class="summary-row">
+                    <span>Total Keseluruhan Nilai PO/SJ:</span>
+                    <span>Rp <%= Number(typeof grandTotalDetail !== 'undefined' ? grandTotalDetail : 0).toLocaleString('id-ID') %></span>
+                </div>
+            <% } %>
+            
+            <div class="grand-total">
+                <span><%= kas.jenis === 'PEMASUKAN' ? 'NOMINAL DITERIMA :' : 'NOMINAL DIBAYARKAN :' %></span>
+                <span>Rp <%= Number(kas.jumlah).toLocaleString('id-ID') %></span>
+            </div>
         </div>
 
-        <div class="signature-area">
-            <div class="signature-box">
-                <div>Disetujui / Admin,</div>
-                <div class="signature-line"></div>
-                <div>( ............................ )</div>
+        <!-- Kolom Tanda Tangan -->
+        <div class="ttd-section">
+            <div class="ttd-box">
+                Disetujui / Admin,
+                <div class="ttd-space"></div>
+                ( ............................ )
             </div>
-            <div class="signature-box">
-                <div>Penerima / Penyetor,</div>
-                <div class="signature-line"></div>
-                <div>( ............................ )</div>
+            <div class="ttd-box">
+                <%= kas.jenis === 'PEMASUKAN' ? 'Penyetor / Customer,' : 'Penerima / Vendor,' %>
+                <div class="ttd-space"></div>
+                ( ............................ )
             </div>
         </div>
     </div>
 
     <script>
-        window.onload = function() { window.print(); }
+        window.onload = function() {
+            // Set judul PDF saat di-save
+            const tgl = new Date().toLocaleDateString('id-ID').replace(/\//g, '-');
+            document.title = "BuktiKas_<%= kas.id %>_" + tgl;
+            
+            // Memberi jeda sedikit agar render CSS selesai sebelum memanggil dialog print
+            setTimeout(() => {
+                window.print();
+            }, 600);
+        };
     </script>
 </body>
 </html>
