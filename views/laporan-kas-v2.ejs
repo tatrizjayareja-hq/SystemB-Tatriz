@@ -1,0 +1,460 @@
+<%- include('partials/header') %>
+
+<!-- Tambahkan Chart.js untuk Grafik -->
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+<style>
+    body { background: #f4f7f9; padding-bottom: 80px; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; }
+    
+    /* --- STYLE KARTU DASHBOARD (Adaptasi dari Gambar) --- */
+    .dash-card {
+        border-radius: 10px;
+        color: white;
+        border: none;
+        overflow: hidden;
+        position: relative;
+        box-shadow: 0 4px 10px rgba(0,0,0,0.08);
+    }
+    .dash-card .card-body { padding: 20px; }
+    .dash-card .card-footer {
+        background: rgba(0,0,0,0.1);
+        border-top: none;
+        padding: 8px 20px;
+        font-size: 11px;
+        display: flex;
+        align-items: center;
+        gap: 5px;
+    }
+    .dash-icon {
+        position: absolute;
+        top: 20px;
+        right: 20px;
+        font-size: 28px;
+        opacity: 0.3;
+    }
+    
+    /* Warna Kartu */
+    .bg-blue { background: #1877F2; }
+    .bg-green { background: #28a745; }
+    .bg-orange { background: #fd7e14; }
+    .bg-red { background: #dc3545; }
+
+    /* --- STYLE TABEL & CHART --- */
+    .panel-card {
+        background: white;
+        border-radius: 10px;
+        border: none;
+        box-shadow: 0 2px 10px rgba(0,0,0,0.04);
+    }
+    .table-hover tbody tr { cursor: pointer; transition: 0.2s; }
+    .table-hover tbody tr:hover { background-color: #f8f9fa; transform: scale(1.005); }
+    
+    .text-in { color: #28a745; font-weight: bold; }
+    .text-out { color: #dc3545; font-weight: bold; }
+
+    .chart-container { position: relative; height: 250px; width: 100%; }
+
+    /* Floating Action Button (Mobile) */
+    .fab-kas {
+        position: fixed; bottom: 20px; right: 20px; z-index: 1050;
+        background: #1877F2; color: white; border-radius: 50px;
+        padding: 12px 20px; box-shadow: 0 4px 12px rgba(24, 119, 242, 0.4);
+        font-weight: bold; text-decoration: none; display: flex; align-items: center; gap: 8px;
+    }
+    @media (min-width: 768px) { .fab-kas { display: none; } }
+</style>
+
+<div class="container-fluid mx-auto" style="max-width: 1200px; padding: 15px;">
+    
+    <!-- HEADER & FILTER -->
+    <div class="d-flex flex-column flex-md-row justify-content-between align-items-md-center mb-4 gap-3">
+        <div>
+            <nav aria-label="breadcrumb">
+                <ol class="breadcrumb mb-1" style="font-size: 12px;">
+                    <li class="breadcrumb-item"><a href="/dashboard" class="text-decoration-none">Home</a></li>
+                    <li class="breadcrumb-item active">Dashboard Keuangan</li>
+                </ol>
+            </nav>
+            <h4 class="mb-0 fw-bold text-dark">Laporan Kas & Profit</h4>
+        </div>
+        
+        <div class="d-flex gap-2">
+            <form action="/laporan-kas-v2" method="GET" class="m-0">
+                <input type="month" name="bulan" value="<%= bulanIni %>" class="form-control border-secondary shadow-sm" onchange="this.form.submit()">
+            </form>
+            <a href="/input-kas" class="btn btn-primary fw-bold shadow-sm d-none d-md-flex align-items-center gap-2">
+                <i class="bi bi-plus-lg"></i> Kas Baru
+            </a>
+        </div>
+    </div>
+
+    <!-- 4 KARTU RINGKASAN (Sesuai Referensi Gambar) -->
+    <div class="row g-3 mb-4">
+        <!-- 1. Saldo Kas -->
+        <div class="col-6 col-lg-3">
+            <div class="dash-card bg-blue h-100">
+                <div class="card-body">
+                    <div class="dash-icon"><i class="bi bi-wallet2"></i></div>
+                    <h4 class="fw-bold mb-1">Rp <%= Number(saldoRiil || 0).toLocaleString('id-ID') %></h4>
+                    <span style="font-size: 13px; opacity: 0.9;">Saldo Kas (Laci)</span>
+                </div>
+                <div class="card-footer">
+                    <i class="bi bi-calendar-check"></i> Per <%= new Date().toLocaleDateString('id-ID', {day:'2-digit', month:'long', year:'numeric'}) %>
+                </div>
+            </div>
+        </div>
+        <!-- 2. Laba/Rugi -->
+        <div class="col-6 col-lg-3">
+            <div class="dash-card bg-green h-100">
+                <div class="card-body">
+                    <div class="dash-icon"><i class="bi bi-graph-up-arrow"></i></div>
+                    <h4 class="fw-bold mb-1">Rp <%= Number(estimasiProfit || 0).toLocaleString('id-ID') %></h4>
+                    <span style="font-size: 13px; opacity: 0.9;">Laba Bersih Bulan Ini</span>
+                </div>
+                <div class="card-footer">
+                    <i class="bi bi-info-circle"></i> Termasuk Potongan Operasional
+                </div>
+            </div>
+        </div>
+        <!-- 3. Piutang -->
+        <div class="col-6 col-lg-3">
+            <div class="dash-card bg-orange h-100">
+                <div class="card-body">
+                    <div class="dash-icon"><i class="bi bi-file-earmark-text"></i></div>
+                    <h4 class="fw-bold mb-1">Rp <%= Number(piutangBerjalan || 0).toLocaleString('id-ID') %></h4>
+                    <span style="font-size: 13px; opacity: 0.9;">Piutang Pelanggan</span>
+                </div>
+                <div class="card-footer">
+                    <a href="/piutang-bulanan" class="text-white text-decoration-none"><i class="bi bi-arrow-right-circle"></i> Lihat Rincian</a>
+                </div>
+            </div>
+        </div>
+        <!-- 4. Hutang -->
+        <div class="col-6 col-lg-3">
+            <div class="dash-card bg-red h-100">
+                <div class="card-body">
+                    <div class="dash-icon"><i class="bi bi-cash-stack"></i></div>
+                    <h4 class="fw-bold mb-1">Rp <%= Number(sisaHutangRiil || 0).toLocaleString('id-ID') %></h4>
+                    <span style="font-size: 13px; opacity: 0.9;">Sisa Hutang Global</span>
+                </div>
+                <div class="card-footer">
+                    <i class="bi bi-exclamation-circle"></i> Segera lunasi jika jatuh tempo
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- AREA GRAFIK (CHART.JS) -->
+    <div class="row g-3 mb-4">
+        <!-- Grafik Pemasukan -->
+        <div class="col-md-6">
+            <div class="panel-card p-3 h-100">
+                <div class="d-flex justify-content-between align-items-center mb-3 border-bottom pb-2">
+                    <h6 class="fw-bold text-dark m-0">Pemasukan Terbesar</h6>
+                    <span class="badge bg-success-subtle text-success">Bulan Ini</span>
+                </div>
+                <div class="chart-container">
+                    <canvas id="chartPemasukan"></canvas>
+                </div>
+            </div>
+        </div>
+        <!-- Grafik Pengeluaran -->
+        <div class="col-md-6">
+            <div class="panel-card p-3 h-100">
+                <div class="d-flex justify-content-between align-items-center mb-3 border-bottom pb-2">
+                    <h6 class="fw-bold text-dark m-0">Pengeluaran Terbesar</h6>
+                    <span class="badge bg-danger-subtle text-danger">Bulan Ini</span>
+                </div>
+                <div class="chart-container">
+                    <canvas id="chartPengeluaran"></canvas>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- TABEL RINCIAN TRANSAKSI (Sistem Klik Popup) -->
+    <div class="panel-card p-0 overflow-hidden mb-4">
+        <div class="p-3 border-bottom d-flex justify-content-between align-items-center bg-light">
+            <h6 class="fw-bold text-dark m-0"><i class="bi bi-list-columns-reverse me-2"></i>Riwayat Transaksi</h6>
+            <input type="text" id="searchTable" class="form-control form-control-sm w-auto" placeholder="Search..." onkeyup="filterTabel()">
+        </div>
+        <div class="table-responsive" style="max-height: 400px; overflow-y: auto;">
+            <table class="table table-hover align-middle mb-0" id="tabelTransaksi">
+                <thead class="table-secondary sticky-top" style="font-size: 12px;">
+                    <tr>
+                        <th class="ps-3">Tanggal</th>
+                        <th>Kategori</th>
+                        <th>Jenis</th>
+                        <th class="text-end pe-3">Nominal (Rp)</th>
+                    </tr>
+                </thead>
+                <tbody style="font-size: 13px;">
+                    <% if(rincianKas && rincianKas.length > 0) { %>
+                        <% rincianKas.forEach(item => { %>
+                            <!-- Fungsi Onclick untuk membuka Modal Popup -->
+                            <tr onclick="bukaDetailTabel('<%= item.id %>')">
+                                <td class="ps-3 text-muted"><%= new Date(item.tanggal).toLocaleDateString('id-ID', {day:'2-digit', month:'short', year:'numeric'}) %></td>
+                                <td class="fw-bold text-dark"><%= item.kategori %></td>
+                                <td>
+                                    <% if(item.jenis === 'PEMASUKAN') { %>
+                                        <span class="badge bg-success-subtle text-success border border-success-subtle px-2 py-1"><i class="bi bi-arrow-down-left"></i> Masuk</span>
+                                    <% } else { %>
+                                        <span class="badge bg-danger-subtle text-danger border border-danger-subtle px-2 py-1"><i class="bi bi-arrow-up-right"></i> Keluar</span>
+                                    <% } %>
+                                </td>
+                                <td class="text-end pe-3 <%= item.jenis === 'PEMASUKAN' ? 'text-in' : 'text-out' %>">
+                                    <%= Number(item.jumlah || 0).toLocaleString('id-ID') %>
+                                </td>
+                            </tr>
+                        <% }) %>
+                    <% } else { %>
+                        <tr><td colspan="4" class="text-center text-muted py-4">Belum ada transaksi di bulan ini.</td></tr>
+                    <% } %>
+                </tbody>
+            </table>
+        </div>
+        <div class="p-2 bg-light text-center border-top">
+            <small class="text-muted"><i class="bi bi-info-circle"></i> Klik pada baris tabel untuk melihat rincian, edit, atau hapus transaksi.</small>
+        </div>
+    </div>
+
+</div>
+
+<!-- Tombol Tambah Kas Melayang (Hanya di HP) -->
+<a href="/input-kas" class="fab-kas nav-link-load shadow-lg"><i class="bi bi-plus-lg"></i> Kas</a>
+
+
+<!-- ================= MODAL POPUP RINCIAN (CLEAN UX) ================= -->
+<div class="modal fade" id="modalDetailKas" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content border-0 shadow-lg" style="border-radius: 15px; overflow: hidden;">
+            <div class="modal-header border-0 text-white" id="modalHeaderColor">
+                <h6 class="modal-title fw-bold" id="mdlTitle">Detail Transaksi</h6>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body p-4 bg-light">
+                
+                <div class="text-center mb-4">
+                    <small class="text-muted text-uppercase fw-bold" id="mdlKategori">Kategori</small>
+                    <h2 class="fw-bold mb-0 mt-1" id="mdlNominal">Rp 0</h2>
+                    <span class="badge mt-2" id="mdlJenisBadge">Jenis</span>
+                </div>
+
+                <div class="bg-white p-3 rounded-3 shadow-sm border">
+                    <div class="d-flex justify-content-between border-bottom pb-2 mb-2" style="font-size: 13px;">
+                        <span class="text-muted">Tanggal</span>
+                        <strong class="text-dark" id="mdlTanggal">-</strong>
+                    </div>
+                    <div class="d-flex justify-content-between border-bottom pb-2 mb-2" style="font-size: 13px;" id="rowCustomer" style="display:none !important;">
+                        <span class="text-muted">Customer/Vendor</span>
+                        <strong class="text-dark text-end" id="mdlCustomer">-</strong>
+                    </div>
+                    <div class="d-flex justify-content-between border-bottom pb-2 mb-2" style="font-size: 13px;" id="rowPO" style="display:none !important;">
+                        <span class="text-muted">No. Pesanan (PO)</span>
+                        <strong class="text-dark text-end" id="mdlPO">-</strong>
+                    </div>
+                    <div class="mt-2" style="font-size: 13px;">
+                        <span class="text-muted d-block mb-1">Keterangan:</span>
+                        <div class="p-2 bg-light rounded text-dark" id="mdlKeterangan" style="min-height: 40px;">-</div>
+                    </div>
+                </div>
+
+            </div>
+            <div class="modal-footer border-0 p-3 bg-white d-flex justify-content-between">
+                <a href="#" id="btnModalPrint" target="_blank" class="btn btn-outline-primary shadow-sm px-3">
+                    <i class="bi bi-printer"></i> Print Bukti
+                </a>
+                <div class="d-flex gap-2">
+                    <button type="button" id="btnModalEdit" class="btn btn-warning shadow-sm px-3 text-dark fw-bold">
+                        <i class="bi bi-pencil-square"></i> Edit
+                    </button>
+                    <a href="#" id="btnModalDelete" class="btn btn-danger shadow-sm px-3 fw-bold" onclick="return confirm('Hapus permanen transaksi ini?')">
+                        <i class="bi bi-trash"></i>
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+
+<!-- Inject Data JSON dari Server untuk Chart.js -->
+<script id="data-rincian" type="application/json">
+    <%- JSON.stringify(rincianKas) %>
+</script>
+
+<script>
+    // --- 1. LOGIK FILTER PENCARIAN TABEL ---
+    function filterTabel() {
+        let input = document.getElementById("searchTable").value.toLowerCase();
+        let rows = document.querySelectorAll("#tabelTransaksi tbody tr");
+        rows.forEach(row => {
+            row.style.display = row.innerText.toLowerCase().includes(input) ? "" : "none";
+        });
+    }
+
+    // --- 2. LOGIK KLIK BARIS UNTUK BUKA MODAL ---
+    const myModal = new bootstrap.Modal(document.getElementById('modalDetailKas'));
+    
+    function bukaDetailTabel(idTransaksi) {
+        // Ambil data JSON yang sudah dicetak di bawah file
+        const rawData = JSON.parse(document.getElementById('data-rincian').textContent);
+        
+        // Cari data transaksi spesifik berdasarkan ID
+        const data = rawData.find(item => item.id.toString() === idTransaksi.toString());
+        
+        if (!data) return; // Jika tidak ketemu, hentikan.
+
+        // Format angka & tanggal
+        const nominal = Number(data.jumlah || 0).toLocaleString('id-ID');
+        const tgl = new Date(data.tanggal).toLocaleDateString('id-ID', {day:'2-digit', month:'long', year:'numeric'});
+        
+        // Setup Elemen Dasar
+        document.getElementById('mdlKategori').innerText = data.kategori;
+        document.getElementById('mdlNominal').innerText = `Rp ${nominal}`;
+        document.getElementById('mdlTanggal').innerText = tgl;
+        document.getElementById('mdlKeterangan').innerText = data.keterangan || '-';
+
+        // Deteksi Pemasukan / Pengeluaran untuk Warna Popup
+        const header = document.getElementById('modalHeaderColor');
+        const badge = document.getElementById('mdlJenisBadge');
+        const textNominal = document.getElementById('mdlNominal');
+
+        if(data.jenis === 'PEMASUKAN') {
+            header.className = "modal-header border-0 text-white bg-success";
+            badge.className = "badge bg-success-subtle text-success border border-success px-3 py-2";
+            badge.innerHTML = "<i class='bi bi-arrow-down-left'></i> PEMASUKAN";
+            textNominal.className = "fw-bold mb-0 mt-1 text-success";
+        } else {
+            header.className = "modal-header border-0 text-white bg-danger";
+            badge.className = "badge bg-danger-subtle text-danger border border-danger px-3 py-2";
+            badge.innerHTML = "<i class='bi bi-arrow-up-right'></i> PENGELUARAN";
+            textNominal.className = "fw-bold mb-0 mt-1 text-danger";
+        }
+
+        // Tampilkan Customer/Vendor jika ada
+        const namaCust = data.customer_bordir || data.customer_vendor || data.nama_vendor;
+        const targetCustRow = document.getElementById('rowCustomer');
+        if(namaCust) {
+            document.getElementById('mdlCustomer').innerText = namaCust;
+            targetCustRow.style.setProperty('display', 'flex', 'important');
+        } else {
+            targetCustRow.style.setProperty('display', 'none', 'important');
+        }
+
+        // Tampilkan PO jika ada
+        const namaPO = data.po_bordir || data.po_vendor;
+        const targetPORow = document.getElementById('rowPO');
+        if(namaPO) {
+            document.getElementById('mdlPO').innerText = namaPO;
+            targetPORow.style.setProperty('display', 'flex', 'important');
+        } else {
+            targetPORow.style.setProperty('display', 'none', 'important');
+        }
+
+        // Setup URL Tombol Aksi di Modal
+        document.getElementById('btnModalPrint').href = `/print-kas/${data.id}`;
+        document.getElementById('btnModalDelete').href = `/hapus-kas/${data.id}`;
+        
+        // Setup fungsi Edit menggunakan Session Storage
+        document.getElementById('btnModalEdit').onclick = function() {
+            let dDate = new Date(data.tanggal).toISOString().split('T')[0];
+            const editObj = { 
+                id: data.id, 
+                tgl: dDate, 
+                jenis: data.jenis, 
+                kat: data.kategori, 
+                jml: data.jumlah, 
+                ket: data.keterangan, 
+                poId: data.po_id || "" 
+            };
+            sessionStorage.setItem('editDataKas', JSON.stringify(editObj));
+            window.location.href = '/input-kas';
+        };
+
+        // Buka Modalnya
+        myModal.show();
+    }
+
+    // --- 3. LOGIK MEMBANGUN GRAFIK CHART.JS ---
+    document.addEventListener("DOMContentLoaded", function() {
+        const rawData = JSON.parse(document.getElementById('data-rincian').textContent);
+        
+        // Objek untuk menampung total per kategori
+        let dataPemasukan = {};
+        let dataPengeluaran = {};
+
+        // Loop data kas
+        rawData.forEach(item => {
+            let jml = parseFloat(item.jumlah) || 0;
+            let kat = item.kategori || "Lain-lain";
+
+            if(item.jenis === 'PEMASUKAN') {
+                dataPemasukan[kat] = (dataPemasukan[kat] || 0) + jml;
+            } else {
+                dataPengeluaran[kat] = (dataPengeluaran[kat] || 0) + jml;
+            }
+        });
+
+        // Warna-warni Chart
+        const bgColors = ['#1877F2', '#28a745', '#fd7e14', '#dc3545', '#6f42c1', '#20c997', '#e83e8c'];
+
+        // Render Chart Pemasukan
+        const ctxIn = document.getElementById('chartPemasukan').getContext('2d');
+        const keysIn = Object.keys(dataPemasukan);
+        
+        if(keysIn.length > 0) {
+            new Chart(ctxIn, {
+                type: 'doughnut',
+                data: {
+                    labels: keysIn,
+                    datasets: [{
+                        data: Object.values(dataPemasukan),
+                        backgroundColor: bgColors,
+                        borderWidth: 2
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: { legend: { position: 'right', labels: { boxWidth: 12, font: {size: 11} } } },
+                    cutout: '65%'
+                }
+            });
+        } else {
+            // Tampilan kosong jika belum ada data
+            ctxIn.font = "12px sans-serif"; ctxIn.fillStyle = "#999";
+            ctxIn.fillText("Belum ada data pemasukan", 30, 120);
+        }
+
+        // Render Chart Pengeluaran
+        const ctxOut = document.getElementById('chartPengeluaran').getContext('2d');
+        const keysOut = Object.keys(dataPengeluaran);
+        
+        if(keysOut.length > 0) {
+            new Chart(ctxOut, {
+                type: 'doughnut',
+                data: {
+                    labels: keysOut,
+                    datasets: [{
+                        data: Object.values(dataPengeluaran),
+                        backgroundColor: bgColors.slice().reverse(), // Balik urutan warna biar beda
+                        borderWidth: 2
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: { legend: { position: 'right', labels: { boxWidth: 12, font: {size: 11} } } },
+                    cutout: '65%'
+                }
+            });
+        } else {
+            // Tampilan kosong jika belum ada data
+            ctxOut.font = "12px sans-serif"; ctxOut.fillStyle = "#999";
+            ctxOut.fillText("Belum ada data pengeluaran", 30, 120);
+        }
+    });
+</script>
+
+<%- include('partials/footer') %>
