@@ -505,7 +505,7 @@ app.get('/dashboard', async (req, res) => {
     const tId = req.session.tenantId;
 
     try {
-        // 1. Statistik Status PO (DP/Cicil Dibuang, Diganti Antri)
+        // 1. Statistik Status PO
         const stats = await db.get(`
             SELECT 
                 COUNT(CASE WHEN status = 'Design' THEN 1 END) as jml_design,
@@ -514,7 +514,7 @@ app.get('/dashboard', async (req, res) => {
                 COUNT(CASE WHEN status = 'Clear' THEN 1 END) as jml_invoice
             FROM po_utama WHERE tenant_id = $1`, [tId]);
 
-        // 2. Hitung Total Piutang (Semua Potensi PO Masuk Dihitung)
+        // 2. Hitung Total Piutang
         const piutangRes = await db.get(`
             SELECT SUM(sisa_per_po) as total_piutang
             FROM (
@@ -527,8 +527,6 @@ app.get('/dashboard', async (req, res) => {
                     WHERE kategori IN ('PEMBAYARAN BORDIR', 'PELUNASAN', 'DP/CICILAN') 
                     GROUP BY po_id
                 ) bayar ON p.id = bayar.po_id
-                
-                -- 🌟 PERBAIKAN: 'Antri' dihapus dari pengecualian agar potensi tagihannya ikut dihitung
                 WHERE p.status NOT IN ('Lunas', 'Design') 
                 AND p.tenant_id = $1
             ) subquery 
@@ -545,12 +543,77 @@ app.get('/dashboard', async (req, res) => {
                 HAVING SUM(h.jumlah_setor) > d.jumlah
             ) as subquery`, [tId]);
 
-        // --- PENGIRIMAN DATA KE EJS ---
+        // ==========================================
+        // 4. DATA GRAFIK: ARUS KAS 6 BULAN TERAKHIR
+        // ==========================================
+        
+        // A. Siapkan array 6 bulan terakhir (format: YYYY-MM untuk query, dan Label untuk grafik)
+        const last6Months = [];
+        const chartBulan = [];
+        const chartPemasukan = [];
+        const chartPengeluaran = [];
+        const chartProfit = [];
+
+        for (let i = 5; i >= 0; i--) {
+            const d = new Date();
+            d.setMonth(d.getMonth() - i);
+            const monthStr = d.toISOString().substring(0, 7); // Contoh: "2026-03"
+            
+            // Format nama bulan untuk label (Contoh: "Mar", "Apr")
+            const monthLabel = new Intl.DateTimeFormat('id-ID', { month: 'short' }).format(d);
+            
+            last6Months.push({ id: monthStr, label: monthLabel });
+        }
+
+        // B. Ambil data Pemasukan & Pengeluaran dari database (dikelompokkan per bulan)
+        const cashflowRes = await db.query(`
+            SELECT 
+                TO_CHAR(tanggal::DATE, 'YYYY-MM') as bulan,
+                SUM(CASE WHEN jenis = 'PEMASUKAN' THEN jumlah ELSE 0 END) as total_masuk,
+                SUM(CASE WHEN jenis = 'PENGELUARAN' THEN jumlah ELSE 0 END) as total_keluar
+            FROM arus_kas
+            WHERE tenant_id = $1 
+              AND tanggal::DATE >= DATE_TRUNC('month', CURRENT_DATE) - INTERVAL '5 months'
+            GROUP BY TO_CHAR(tanggal::DATE, 'YYYY-MM')
+            ORDER BY bulan ASC
+        `, [tId]);
+
+        // C. Petakan hasil query ke dalam format array yang berurutan sesuai 6 bulan terakhir
+        const cfData = {};
+        if (cashflowRes && cashflowRes.rows) {
+            cashflowRes.rows.forEach(row => {
+                cfData[row.bulan] = {
+                    masuk: parseFloat(row.total_masuk) || 0,
+                    keluar: parseFloat(row.total_keluar) || 0
+                };
+            });
+        }
+
+        // D. Isi array akhir untuk dikirim ke EJS
+        last6Months.forEach(m => {
+            chartBulan.push(m.label);
+            
+            const masuk = cfData[m.id] ? cfData[m.id].masuk : 0;
+            const keluar = cfData[m.id] ? cfData[m.id].keluar : 0;
+            const profit = masuk - keluar; // Laba bersih berdasarkan arus kas
+            
+            chartPemasukan.push(masuk);
+            chartPengeluaran.push(keluar);
+            chartProfit.push(profit);
+        });
+
+        // --- PENGIRIMAN SEMUA DATA KE EJS ---
         res.render('dashboard', {
             stats: stats || { jml_design: 0, jml_antri: 0, jml_produksi: 0, jml_invoice: 0 },
             totalPiutangSemua: parseFloat(piutangRes?.total_piutang || 0),
             jumlahMasalah: parseInt(masalahRes?.total || 0),
-            uangKunci: res.locals.uangKunci 
+            uangKunci: res.locals.uangKunci,
+            
+            // Variabel Baru untuk Grafik
+            chartBulan,
+            chartPemasukan,
+            chartPengeluaran,
+            chartProfit
         });
 
     } catch (err) {

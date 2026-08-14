@@ -180,21 +180,23 @@
         </div>
     </div>
 
-    <!-- AREA GRAFIK ANALITIK -->
+    <!-- AREA GRAFIK ANALITIK (REAL DATA) -->
     <div class="row g-4 mb-5">
-        <div class="col-12 col-lg-8">
+        <!-- Grafik 1: Pemasukan vs Pengeluaran (Model Area / Garis Halus) -->
+        <div class="col-12 col-lg-7">
             <div class="chart-panel h-100">
-                <h6 class="fw-bold text-dark mb-3">Tren Keuangan (6 Bulan Terakhir)</h6>
+                <h6 class="fw-bold text-dark mb-3"><i class="bi bi-activity text-primary me-2"></i>Arus Kas (6 Bulan Terakhir)</h6>
                 <div class="chart-container">
                     <canvas id="financeChart"></canvas>
                 </div>
             </div>
         </div>
-        <div class="col-12 col-lg-4">
+        <!-- Grafik 2: Tren Profit Bersih (Model Batang) -->
+        <div class="col-12 col-lg-5">
             <div class="chart-panel h-100">
-                <h6 class="fw-bold text-dark mb-3">Distribusi PO Saat Ini</h6>
+                <h6 class="fw-bold text-dark mb-3"><i class="bi bi-graph-up-arrow text-success me-2"></i>Tren Profit Bulanan</h6>
                 <div class="chart-container">
-                    <canvas id="poChart"></canvas>
+                    <canvas id="profitChart"></canvas>
                 </div>
             </div>
         </div>
@@ -308,7 +310,7 @@
         }
     }
 
-    // --- ALERT UPGRADE ---
+   // --- ALERT UPGRADE ---
     function ajakUpgrade(fitur) {
         Swal.fire({
             title: '<span style="color: #DAA520;">Fitur Premium</span>',
@@ -323,65 +325,108 @@
             }
         });
     }
+</script> <!-- 🔥 INI YANG TADI TERTINGGAL 🔥 -->
 
-    // --- INISIALISASI CHART.JS ---
+<!-- "Brankas" Data Rahasia (1000% Aman dari Linter VS Code) -->
+<textarea id="val-bulan" style="display: none;"><%- JSON.stringify(typeof chartBulan !== 'undefined' ? chartBulan : ['Bulan 1', 'Bulan 2', 'Bulan 3', 'Bulan 4', 'Bulan 5', 'Bulan 6']) %></textarea>
+<textarea id="val-masuk" style="display: none;"><%- JSON.stringify(typeof chartPemasukan !== 'undefined' ? chartPemasukan : [0, 0, 0, 0, 0, 0]) %></textarea>
+<textarea id="val-keluar" style="display: none;"><%- JSON.stringify(typeof chartPengeluaran !== 'undefined' ? chartPengeluaran : [0, 0, 0, 0, 0, 0]) %></textarea>
+<textarea id="val-profit" style="display: none;"><%- JSON.stringify(typeof chartProfit !== 'undefined' ? chartProfit : [0, 0, 0, 0, 0, 0]) %></textarea>
+
+<script>
+    // --- INISIALISASI CHART.JS (REAL DATA) ---
     document.addEventListener("DOMContentLoaded", function() {
-        // 1. Grafik Doughnut (Status PO) - Mengambil dari variabel EJS bawaan
-        const ctxPO = document.getElementById('poChart').getContext('2d');
-        new Chart(ctxPO, {
-            type: 'doughnut',
-            data: {
-                labels: ['Design', 'Antri', 'Proses', 'Clear'],
-                datasets: [{
-                    data: [
-                        Number('<%= stats.jml_design || 0 %>'),
-                        Number('<%= stats.jml_antri || 0 %>'),
-                        Number('<%= stats.jml_produksi || 0 %>'),
-                        Number('<%= stats.jml_invoice || 0 %>')
-                    ],
-                    backgroundColor: ['#6c757d', '#ffc107', '#0d6efd', '#28a745'],
-                    borderWidth: 2
-                }]
-            },
-            options: {
-                responsive: true, maintainAspectRatio: false,
-                plugins: { legend: { position: 'bottom', labels: { boxWidth: 10, font: {size: 11} } } },
-                cutout: '65%'
-            }
-        });
+        
+        // 1. TANGKAP DATA DARI BRANKAS TEXTAREA
+        const labelBulan = JSON.parse(document.getElementById('val-bulan').value);
+        const dataPemasukan = JSON.parse(document.getElementById('val-masuk').value);
+        const dataPengeluaran = JSON.parse(document.getElementById('val-keluar').value);
+        const dataProfit = JSON.parse(document.getElementById('val-profit').value);
 
-        // 2. Grafik Bar (Pemasukan vs Pengeluaran)
-        /* CATATAN: 
-           Grafik ini menggunakan data dummy sementara karena di backend dashboard.ejs 
-           sebelumnya belum ada lemparan data array tren bulanan. 
-           Nanti di controller Node.js Anda, kirimkan variabel array ke EJS.
-        */
+        // Formatter Rupiah untuk Tooltip & Sumbu Y
+        const rupiahFormatter = function(value) {
+            if (value >= 1000000) return 'Rp ' + (value / 1000000).toFixed(1) + 'Jt';
+            if (value >= 1000) return 'Rp ' + (value / 1000).toFixed(0) + 'Rb';
+            return 'Rp ' + value;
+        };
+
+        // 2. GRAFIK ARUS KAS (Model Line/Area Chart Mulus)
         const ctxFinance = document.getElementById('financeChart').getContext('2d');
         new Chart(ctxFinance, {
-            type: 'bar',
+            type: 'line', 
             data: {
-                labels: ['Jan', 'Feb', 'Mar', 'Apr', 'Mei', 'Jun'], // Ganti dengan data bulan dinamis dari backend
+                labels: labelBulan,
                 datasets: [
                     {
                         label: 'Pemasukan',
-                        data: [15000000, 18000000, 12000000, 22000000, 25000000, 20000000], // Ganti dengan data asli
-                        backgroundColor: '#28a745',
-                        borderRadius: 4
+                        data: dataPemasukan,
+                        borderColor: '#2ecc71', // Hijau
+                        backgroundColor: 'rgba(46, 204, 113, 0.15)', // Fill hijau transparan
+                        borderWidth: 3,
+                        pointBackgroundColor: '#2ecc71',
+                        pointBorderWidth: 2,
+                        pointRadius: 4,
+                        fill: true, // Mengaktifkan efek warna area di bawah garis
+                        tension: 0.4 // Membuat garis melengkung halus
                     },
                     {
                         label: 'Pengeluaran',
-                        data: [8000000, 9000000, 7000000, 11000000, 10000000, 8500000], // Ganti dengan data asli
-                        backgroundColor: '#dc3545',
-                        borderRadius: 4
+                        data: dataPengeluaran,
+                        borderColor: '#ff4757', // Merah
+                        backgroundColor: 'rgba(255, 71, 87, 0.1)', // Fill merah transparan
+                        borderWidth: 3,
+                        pointBackgroundColor: '#ff4757',
+                        pointBorderWidth: 2,
+                        pointRadius: 4,
+                        fill: true,
+                        tension: 0.4
                     }
                 ]
             },
             options: {
                 responsive: true, maintainAspectRatio: false,
+                interaction: { mode: 'index', intersect: false }, // Tooltip muncul bersamaan
                 scales: {
-                    y: { beginAtZero: true, ticks: { callback: function(value) { return 'Rp ' + (value/1000000) + 'Jt'; } } }
+                    y: { beginAtZero: true, ticks: { callback: rupiahFormatter, font: {size: 10} } },
+                    x: { grid: { display: false } }
                 },
-                plugins: { legend: { position: 'top', labels: { boxWidth: 10, font: {size: 11} } } }
+                plugins: { legend: { position: 'top', labels: { boxWidth: 12, usePointStyle: true, font: {size: 11} } } }
+            }
+        });
+
+        // 3. GRAFIK PROFIT BULANAN (Model Bar Chart)
+        const ctxProfit = document.getElementById('profitChart').getContext('2d');
+        new Chart(ctxProfit, {
+            type: 'bar',
+            data: {
+                labels: labelBulan,
+                datasets: [{
+                    label: 'Profit Bersih',
+                    data: dataProfit,
+                    backgroundColor: function(context) {
+                        const value = context.dataset.data[context.dataIndex];
+                        return value < 0 ? '#ff4757' : '#3498db'; // Merah jika rugi, Biru jika untung
+                    },
+                    borderRadius: 6, // Ujung batang melengkung elegan
+                    borderWidth: 0
+                }]
+            },
+            options: {
+                responsive: true, maintainAspectRatio: false,
+                scales: {
+                    y: { beginAtZero: true, ticks: { callback: rupiahFormatter, font: {size: 10} } },
+                    x: { grid: { display: false } }
+                },
+                plugins: { 
+                    legend: { display: false }, // Disembunyikan karena hanya ada 1 dataset
+                    tooltip: {
+                        callbacks: {
+                            label: function(context) {
+                                return 'Profit: Rp ' + context.raw.toLocaleString('id-ID');
+                            }
+                        }
+                    }
+                }
             }
         });
     });
