@@ -1,0 +1,164 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Bukti Transaksi - <%= kas.kategori %></title>
+    <style>
+        body {
+            font-family: 'Courier New', Courier, monospace; /* Font struk klasik */
+            color: #000;
+            background: #fff;
+            margin: 0;
+            padding: 20px;
+            font-size: 14px;
+        }
+        .print-container {
+            max-width: 800px;
+            margin: 0 auto;
+            border: 1px solid #000;
+            padding: 30px;
+        }
+        .header {
+            text-align: center;
+            border-bottom: 2px dashed #000;
+            padding-bottom: 10px;
+            margin-bottom: 20px;
+        }
+        .header h2 {
+            margin: 0;
+            font-size: 22px;
+            text-transform: uppercase;
+        }
+        .header p {
+            margin: 5px 0 0;
+            font-size: 12px;
+        }
+        .info-table, .detail-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-bottom: 20px;
+        }
+        .info-table td {
+            padding: 4px 0;
+            vertical-align: top;
+        }
+        .info-table td:first-child {
+            width: 150px;
+            font-weight: bold;
+        }
+        .nominal-box {
+            font-size: 24px;
+            font-weight: bold;
+            text-align: right;
+            padding: 15px;
+            border: 2px solid #000;
+            margin-bottom: 30px;
+        }
+        .signature-area {
+            display: flex;
+            justify-content: space-between;
+            margin-top: 50px;
+        }
+        .signature-box {
+            text-align: center;
+            width: 200px;
+        }
+        .signature-line {
+            border-bottom: 1px solid #000;
+            height: 60px;
+            margin-bottom: 5px;
+        }
+        
+        /* Tombol sembunyi saat diprint */
+        .no-print {
+            text-align: center;
+            margin-bottom: 20px;
+        }
+        .no-print button {
+            padding: 10px 20px;
+            font-size: 16px;
+            cursor: pointer;
+        }
+
+        @media print {
+            .no-print { display: none !important; }
+            body { padding: 0; }
+            .print-container { border: none; padding: 0; }
+        }
+    </style>
+</head>
+<body>
+
+    <div class="no-print">
+        <button onclick="window.print()">🖨️ Cetak Sekarang</button>
+        <button onclick="window.close()">Tutup</button>
+    </div>
+
+    <div class="print-container">
+        <div class="header">
+            <h2>BUKTI TRANSAKSI KAS</h2>
+            <p>ID Transaksi: #KAS-<%= kas.id %> | Dicetak pada: <%= new Date().toLocaleString('id-ID') %></p>
+        </div>
+
+        <table class="info-table">
+            <tr>
+                <td>Tanggal</td>
+                <td>: <%= new Date(kas.tanggal).toLocaleDateString('id-ID', { weekday: 'long', day: '2-digit', month: 'long', year: 'numeric' }) %></td>
+            </tr>
+            <tr>
+                <td>Jenis Kas</td>
+                <td>: <%= kas.jenis %></td>
+            </tr>
+            <tr>
+                <td>Kategori</td>
+                <td>: <%= kas.kategori %></td>
+            </tr>
+            
+            <% if (kas.nama_po) { %>
+            <tr>
+                <td>Kaitan PO</td>
+                <td>: <%= kas.nama_po %> <% if(kas.customer) { %>(Customer: <%= kas.customer %>)<% } %></td>
+            </tr>
+            <% } %>
+
+            <% if (kas.nama_vendor) { %>
+            <tr>
+                <td>Vendor (CMT)</td>
+                <td>: <%= kas.nama_vendor %></td>
+            </tr>
+            <% } %>
+
+            <tr>
+                <td>Keterangan</td>
+                <td>: <%= kas.keterangan || '-' %></td>
+            </tr>
+        </table>
+
+        <div class="nominal-box">
+            <%= kas.jenis === 'PEMASUKAN' ? 'DITERIMA' : 'DIBAYARKAN' %>: 
+            Rp <%= Number(kas.jumlah).toLocaleString('id-ID') %>
+        </div>
+
+        <div class="signature-area">
+            <div class="signature-box">
+                <div>Disetujui / Admin,</div>
+                <div class="signature-line"></div>
+                <div>( ............................ )</div>
+            </div>
+            <div class="signature-box">
+                <div>Penerima / Penyetor,</div>
+                <div class="signature-line"></div>
+                <div>( ............................ )</div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Script agar saat halaman dibuka langsung memunculkan dialog Print -->
+    <script>
+        window.onload = function() {
+            window.print();
+        }
+    </script>
+</body>
+</html>

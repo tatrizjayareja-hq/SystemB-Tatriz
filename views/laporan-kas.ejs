@@ -277,6 +277,12 @@
                             </td>
                             <td class="text-center sticky-right-td">
                                 <div class="btn-group">
+                                    <!-- TOMBOL PRINT BARU -->
+                                    <a href="/print-kas/<%= item.id %>" target="_blank" class="btn btn-sm p-0 px-1 text-primary" title="Print Bukti Transaksi">
+                                        <i class="bi bi-printer"></i>
+                                    </a>
+                                    
+                                    <!-- Tombol Edit & Hapus yang sudah ada -->
                                     <button class="btn btn-sm p-0 px-1 text-warning" onclick="persiapanEditKas('<%= item.id %>', '<%= item.tanggal %>', '<%= item.jenis %>', '<%= item.kategori %>', '<%= item.jumlah %>', '<%= item.keterangan %>', '<%= item.po_id %>')"><i class="bi bi-pencil-square"></i></button>
                                     <a href="/hapus-kas/<%= item.id %>" class="btn btn-sm p-0 px-1 text-danger nav-link-load" onclick="return confirm('Hapus transaksi ini secara permanen?')"><i class="bi bi-trash"></i></a>
                                 </div>

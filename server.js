@@ -1505,6 +1505,42 @@ app.get('/cetak-nota-gabungan', isAdmin, async (req, res) => {
     }
 });
 
+app.get('/print-kas/:id', isAdmin, async (req, res) => {
+    const { id } = req.params;
+    const tId = req.session.tenantId;
+
+    try {
+        // Query untuk mengambil detail Kas beserta rincian PO dan Vendor yang dibayarkan
+        const sqlPrint = `
+            SELECT ak.*, 
+                   p.nama_po, 
+                   p.customer,
+                   -- Mencari nama vendor jika ada hubungannya dengan Surat Jalan CMT
+                   (SELECT STRING_AGG(DISTINCT sj.nama_vendor, ', ') 
+                    FROM cmt_surat_jalan sj 
+                    WHERE sj.id::TEXT = ANY(STRING_TO_ARRAY(COALESCE(ak.cmt_sj_id, ''), ','))) as nama_vendor
+            FROM arus_kas ak
+            LEFT JOIN po_utama p ON ak.po_id = p.id
+            WHERE ak.id = $1 AND ak.tenant_id = $2
+        `;
+        
+        const kasRes = await db.query(sqlPrint, [id, tId]);
+        
+        if (kasRes.rows.length === 0) {
+            return res.status(404).send("Data transaksi kas tidak ditemukan.");
+        }
+
+        const kas = kasRes.rows[0];
+
+        // Render ke halaman khusus cetak
+        res.render('print-kas', { kas });
+
+    } catch (err) {
+        console.error("🔥 Error Print Kas:", err.message);
+        res.status(500).send("Gagal memuat data print: " + err.message);
+    }
+});
+
 // 1. Halaman Daftar Piutang
 app.get('/piutang-customer', isAdmin, async (req, res) => {
     const tId = req.session.tenantId;
