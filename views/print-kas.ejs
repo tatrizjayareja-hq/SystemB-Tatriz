@@ -5,19 +5,25 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Bukti Transaksi - <%= kas.id %></title>
     <style>
+        /* PENGATURAN KERTAS A6 STRICT */
         @media print {
             @page { 
-                size: 105mm 148mm; /* Standar Ukuran A6 */
-                margin: 0; 
+                size: 105mm 148mm; 
+                margin: 0 !important; /* Paksa margin browser hilang */
             }
             body { 
+                margin: 0 !important; 
+                padding: 0 !important; 
                 -webkit-print-color-adjust: exact; 
-                print-color-adjust: exact; 
-                margin: 0; 
-                background: white;
+                print-color-adjust: exact;
             }
             .no-print { display: none !important; }
-            .nota-container { box-shadow: none !important; border: none !important; }
+            .nota-container { 
+                box-shadow: none !important; 
+                border: none !important; 
+                height: 148mm !important; /* Paksa mentok 1 halaman */
+                overflow: hidden !important; /* Potong sisa yang berlebih */
+            }
         }
 
         body { 
@@ -31,9 +37,9 @@
         
         .nota-container {
             width: 105mm;
-            min-height: 148mm; /* Menjaga proporsi A6 di layar */
+            height: 148mm; /* Proporsi A6 Tinggi Maksimal */
             background: white;
-            padding: 8mm;
+            padding: 6mm 8mm;
             box-sizing: border-box;
             box-shadow: 0 4px 12px rgba(0,0,0,0.1);
             display: flex;
@@ -42,123 +48,38 @@
         }
         
         /* Header Area */
-        .header-nota { 
-            border-bottom: 2px solid #2c3e50; 
-            padding-bottom: 6px; 
-            margin-bottom: 12px; 
-            display: flex; 
-            justify-content: space-between; 
-            align-items: flex-end; 
-        }
-        .header-left h2 { 
-            margin: 0; 
-            font-size: 15px; 
-            text-transform: uppercase; 
-            letter-spacing: 0.5px; 
-            color: #2c3e50; 
-        }
-        .header-left p { 
-            margin: 2px 0 0; 
-            font-size: 8px; 
-            color: #7f8c8d; 
-        }
+        .header-nota { border-bottom: 2px solid #2c3e50; padding-bottom: 6px; margin-bottom: 8px; display: flex; justify-content: space-between; align-items: flex-end; }
+        .header-left h2 { margin: 0; font-size: 14px; text-transform: uppercase; color: #2c3e50; }
+        .header-left p { margin: 2px 0 0; font-size: 7.5px; color: #7f8c8d; }
         .header-right { text-align: right; }
-        .header-right .badge { 
-            background: #34495e; 
-            color: white; 
-            padding: 2px 6px; 
-            font-size: 8px; 
-            font-weight: bold; 
-            border-radius: 3px; 
-            display: inline-block; 
-            margin-bottom: 3px; 
-        }
-        .header-right .tx-id { font-size: 10px; font-weight: bold; color: #333; }
+        .header-right .badge { background: #34495e; color: white; padding: 2px 6px; font-size: 8px; font-weight: bold; border-radius: 3px; display: inline-block; margin-bottom: 2px; }
+        .header-right .tx-id { font-size: 9px; font-weight: bold; color: #333; }
         
-        /* Info Grid (Lebih Hemat Ruang) */
-        .info-grid { 
-            display: grid; 
-            grid-template-columns: 1fr 1fr; 
-            gap: 6px; 
-            margin-bottom: 12px; 
-            font-size: 9px; 
-        }
+        /* Info Grid */
+        .info-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 4px; margin-bottom: 10px; font-size: 8.5px; }
         .info-item { display: flex; flex-direction: column; }
-        .info-label { color: #95a5a6; font-size: 7.5px; font-weight: bold; text-transform: uppercase; margin-bottom: 1px; }
+        .info-label { color: #95a5a6; font-size: 7px; font-weight: bold; text-transform: uppercase; }
         .info-value { font-weight: 600; color: #2c3e50; }
 
         /* Tabel Rincian */
-        .table-rincian { 
-            width: 100%; 
-            border-collapse: collapse; 
-            margin-bottom: 10px; 
-            font-size: 9px; 
-        }
-        .table-rincian th { 
-            background: #f8f9fa; 
-            border-bottom: 1px solid #34495e; 
-            border-top: 1px solid #34495e; 
-            padding: 5px 2px; 
-            text-align: left; 
-            color: #2c3e50;
-        }
-        .table-rincian td { 
-            border-bottom: 1px dashed #bdc3c7; 
-            padding: 5px 2px; 
-            vertical-align: top; 
-        }
+        .table-rincian { width: 100%; border-collapse: collapse; margin-bottom: 8px; font-size: 8.5px; }
+        .table-rincian th { background: #f8f9fa; border-bottom: 1px solid #34495e; border-top: 1px solid #34495e; padding: 4px 2px; text-align: left; color: #2c3e50; }
+        .table-rincian td { border-bottom: 1px dashed #bdc3c7; padding: 4px 2px; vertical-align: top; }
         .text-center { text-align: center; }
         .text-right { text-align: right; }
         
         /* Area Total Bawah */
-        .total-section { 
-            margin-top: auto; /* Mendorong total & TTD ke bawah */
-            padding-top: 10px; 
-        }
-        .summary-row { 
-            display: flex; 
-            justify-content: space-between; 
-            font-size: 9px; 
-            margin-bottom: 4px; 
-            color: #555;
-        }
-        .grand-total { 
-            display: flex; 
-            justify-content: space-between; 
-            font-size: 13px; 
-            font-weight: bold; 
-            border-top: 2px solid #2c3e50; 
-            padding-top: 6px; 
-            margin-top: 2px; 
-            color: #000;
-        }
+        .total-section { margin-top: auto; padding-top: 5px; }
+        .summary-row { display: flex; justify-content: space-between; font-size: 8.5px; margin-bottom: 4px; color: #555; }
+        .grand-total { display: flex; justify-content: space-between; font-size: 12px; font-weight: bold; border-top: 2px solid #2c3e50; padding-top: 5px; margin-top: 2px; color: #000; }
         
         /* Area TTD */
-        .ttd-section { 
-            display: flex; 
-            justify-content: space-between; 
-            margin-top: 25px; 
-            font-size: 9px; 
-            text-align: center; 
-            color: #333;
-        }
+        .ttd-section { display: flex; justify-content: space-between; margin-top: 15px; font-size: 8.5px; text-align: center; color: #333; }
         .ttd-box { width: 45%; }
-        .ttd-space { height: 40px; }
+        .ttd-space { height: 35px; }
 
-        /* Tombol Cetak */
         .no-print { position: fixed; top: 15px; right: 15px; z-index: 100; }
-        .btn-print { 
-            background: #27ae60; 
-            color: white; 
-            border: none; 
-            padding: 10px 20px; 
-            border-radius: 6px; 
-            font-weight: bold; 
-            cursor: pointer; 
-            font-size: 13px;
-            box-shadow: 0 2px 5px rgba(0,0,0,0.2);
-        }
-        .btn-print:hover { background: #219653; }
+        .btn-print { background: #27ae60; color: white; border: none; padding: 10px 20px; border-radius: 6px; font-weight: bold; cursor: pointer; font-size: 13px; }
     </style>
 </head>
 <body>
@@ -170,7 +91,7 @@
         <!-- Header -->
         <div class="header-nota">
             <div class="header-left">
-                <h2>BUKTI TRANSAKSI KAS</h2>
+                <h2>BUKTI TRANSAKSI</h2>
                 <p>Dicetak: <%= new Date().toLocaleString('id-ID', {day:'2-digit', month:'short', year:'numeric', hour:'2-digit', minute:'2-digit'}) %></p>
             </div>
             <div class="header-right">
@@ -190,22 +111,20 @@
                 <span class="info-value"><%= new Date(kas.tanggal).toLocaleDateString('id-ID', { day: '2-digit', month: 'short', year: 'numeric' }) %></span>
             </div>
             
-            <% if (kas.nama_po) { %>
-            <div class="info-item" style="grid-column: span 2;">
-                <span class="info-label">Terkait PO / Customer</span>
-                <span class="info-value"><%= kas.nama_po %> <% if(kas.customer){ %>— <%= kas.customer %><% } %></span>
-            </div>
-            <% } %>
-            
             <% if (kas.nama_vendor) { %>
             <div class="info-item" style="grid-column: span 2;">
                 <span class="info-label">Vendor CMT</span>
                 <span class="info-value"><%= kas.nama_vendor %></span>
             </div>
+            <% } else if (kas.customer) { %>
+            <div class="info-item" style="grid-column: span 2;">
+                <span class="info-label">Customer</span>
+                <span class="info-value"><%= kas.customer %></span>
+            </div>
             <% } %>
             
             <div class="info-item" style="grid-column: span 2;">
-                <span class="info-label">Catatan Keterangan</span>
+                <span class="info-label">Catatan</span>
                 <span class="info-value" style="font-weight: normal; font-style: italic;"><%= kas.keterangan || '-' %></span>
             </div>
         </div>
@@ -215,10 +134,10 @@
             <table class="table-rincian">
                 <thead>
                     <tr>
-                        <th>Rincian Order</th>
-                        <th class="text-center" style="width: 20px;">Qty</th>
-                        <th class="text-right" style="width: 55px;">Harga</th>
-                        <th class="text-right" style="width: 65px;">Total</th>
+                        <th style="width: 55%;">Deskripsi Pekerjaan</th>
+                        <th class="text-center" style="width: 10%;">Qty</th>
+                        <th class="text-right" style="width: 15%;">Harga</th>
+                        <th class="text-right" style="width: 20%;">Subtotal</th>
                     </tr>
                 </thead>
                 <tbody>
@@ -228,7 +147,10 @@
                            grandTotalDetail += Number(item.subtotal);
                     %>
                     <tr>
-                        <td><%= item.nama_item %></td>
+                        <td>
+                            <strong><%= item.nama_po %></strong><br>
+                            <span style="color: #666; font-size: 7px;"><%= item.nama_desain || '-' %></span>
+                        </td>
                         <td class="text-center"><%= item.qty %></td>
                         <td class="text-right"><%= Number(item.harga).toLocaleString('id-ID') %></td>
                         <td class="text-right"><%= Number(item.subtotal).toLocaleString('id-ID') %></td>
@@ -238,17 +160,17 @@
             </table>
         <% } %>
 
-        <!-- Bagian Bawah (Otomatis menempel di bawah walau item sedikit) -->
+        <!-- Bagian Bawah -->
         <div class="total-section">
             <% if (rincianItems && rincianItems.length > 0) { %>
                 <div class="summary-row">
-                    <span>Total Keseluruhan Nilai PO/SJ:</span>
+                    <span>Estimasi Total Nilai SJ/PO:</span>
                     <span>Rp <%= Number(typeof grandTotalDetail !== 'undefined' ? grandTotalDetail : 0).toLocaleString('id-ID') %></span>
                 </div>
             <% } %>
             
             <div class="grand-total">
-                <span><%= kas.jenis === 'PEMASUKAN' ? 'NOMINAL DITERIMA :' : 'NOMINAL DIBAYARKAN :' %></span>
+                <span><%= kas.jenis === 'PEMASUKAN' ? 'NOMINAL DITERIMA:' : 'NOMINAL DIBAYARKAN:' %></span>
                 <span>Rp <%= Number(kas.jumlah).toLocaleString('id-ID') %></span>
             </div>
         </div>
@@ -270,14 +192,9 @@
 
     <script>
         window.onload = function() {
-            // Set judul PDF saat di-save
             const tgl = new Date().toLocaleDateString('id-ID').replace(/\//g, '-');
             document.title = "BuktiKas_<%= kas.id %>_" + tgl;
-            
-            // Memberi jeda sedikit agar render CSS selesai sebelum memanggil dialog print
-            setTimeout(() => {
-                window.print();
-            }, 600);
+            setTimeout(() => { window.print(); }, 500);
         };
     </script>
 </body>

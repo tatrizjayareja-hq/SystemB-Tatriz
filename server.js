@@ -1510,7 +1510,6 @@ app.get('/print-kas/:id', isAdmin, async (req, res) => {
     const tId = req.session.tenantId;
 
     try {
-        // 1. Ambil Data Transaksi Kas
         const sqlPrint = `
             SELECT ak.*, 
                    p.nama_po, 
@@ -1527,60 +1526,45 @@ app.get('/print-kas/:id', isAdmin, async (req, res) => {
         if (kasRes.rows.length === 0) return res.status(404).send("Data transaksi kas tidak ditemukan.");
         const kas = kasRes.rows[0];
 
-        // 2. Ambil Rincian Item PO
         let rincianItems = [];
         
-        // Kita bungkus pakai try-catch agar jika nama kolom salah, halaman TIDAK ERROR, 
-        // melainkan hanya log di terminal.
         try {
-            // A. LOGIKA PENGELUARAN VENDOR (Patokannya: cmt_sj_id)
+            // A. LOGIKA PENGELUARAN VENDOR 
             if (kas.kategori === 'BAYAR CMT / VENDOR' && kas.cmt_sj_id) {
                 const sqlDetailCMT = `
-                    SELECT d.id as item_id, -- Kita pakai ID dulu sementara agar tidak error
+                    SELECT p.nama_po, 
+                           d.nama_desain, 
                            SUM(sjd.qty_dikirim) as qty, 
                            d.harga_cmt as harga, 
                            (SUM(sjd.qty_dikirim) * d.harga_cmt) as subtotal
                     FROM cmt_surat_jalan_detail sjd
                     JOIN po_detail d ON sjd.po_detail_id = d.id
+                    JOIN po_utama p ON d.po_id = p.id
                     WHERE sjd.sj_id::TEXT = ANY(STRING_TO_ARRAY($1, ','))
-                    GROUP BY d.id, d.harga_cmt
+                    GROUP BY p.nama_po, d.nama_desain, d.harga_cmt
                 `;
                 const itemRes = await db.query(sqlDetailCMT, [kas.cmt_sj_id]);
-                
-                // Rapikan datanya untuk dikirim ke EJS
-                rincianItems = itemRes.rows.map(item => ({
-                    nama_item: "Item PO (Detail ID: " + item.item_id + ")", 
-                    qty: item.qty,
-                    harga: item.harga,
-                    subtotal: item.subtotal
-                }));
+                rincianItems = itemRes.rows;
             } 
-            // B. LOGIKA PEMASUKAN CUSTOMER (Patokannya: po_id)
+            // B. LOGIKA PEMASUKAN CUSTOMER 
             else if (kas.po_id) {
                 const sqlDetailPO = `
-                    SELECT id as item_id, -- Kita pakai ID dulu sementara
-                           qty as qty, -- Mengubah qty_po menjadi qty (biasanya ini yang benar di DB)
-                           harga_customer as harga, 
-                           (qty * harga_customer) as subtotal
-                    FROM po_detail
-                    WHERE po_id = $1
+                    SELECT p.nama_po, 
+                           d.nama_desain, 
+                           COALESCE(d.jumlah, 0) as qty, 
+                           d.harga_customer as harga, 
+                           (COALESCE(d.jumlah, 0) * d.harga_customer) as subtotal
+                    FROM po_detail d
+                    JOIN po_utama p ON d.po_id = p.id
+                    WHERE d.po_id = $1
                 `;
                 const itemRes = await db.query(sqlDetailPO, [kas.po_id]);
-                
-                // Rapikan datanya untuk dikirim ke EJS
-                rincianItems = itemRes.rows.map(item => ({
-                    nama_item: "Item PO (Detail ID: " + item.item_id + ")", 
-                    qty: item.qty,
-                    harga: item.harga,
-                    subtotal: item.subtotal
-                }));
+                rincianItems = itemRes.rows;
             }
         } catch (detailErr) {
             console.error("🔥 Error Detail PO di Struk:", detailErr.message);
-            // Halaman tetap bisa diload walau rincian gagal dimuat (rincianItems tetap kosong)
         }
 
-        // Render ke EJS dengan membawa data rincianItems
         res.render('print-kas', { kas, rincianItems });
 
     } catch (err) {
