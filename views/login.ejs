@@ -3,12 +3,12 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Login - Tatriz SystemB</title>
+    <title>Login - Tatriz SystemB (Edisi Kemerdekaan)</title>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
     <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
 
     <link rel="manifest" href="/manifest.json">
-    <meta name="theme-color" content="#195e0b">
+    <meta name="theme-color" content="#ce1126"> <!-- Merah Kemerdekaan -->
     <script>
       if ('serviceWorker' in navigator) {
         window.addEventListener('load', () => {
@@ -20,17 +20,13 @@
     </script>
     <style>
         :root {
-            /* Warna Original Tatriz */
-            --dark-green: #195e0b;
-            --primary-green: #59cf77;
-            --accent-green: #48b865;
-            --text-gray: #636e72;
-            
-            /* Tambahan Tema World Cup (Emas & Stadion) */
-            --wc-gold: #FFD700;
-            --wc-gold-dark: #DAA520;
-            --wc-pitch-dark: #0d3805;
-            --wc-pitch-light: #144f08;
+            /* Tema Kemerdekaan Indonesia (Merah Putih) */
+            --merah-utama: #e3000f;
+            --merah-gelap: #8b0000;
+            --merah-pudar: rgba(227, 0, 15, 0.2);
+            --putih-utama: #ffffff;
+            --putih-tulang: #f8f9fa;
+            --teks-abu: #636e72;
         }
 
         body, html {
@@ -38,15 +34,8 @@
             padding: 0;
             min-height: 100vh;
             font-family: 'Segoe UI', Roboto, sans-serif;
-            /* Background pola rumput stadion sepak bola dengan efek lampu sorot (vignette) */
-            background: radial-gradient(circle at center, transparent 0%, rgba(0,0,0,0.6) 100%),
-                        repeating-linear-gradient(
-                            90deg,
-                            var(--wc-pitch-dark),
-                            var(--wc-pitch-dark) 40px,
-                            var(--wc-pitch-light) 40px,
-                            var(--wc-pitch-light) 80px
-                        );
+            /* Background gradien Merah elegan */
+            background: radial-gradient(circle at top right, var(--merah-utama) 0%, var(--merah-gelap) 100%);
             display: flex;
             justify-content: center;
             align-items: center;
@@ -63,11 +52,11 @@
             background: white;
             border-radius: 20px;
             overflow: hidden;
-            /* Bayangan dengan nuansa emas tipis */
-            box-shadow: 0 15px 35px rgba(0,0,0,0.5), 0 0 20px rgba(218, 165, 32, 0.2);
+            /* Bayangan dengan nuansa merah tipis */
+            box-shadow: 0 15px 35px rgba(0,0,0,0.5), 0 0 20px rgba(227, 0, 15, 0.4);
             display: flex;
             flex-direction: column;
-            border: 1px solid rgba(255, 215, 0, 0.3); /* Border emas tipis */
+            border: 1px solid rgba(255, 255, 255, 0.3);
         }
 
         /* --- BAGIAN ATAS: BRANDING --- */
@@ -78,7 +67,7 @@
             position: relative;
         }
 
-        /* Aksen pita/garis atas bergaya World Cup */
+        /* Aksen pita/garis atas merah putih */
         .card-header::before {
             content: '';
             position: absolute;
@@ -86,7 +75,8 @@
             left: 0;
             width: 100%;
             height: 6px;
-            background: linear-gradient(90deg, var(--dark-green), var(--wc-gold), var(--dark-green));
+            background: linear-gradient(90deg, var(--merah-utama) 50%, var(--putih-utama) 50%);
+            border-bottom: 1px solid #ddd;
         }
 
         .card-header img {
@@ -96,16 +86,16 @@
         }
 
         .card-header h1 {
-            color: var(--dark-green);
+            color: var(--merah-utama);
             margin: 0;
             font-size: 26px;
-            font-weight: 900; /* Dibuat lebih tebal agar lebih bold */
+            font-weight: 900;
             text-transform: uppercase;
             letter-spacing: 1px;
         }
 
         .card-header .tagline {
-            color: var(--text-gray);
+            color: var(--teks-abu);
             font-size: 14px;
             margin-top: 8px;
             line-height: 1.4;
@@ -113,8 +103,8 @@
 
         /* --- BAGIAN BAWAH: FORM --- */
         .card-body {
-            /* Menggunakan hijau Tatriz dengan pola samar jaring gawang (opsional/visual) */
-            background-color: var(--dark-green);
+            /* Background merah gelap dengan pola elegan */
+            background-color: var(--merah-gelap);
             background-image: radial-gradient(rgba(255, 255, 255, 0.05) 1px, transparent 1px);
             background-size: 15px 15px;
             color: white;
@@ -126,17 +116,18 @@
             margin: 0 0 5px 0;
             font-size: 22px;
             text-align: center;
-            color: var(--wc-gold); /* Teks Emas */
+            color: var(--putih-utama);
             text-transform: uppercase;
             letter-spacing: 2px;
+            font-weight: 800;
         }
 
         .card-body p {
             font-size: 13px;
-            opacity: 0.8;
+            opacity: 0.9;
             margin-bottom: 25px;
             text-align: center;
-            color: #ecf0f1;
+            color: #f1f2f6;
         }
 
         .form-group {
@@ -149,7 +140,7 @@
             margin-bottom: 8px;
             text-transform: uppercase;
             letter-spacing: 1px;
-            color: var(--wc-gold); /* Label aksen emas */
+            color: var(--putih-utama);
         }
 
         .input-wrapper {
@@ -161,14 +152,15 @@
             left: 15px;
             top: 50%;
             transform: translateY(-50%);
-            color: var(--wc-gold-dark); /* Ikon Emas */
+            color: var(--putih-utama);
+            opacity: 0.7;
         }
 
         .input-wrapper input {
             width: 100%;
             padding: 14px 15px 14px 45px;
-            background: rgba(0, 0, 0, 0.2); /* Lebih gelap sedikit untuk kontras */
-            border: 1px solid rgba(218, 165, 32, 0.4); /* Border emas samar */
+            background: rgba(0, 0, 0, 0.2); 
+            border: 1px solid rgba(255, 255, 255, 0.4); 
             border-radius: 10px;
             color: white;
             box-sizing: border-box;
@@ -177,18 +169,22 @@
             font-size: 16px;
         }
 
-        .input-wrapper input:focus {
-            background: rgba(0, 0, 0, 0.4);
-            border-color: var(--wc-gold);
-            box-shadow: 0 0 10px rgba(255, 215, 0, 0.3); /* Glow emas saat ngetik */
+        .input-wrapper input::placeholder {
+            color: rgba(255, 255, 255, 0.5);
         }
 
-        /* Tombol Emas Ala Trofi World Cup */
+        .input-wrapper input:focus {
+            background: rgba(0, 0, 0, 0.4);
+            border-color: var(--putih-utama);
+            box-shadow: 0 0 10px rgba(255, 255, 255, 0.3);
+        }
+
+        /* Tombol Putih Ala Kemerdekaan */
         .btn-login {
             width: 100%;
             padding: 15px;
-            background: linear-gradient(135deg, #FFD700 0%, #DAA520 100%);
-            color: #111;
+            background: var(--putih-utama);
+            color: var(--merah-utama);
             border: none;
             border-radius: 10px;
             font-weight: 900;
@@ -198,25 +194,25 @@
             margin-top: 10px;
             text-transform: uppercase;
             letter-spacing: 1px;
-            box-shadow: 0 5px 15px rgba(218, 165, 32, 0.4);
+            box-shadow: 0 5px 15px rgba(0, 0, 0, 0.2);
         }
 
         .btn-login:hover {
-            background: linear-gradient(135deg, #FFF8DC 0%, #FFD700 100%);
+            background: var(--putih-tulang);
             transform: translateY(-3px);
-            box-shadow: 0 8px 20px rgba(218, 165, 32, 0.6);
+            box-shadow: 0 8px 20px rgba(0, 0, 0, 0.4);
         }
 
         /* --- FOOTER / LINK --- */
         .card-footer {
             padding: 20px;
             text-align: center;
-            background: #f1f2f6;
+            background: var(--putih-tulang);
             font-size: 13px;
         }
 
         .card-footer a {
-            color: var(--dark-green);
+            color: var(--merah-utama);
             text-decoration: none;
             font-weight: 900;
             text-transform: uppercase;
@@ -226,11 +222,11 @@
         .setup-info {
             margin-top: 15px;
             padding: 10px;
-            background: rgba(255, 215, 0, 0.1); /* Background samar emas */
-            border: 1px solid rgba(255, 215, 0, 0.3);
+            background: rgba(255, 255, 255, 0.15); 
+            border: 1px solid rgba(255, 255, 255, 0.4);
             border-radius: 8px;
             font-size: 12px;
-            color: var(--wc-gold);
+            color: var(--putih-utama);
             text-align: center;
         }
 
@@ -248,14 +244,14 @@
         }
         
         .forgot-password-link a {
-            color: #ecf0f1;
+            color: rgba(255, 255, 255, 0.8);
             font-size: 11px;
             text-decoration: none;
             transition: 0.2s;
         }
 
         .forgot-password-link a:hover {
-            color: var(--wc-gold); /* Hover emas */
+            color: var(--putih-utama);
             text-decoration: underline;
         }
     </style>
@@ -266,7 +262,7 @@
     position: fixed;
     top: 0; left: 0;
     width: 100%; height: 100%;
-    background: rgba(13, 56, 5, 0.98); /* Stadion gelap */
+    background: rgba(139, 0, 0, 0.98); /* Merah gelap */
     z-index: 9999;
     display: flex;
     flex-direction: column;
@@ -276,13 +272,13 @@
 ">
     <div style="
         width: 60px; height: 60px;
-        border: 5px solid rgba(255, 215, 0, 0.1);
-        border-top: 5px solid #FFD700; /* Warna Emas */
+        border: 5px solid rgba(255, 255, 255, 0.2);
+        border-top: 5px solid #ffffff; /* Warna Putih */
         border-radius: 50%;
         animation: putarLoader 1s linear infinite;
-        box-shadow: 0 0 15px rgba(255, 215, 0, 0.5); /* Efek glow */
+        box-shadow: 0 0 15px rgba(255, 255, 255, 0.5); /* Efek glow putih */
     "></div>
-    <p style="color: #FFD700; margin-top: 20px; font-weight: bold; font-size: 14px; letter-spacing: 2px;">
+    <p style="color: #ffffff; margin-top: 20px; font-weight: bold; font-size: 14px; letter-spacing: 2px;">
         MEMUAT SISTEM TATRIZ...
     </p>
 </div>
@@ -308,7 +304,7 @@
 
             <div class="card-body">
                 <h2>Portal Masuk</h2>
-                <p>Gunakan akun terdaftar Anda</p>
+                <p>Semangat Merdeka! Silakan masuk ke akun Anda</p>
 
                 <form action="/login" method="POST">
                     <div class="form-group">
@@ -330,21 +326,21 @@
                         <a href="#" onclick="pemicuLupaPassword()">Lupa Password?</a>
                     </div>
 
-                    <button type="submit" class="btn-login"><i class="fas fa-futbol"></i> Masuk Sekarang</button>
+                    <button type="submit" class="btn-login"><i class="fas fa-flag"></i> Masuk Sekarang</button>
                 </form>
                 
-                <div id="areaInstalPWA" style="display: none; margin-top: 20px; padding: 15px; background: rgba(0,0,0,0.2); border: 1px dashed rgba(255,215,0,0.5); border-radius: 10px; text-align: center;">
+                <div id="areaInstalPWA" style="display: none; margin-top: 20px; padding: 15px; background: rgba(0,0,0,0.2); border: 1px dashed rgba(255,255,255,0.5); border-radius: 10px; text-align: center;">
                     <p style="margin: 0 0 10px 0; font-size: 13px; color: white; opacity: 0.9;">
-                        <i class="fas fa-mobile-alt" style="color: var(--wc-gold);"></i> Akses secepat pemain andalan! Instal versi HP.
+                        <i class="fas fa-mobile-alt" style="color: var(--putih-utama);"></i> Akses lebih cepat & merdeka! Instal versi HP.
                     </p>
-                    <button id="btnInstalPWA" class="btn-login" style="background: white; color: var(--dark-green); margin-top: 0; box-shadow: none;">
+                    <button id="btnInstalPWA" class="btn-login" style="background: white; color: var(--merah-utama); margin-top: 0; box-shadow: none;">
                         <i class="fas fa-download"></i> INSTAL APLIKASI HP
                     </button>
                 </div>
 
                 <% if (isNew) { %>
                 <div class="setup-info">
-                    <i class="fas fa-trophy"></i> Sistem baru siap digunakan. 
+                    <i class="fas fa-fire"></i> Sistem baru siap digunakan. 
                     <a href="/register" style="color: white; text-decoration: underline; font-weight: bold;">Klik Setup Awal</a>
                 </div>
                 <% } %>
@@ -366,7 +362,7 @@
             input: 'text',
             inputPlaceholder: 'Ketik username / nama toko...',
             showCancelButton: true,
-            confirmButtonColor: '#DAA520', // Warna tombol SweetAlert diubah jadi Emas agar serasi
+            confirmButtonColor: '#e3000f', // Warna merah khas bendera
             confirmButtonText: '<i class="fab fa-whatsapp"></i> Hubungi Developer',
             cancelButtonText: 'Batal'
         }).then((result) => {
@@ -417,7 +413,7 @@ btnInstal.addEventListener('click', async () => {
                 </div>
             `,
             icon: 'info',
-            confirmButtonColor: '#DAA520' // Warna Emas juga
+            confirmButtonColor: '#e3000f' // Warna merah kemerdekaan
         });
     }
 });
