@@ -544,62 +544,64 @@ app.get('/dashboard', async (req, res) => {
             ) as subquery`, [tId]);
 
         // ==========================================
-        // 4. DATA GRAFIK: ARUS KAS 6 BULAN TERAKHIR
+        // 4. DATA GRAFIK: TREN PROFIT (Sesuai Rumus Analisis Profit)
         // ==========================================
         
-        // A. Siapkan array 6 bulan terakhir (format: YYYY-MM untuk query, dan Label untuk grafik)
+        // A. Ambil Config (Beban Tetap)
+        const configRes = await db.query("SELECT beban_tetap FROM settings WHERE tenant_id = $1", [tId]);
+        const bebanTetap = parseFloat(configRes.rows[0]?.beban_tetap || 0);
+
+        // B. Siapkan array 6 bulan terakhir
         const last6Months = [];
         const chartBulan = [];
-        const chartPemasukan = [];
-        const chartPengeluaran = [];
-        const chartProfit = [];
+        const chartPemasukan = []; // Akan diisi Omzet Produksi
+        const chartPengeluaran = []; // Akan diisi Operasional Murni + Beban Tetap
+        const chartProfit = []; // Akan diisi Profit Nett
 
         for (let i = 5; i >= 0; i--) {
             const d = new Date();
             d.setMonth(d.getMonth() - i);
-            const monthStr = d.toISOString().substring(0, 7); // Contoh: "2026-03"
-            
-            // Format nama bulan untuk label (Contoh: "Mar", "Apr")
+            const monthStr = d.toISOString().substring(0, 7); 
             const monthLabel = new Intl.DateTimeFormat('id-ID', { month: 'short' }).format(d);
-            
             last6Months.push({ id: monthStr, label: monthLabel });
         }
 
-        // B. Ambil data Pemasukan & Pengeluaran dari database (dikelompokkan per bulan)
-        const cashflowRes = await db.query(`
-            SELECT 
-                TO_CHAR(tanggal::DATE, 'YYYY-MM') as bulan,
-                SUM(CASE WHEN jenis = 'PEMASUKAN' THEN jumlah ELSE 0 END) as total_masuk,
-                SUM(CASE WHEN jenis = 'PENGELUARAN' THEN jumlah ELSE 0 END) as total_keluar
-            FROM arus_kas
-            WHERE tenant_id = $1 
-              AND tanggal::DATE >= DATE_TRUNC('month', CURRENT_DATE) - INTERVAL '5 months'
-            GROUP BY TO_CHAR(tanggal::DATE, 'YYYY-MM')
-            ORDER BY bulan ASC
+        // C. Query Omzet Produksi (Sama seperti di Analisis Profit)
+        const prodRes = await db.query(`
+            SELECT TO_CHAR(h.tanggal::DATE, 'YYYY-MM') as bulan, SUM(h.jumlah_setor * d.harga_customer) as total
+            FROM hasil_kerja h
+            JOIN po_detail d ON h.detail_id = d.id
+            WHERE h.tenant_id = $1 AND h.tanggal::DATE >= DATE_TRUNC('month', CURRENT_DATE) - INTERVAL '5 months'
+            GROUP BY TO_CHAR(h.tanggal::DATE, 'YYYY-MM')
         `, [tId]);
 
-        // C. Petakan hasil query ke dalam format array yang berurutan sesuai 6 bulan terakhir
-        const cfData = {};
-        if (cashflowRes && cashflowRes.rows) {
-            cashflowRes.rows.forEach(row => {
-                cfData[row.bulan] = {
-                    masuk: parseFloat(row.total_masuk) || 0,
-                    keluar: parseFloat(row.total_keluar) || 0
-                };
-            });
-        }
+        // D. Query Pengeluaran Murni (Sama seperti di Analisis Profit)
+        const opsRes = await db.query(`
+            SELECT TO_CHAR(tanggal::DATE, 'YYYY-MM') as bulan, SUM(jumlah) as total
+            FROM arus_kas 
+            WHERE tenant_id = $1 AND jenis = 'PENGELUARAN' 
+            AND kategori NOT IN ('BIAYA KONTRAKAN', 'BAYAR HUTANG', 'JATAH PROFIT OWNER', 'BAYAR CMT / VENDOR')
+            AND tanggal::DATE >= DATE_TRUNC('month', CURRENT_DATE) - INTERVAL '5 months'
+            GROUP BY TO_CHAR(tanggal::DATE, 'YYYY-MM')
+        `, [tId]);
 
-        // D. Isi array akhir untuk dikirim ke EJS
+        // E. Gabungkan data ke dalam array berdasarkan urutan 6 bulan
+        const mapProd = {}; 
+        if (prodRes.rows) prodRes.rows.forEach(r => mapProd[r.bulan] = parseFloat(r.total));
+        
+        const mapOps = {}; 
+        if (opsRes.rows) opsRes.rows.forEach(r => mapOps[r.bulan] = parseFloat(r.total));
+
         last6Months.forEach(m => {
             chartBulan.push(m.label);
             
-            const masuk = cfData[m.id] ? cfData[m.id].masuk : 0;
-            const keluar = cfData[m.id] ? cfData[m.id].keluar : 0;
-            const profit = masuk - keluar; // Laba bersih berdasarkan arus kas
-            
-            chartPemasukan.push(masuk);
-            chartPengeluaran.push(keluar);
-            chartProfit.push(profit);
+            const omzet = mapProd[m.id] || 0;
+            const operasional = (mapOps[m.id] || 0) + bebanTetap; // Ditambah beban tetap
+            const profitNett = omzet - operasional;
+
+            chartPemasukan.push(omzet);
+            chartPengeluaran.push(operasional);
+            chartProfit.push(profitNett);
         });
 
         // --- PENGIRIMAN SEMUA DATA KE EJS ---
@@ -609,7 +611,7 @@ app.get('/dashboard', async (req, res) => {
             jumlahMasalah: parseInt(masalahRes?.total || 0),
             uangKunci: res.locals.uangKunci,
             
-            // Variabel Baru untuk Grafik
+            // Variabel Data Grafik (Kini sudah sinkron dengan Analisis Profit)
             chartBulan,
             chartPemasukan,
             chartPengeluaran,
