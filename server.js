@@ -1510,12 +1510,11 @@ app.get('/print-kas/:id', isAdmin, async (req, res) => {
     const tId = req.session.tenantId;
 
     try {
-        // Query untuk mengambil detail Kas beserta rincian PO dan Vendor yang dibayarkan
+        // 1. Ambil Data Transaksi Kas
         const sqlPrint = `
             SELECT ak.*, 
                    p.nama_po, 
                    p.customer,
-                   -- Mencari nama vendor jika ada hubungannya dengan Surat Jalan CMT
                    (SELECT STRING_AGG(DISTINCT sj.nama_vendor, ', ') 
                     FROM cmt_surat_jalan sj 
                     WHERE sj.id::TEXT = ANY(STRING_TO_ARRAY(COALESCE(ak.cmt_sj_id, ''), ','))) as nama_vendor
@@ -1525,15 +1524,45 @@ app.get('/print-kas/:id', isAdmin, async (req, res) => {
         `;
         
         const kasRes = await db.query(sqlPrint, [id, tId]);
+        if (kasRes.rows.length === 0) return res.status(404).send("Data transaksi kas tidak ditemukan.");
         
-        if (kasRes.rows.length === 0) {
-            return res.status(404).send("Data transaksi kas tidak ditemukan.");
-        }
-
         const kas = kasRes.rows[0];
 
-        // Render ke halaman khusus cetak
-        res.render('print-kas', { kas });
+        // 2. Ambil Rincian Item PO
+        let rincianItems = [];
+        if (kas.po_id) {
+            // Jika ini pembayaran untuk Vendor/CMT, kita ambil rincian QTY dari Surat Jalan & Harga CMT
+            if (kas.cmt_sj_id && kas.kategori === 'BAYAR CMT / VENDOR') {
+                const sqlDetailCMT = `
+                    SELECT d.nama_item, 
+                           SUM(sjd.qty_dikirim) as qty, 
+                           d.harga_cmt as harga, 
+                           (SUM(sjd.qty_dikirim) * d.harga_cmt) as subtotal
+                    FROM cmt_surat_jalan_detail sjd
+                    JOIN po_detail d ON sjd.po_detail_id = d.id
+                    WHERE sjd.sj_id::TEXT = ANY(STRING_TO_ARRAY($1, ','))
+                    GROUP BY d.id, d.nama_item, d.harga_cmt
+                `;
+                const itemRes = await db.query(sqlDetailCMT, [kas.cmt_sj_id]);
+                rincianItems = itemRes.rows;
+            } 
+            // Jika ini pemasukan (dari customer) atau kategori lain, tampilkan rincian PO & Harga Customer
+            else {
+                const sqlDetailPO = `
+                    SELECT nama_item, 
+                           qty_po as qty, 
+                           harga_customer as harga, 
+                           (qty_po * harga_customer) as subtotal
+                    FROM po_detail
+                    WHERE po_id = $1
+                `;
+                const itemRes = await db.query(sqlDetailPO, [kas.po_id]);
+                rincianItems = itemRes.rows;
+            }
+        }
+
+        // Render ke EJS dengan membawa data rincianItems
+        res.render('print-kas', { kas, rincianItems });
 
     } catch (err) {
         console.error("🔥 Error Print Kas:", err.message);

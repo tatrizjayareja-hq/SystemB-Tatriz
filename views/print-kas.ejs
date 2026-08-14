@@ -5,82 +5,29 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Bukti Transaksi - <%= kas.kategori %></title>
     <style>
-        body {
-            font-family: 'Courier New', Courier, monospace; /* Font struk klasik */
-            color: #000;
-            background: #fff;
-            margin: 0;
-            padding: 20px;
-            font-size: 14px;
-        }
-        .print-container {
-            max-width: 800px;
-            margin: 0 auto;
-            border: 1px solid #000;
-            padding: 30px;
-        }
-        .header {
-            text-align: center;
-            border-bottom: 2px dashed #000;
-            padding-bottom: 10px;
-            margin-bottom: 20px;
-        }
-        .header h2 {
-            margin: 0;
-            font-size: 22px;
-            text-transform: uppercase;
-        }
-        .header p {
-            margin: 5px 0 0;
-            font-size: 12px;
-        }
-        .info-table, .detail-table {
-            width: 100%;
-            border-collapse: collapse;
-            margin-bottom: 20px;
-        }
-        .info-table td {
-            padding: 4px 0;
-            vertical-align: top;
-        }
-        .info-table td:first-child {
-            width: 150px;
-            font-weight: bold;
-        }
-        .nominal-box {
-            font-size: 24px;
-            font-weight: bold;
-            text-align: right;
-            padding: 15px;
-            border: 2px solid #000;
-            margin-bottom: 30px;
-        }
-        .signature-area {
-            display: flex;
-            justify-content: space-between;
-            margin-top: 50px;
-        }
-        .signature-box {
-            text-align: center;
-            width: 200px;
-        }
-        .signature-line {
-            border-bottom: 1px solid #000;
-            height: 60px;
-            margin-bottom: 5px;
-        }
+        body { font-family: 'Courier New', Courier, monospace; color: #000; background: #fff; margin: 0; padding: 20px; font-size: 14px; }
+        .print-container { max-width: 800px; margin: 0 auto; border: 1px solid #000; padding: 30px; }
+        .header { text-align: center; border-bottom: 2px dashed #000; padding-bottom: 10px; margin-bottom: 20px; }
+        .header h2 { margin: 0; font-size: 22px; text-transform: uppercase; }
+        .header p { margin: 5px 0 0; font-size: 12px; }
+        .info-table { width: 100%; border-collapse: collapse; margin-bottom: 20px; }
+        .info-table td { padding: 4px 0; vertical-align: top; }
+        .info-table td:first-child { width: 150px; font-weight: bold; }
         
-        /* Tombol sembunyi saat diprint */
-        .no-print {
-            text-align: center;
-            margin-bottom: 20px;
-        }
-        .no-print button {
-            padding: 10px 20px;
-            font-size: 16px;
-            cursor: pointer;
-        }
+        /* Tabel Rincian */
+        .detail-table { width: 100%; border-collapse: collapse; margin-bottom: 20px; font-size: 13px; }
+        .detail-table th, .detail-table td { border: 1px solid #000; padding: 8px; }
+        .detail-table th { background-color: #f0f0f0; text-align: center; }
+        .text-right { text-align: right; }
+        .text-center { text-align: center; }
 
+        .nominal-box { font-size: 20px; font-weight: bold; text-align: right; padding: 15px; border: 2px solid #000; margin-bottom: 30px; }
+        .signature-area { display: flex; justify-content: space-between; margin-top: 50px; }
+        .signature-box { text-align: center; width: 200px; }
+        .signature-line { border-bottom: 1px solid #000; height: 60px; margin-bottom: 5px; }
+        .no-print { text-align: center; margin-bottom: 20px; }
+        .no-print button { padding: 10px 20px; font-size: 16px; cursor: pointer; }
+        
         @media print {
             .no-print { display: none !important; }
             body { padding: 0; }
@@ -102,42 +49,52 @@
         </div>
 
         <table class="info-table">
-            <tr>
-                <td>Tanggal</td>
-                <td>: <%= new Date(kas.tanggal).toLocaleDateString('id-ID', { weekday: 'long', day: '2-digit', month: 'long', year: 'numeric' }) %></td>
-            </tr>
-            <tr>
-                <td>Jenis Kas</td>
-                <td>: <%= kas.jenis %></td>
-            </tr>
-            <tr>
-                <td>Kategori</td>
-                <td>: <%= kas.kategori %></td>
-            </tr>
-            
-            <% if (kas.nama_po) { %>
-            <tr>
-                <td>Kaitan PO</td>
-                <td>: <%= kas.nama_po %> <% if(kas.customer) { %>(Customer: <%= kas.customer %>)<% } %></td>
-            </tr>
-            <% } %>
-
-            <% if (kas.nama_vendor) { %>
-            <tr>
-                <td>Vendor (CMT)</td>
-                <td>: <%= kas.nama_vendor %></td>
-            </tr>
-            <% } %>
-
-            <tr>
-                <td>Keterangan</td>
-                <td>: <%= kas.keterangan || '-' %></td>
-            </tr>
+            <tr><td>Tanggal</td><td>: <%= new Date(kas.tanggal).toLocaleDateString('id-ID', { weekday: 'long', day: '2-digit', month: 'long', year: 'numeric' }) %></td></tr>
+            <tr><td>Jenis Kas</td><td>: <%= kas.jenis %></td></tr>
+            <tr><td>Kategori</td><td>: <%= kas.kategori %></td></tr>
+            <% if (kas.nama_po) { %><tr><td>Kaitan PO</td><td>: <%= kas.nama_po %> <% if(kas.customer) { %>(Customer: <%= kas.customer %>)<% } %></td></tr><% } %>
+            <% if (kas.nama_vendor) { %><tr><td>Vendor (CMT)</td><td>: <%= kas.nama_vendor %></td></tr><% } %>
+            <tr><td>Keterangan</td><td>: <%= kas.keterangan || '-' %></td></tr>
         </table>
 
+        <!-- TABEL RINCIAN ITEM (Muncul jika ada data PO terkait) -->
+        <% if (rincianItems && rincianItems.length > 0) { %>
+            <div style="font-weight: bold; margin-bottom: 5px;">Rincian Pekerjaan / Order:</div>
+            <table class="detail-table">
+                <thead>
+                    <tr>
+                        <th>Nama Item</th>
+                        <th style="width: 50px;">Qty</th>
+                        <th style="width: 120px;">Harga Satuan</th>
+                        <th style="width: 150px;">Total</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <% 
+                       let grandTotalDetail = 0;
+                       rincianItems.forEach(item => { 
+                           grandTotalDetail += Number(item.subtotal);
+                    %>
+                    <tr>
+                        <td><%= item.nama_item %></td>
+                        <td class="text-center"><%= item.qty %></td>
+                        <td class="text-right">Rp <%= Number(item.harga).toLocaleString('id-ID') %></td>
+                        <td class="text-right">Rp <%= Number(item.subtotal).toLocaleString('id-ID') %></td>
+                    </tr>
+                    <% }) %>
+                </tbody>
+                <tfoot>
+                    <tr>
+                        <th colspan="3" class="text-right">Estimasi Total Nilai PO/SJ:</th>
+                        <th class="text-right">Rp <%= Number(grandTotalDetail).toLocaleString('id-ID') %></th>
+                    </tr>
+                </tfoot>
+            </table>
+        <% } %>
+
         <div class="nominal-box">
-            <%= kas.jenis === 'PEMASUKAN' ? 'DITERIMA' : 'DIBAYARKAN' %>: 
-            Rp <%= Number(kas.jumlah).toLocaleString('id-ID') %>
+            NOMINAL <%= kas.jenis === 'PEMASUKAN' ? 'DITERIMA' : 'DIBAYARKAN' %>: <br>
+            <span style="font-size: 28px;">Rp <%= Number(kas.jumlah).toLocaleString('id-ID') %></span>
         </div>
 
         <div class="signature-area">
@@ -154,11 +111,8 @@
         </div>
     </div>
 
-    <!-- Script agar saat halaman dibuka langsung memunculkan dialog Print -->
     <script>
-        window.onload = function() {
-            window.print();
-        }
+        window.onload = function() { window.print(); }
     </script>
 </body>
 </html>
