@@ -202,9 +202,11 @@
         </div>
     </div>
 
-    <!-- MENU NAVIGASI GRID (App Drawer) -->
+   <!-- MENU NAVIGASI GRID (App Drawer) -->
     <h6 class="fw-bold text-dark mb-3"><i class="bi bi-grid-fill text-primary me-2"></i>Menu Utama</h6>
     <div class="menu-grid mb-4">
+        
+        <!-- Baris 1: Aksi Cepat -->
         <a href="/po-baru-v2" class="app-icon-btn" style="background: #e8f5e9; border-color: #2ecc71;">
             <i class="bi bi-plus-circle-fill text-success"></i><span>INPUT PO</span>
         </a>
@@ -215,15 +217,32 @@
             <i class="bi bi-journal-text text-info"></i><span>Data PO</span>
         </a>
         <a href="/laporan-kas" class="app-icon-btn">
-            <i class="bi bi-cash-stack text-success"></i><span>Lap. Keuangan</span>
+            <i class="bi bi-cash-stack text-success"></i><span>Keuangan</span>
         </a>
+
+        <!-- Baris 2: Produksi & Tagihan -->
         <a href="/daftar-produksi" class="app-icon-btn">
             <i class="bi bi-list-check text-warning"></i><span>Log Produksi</span>
         </a>
         <a href="/piutang-customer" class="app-icon-btn">
-            <i class="bi bi-receipt text-danger"></i><span>Cetak Tagihan</span>
+            <i class="bi bi-receipt text-danger"></i><span>Tagihan / Piutang</span>
+        </a>
+        <a href="/nota-manual" class="app-icon-btn">
+            <i class="bi bi-printer text-secondary"></i><span>Nota Manual</span>
+        </a>
+        <a href="/input-kerja-admin" class="app-icon-btn">
+            <i class="bi bi-person-plus text-primary"></i><span>Input Admin</span>
+        </a>
+
+        <!-- Baris 3: Karyawan & Gaji -->
+        <a href="/karyawan" class="app-icon-btn">
+            <i class="bi bi-people text-info"></i><span>Karyawan</span>
+        </a>
+        <a href="/input-gaji" class="app-icon-btn">
+            <i class="bi bi-calculator text-success"></i><span>Hitung Gaji</span>
         </a>
         
+        <!-- Fitur PRO (Terkunci / Terbuka) -->
         <% if (isPro) { %>
             <a href="/jadwal-produksi" class="app-icon-btn">
                 <span class="pro-badge">PRO</span><i class="bi bi-calendar-range text-primary"></i><span>Jadwal Prod</span>
@@ -239,6 +258,9 @@
             </a>
             <a href="/cek-balance" class="app-icon-btn">
                 <span class="pro-badge">PRO</span><i class="bi bi-shield-check text-warning"></i><span>Audit Balance</span>
+            </a>
+            <a href="/backup-database" class="app-icon-btn">
+                <span class="pro-badge">PRO</span><i class="bi bi-cloud-download text-danger"></i><span>Backup DB</span>
             </a>
         <% } else { %>
             <a href="javascript:void(0)" onclick="ajakUpgrade('Jadwal Produksi')" class="app-icon-btn locked">
@@ -256,10 +278,15 @@
             <a href="javascript:void(0)" onclick="ajakUpgrade('Audit Balance')" class="app-icon-btn locked">
                 <span class="locked-badge"><i class="bi bi-lock-fill text-white"></i></span><i class="bi bi-shield-check"></i><span>Audit Balance</span>
             </a>
+            <a href="javascript:void(0)" onclick="ajakUpgrade('Cloud Backup')" class="app-icon-btn locked">
+                <span class="locked-badge"><i class="bi bi-lock-fill text-white"></i></span><i class="bi bi-cloud-download"></i><span>Backup DB</span>
+            </a>
         <% } %>
 
-        <a href="/karyawan" class="app-icon-btn"><i class="bi bi-people text-secondary"></i><span>Karyawan</span></a>
-        <a href="/setup-auth" class="app-icon-btn"><i class="bi bi-gear text-secondary"></i><span>Pengaturan</span></a>
+        <!-- Pengaturan Sistem -->
+        <a href="/setup-auth" class="app-icon-btn">
+            <i class="bi bi-gear text-secondary"></i><span>Pengaturan</span>
+        </a>
     </div>
 
     <!-- PIUTANG BANNER -->
