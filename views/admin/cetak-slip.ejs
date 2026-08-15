@@ -101,11 +101,14 @@
                         <% if (op.lembur > 0) { %>
                         <tr>
                             <td>
-                                Lembur <br>
-                                <span class="text-muted">(Rp <%= Math.round(op.gp / config.pembagi_lembur).toLocaleString('id-ID') %> x <%= op.lembur %> Sesi)</span>
+                                Lembur Hari Minggu <br>
+                                <span class="text-muted">
+                                    (Gp + Tambahan <%= Math.round(op.gp / config.pembagi_lembur).toLocaleString('id-ID') %>) x <%= op.lembur %> Hari
+                                </span>
                             </td>
                             <td class="text-right" style="vertical-align: bottom;">
-                                Rp <%= Math.round((op.gp / config.pembagi_lembur) * op.lembur).toLocaleString('id-ID') %>
+                                <!-- Menggunakan variabel nominal_lembur dari backend yang sudah mencakup GP + Ekstra -->
+                                Rp <%= (op.nominal_lembur || 0).toLocaleString('id-ID') %>
                             </td>
                         </tr>
                         <% } %>
