@@ -5,6 +5,38 @@
 <style>
     body { background: #f4f7f9; padding-bottom: 80px; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; }
     
+    /* --- 🔴 STYLE LOADER TRANSPARAN (GLASSMORPHISM) BARU --- */
+    .glass-loader {
+        position: fixed;
+        top: 0; left: 0; width: 100%; height: 100%;
+        background: rgba(255, 255, 255, 0.4); /* Background putih sangat transparan */
+        backdrop-filter: blur(4px); /* Efek kaca blur ke belakang */
+        -webkit-backdrop-filter: blur(4px);
+        z-index: 99999;
+        display: flex;
+        flex-direction: column;
+        justify-content: center;
+        align-items: center;
+        opacity: 0;
+        visibility: hidden;
+        transition: opacity 0.3s ease, visibility 0.3s ease;
+    }
+    .glass-loader.active {
+        opacity: 1;
+        visibility: visible;
+    }
+    .spinner-ring {
+        width: 45px; height: 45px;
+        border: 4px solid rgba(24, 119, 242, 0.15);
+        border-top: 4px solid #1877F2; /* Warna biru primary */
+        border-radius: 50%;
+        animation: spin-ring 0.8s linear infinite;
+    }
+    @keyframes spin-ring { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+    .loader-text {
+        margin-top: 12px; font-weight: 700; color: #2c3e50; font-size: 13px; letter-spacing: 1px;
+    }
+
     /* --- STYLE KARTU DASHBOARD --- */
     .dash-card {
         border-radius: 10px;
@@ -64,6 +96,12 @@
     }
 </style>
 
+<!-- 🔴 ELEMEN LOADER TRANSPARAN -->
+<div id="glassLoaderSistem" class="glass-loader">
+    <div class="spinner-ring"></div>
+    <p id="glassLoaderText" class="loader-text">MEMPROSES...</p>
+</div>
+
 <div class="container-fluid mx-auto" style="max-width: 1200px; padding: 15px;">
     
     <!-- HEADER & FILTER -->
@@ -79,10 +117,11 @@
         </div>
         
         <div class="d-flex gap-2">
-            <form action="/laporan-kas" method="GET" class="m-0">
-                <input type="month" name="bulan" value="<%= bulanIni %>" class="form-control border-secondary shadow-sm" onchange="this.form.submit()">
+            <!-- 🔴 PERLINDUNGAN FILTER BULAN DENGAN LOADER -->
+            <form action="/laporan-kas" method="GET" class="m-0" id="formFilterBulan">
+                <input type="month" name="bulan" value="<%= bulanIni %>" class="form-control border-secondary shadow-sm" onchange="jalankanLoader('Memuat Laporan...'); this.form.submit();">
             </form>
-            <a href="/input-kas" class="btn btn-primary fw-bold shadow-sm d-none d-md-flex align-items-center gap-2">
+            <a href="/input-kas" class="btn btn-primary fw-bold shadow-sm d-none d-md-flex align-items-center gap-2" onclick="jalankanLoader('Buka Form Input...')">
                 <i class="bi bi-plus-lg"></i> Kas Baru
             </a>
         </div>
@@ -141,7 +180,7 @@
                     <span style="font-size: 13px; opacity: 0.9;">Piutang Berjalan</span>
                 </div>
                 <div class="card-footer">
-                    <a href="/piutang-bulanan" class="text-white text-decoration-none w-100 text-center"><i class="bi bi-arrow-right-circle"></i> Buka Piutang</a>
+                    <a href="/piutang-bulanan" class="text-white text-decoration-none w-100 text-center" onclick="jalankanLoader('Buka Data Piutang...')"><i class="bi bi-arrow-right-circle"></i> Buka Piutang</a>
                 </div>
             </div>
         </div>
@@ -190,7 +229,7 @@
         </div>
     </div>
 
-    <!-- BANNER: TOMBOL OMZET HARIAN (YANG TERTINGGAL KINI KEMBALI) -->
+    <!-- BANNER: TOMBOL OMZET HARIAN -->
     <div class="card border-0 shadow-sm rounded-3 mb-4 clickable dash-card" 
          <% if (isPro) { %>
              data-bs-toggle="modal" data-bs-target="#modalOmzetHarian" style="cursor: pointer;"
@@ -263,7 +302,7 @@
 </div>
 
 <!-- Tombol Tambah Kas Melayang (HP) -->
-<a href="/input-kas" class="fab-kas nav-link-load shadow-lg"><i class="bi bi-plus-lg"></i> Kas</a>
+<a href="/input-kas" class="fab-kas shadow-lg" onclick="jalankanLoader('Buka Form Input...')"><i class="bi bi-plus-lg"></i> Kas</a>
 
 
 <!-- ================= KUMPULAN MODAL POPUP ================= -->
@@ -318,7 +357,7 @@
                 <div class="bg-dark text-white p-3 text-center">
                     <small class="fw-bold text-white-50" style="font-size: 11px; letter-spacing: 1px;">TABUNGAN PROFIT (ALL-TIME)</small>
                     <h3 class="fw-bold mb-0 text-warning mt-1">Rp <%= Number(sisaProfitAkumulasi || 0).toLocaleString('id-ID') %></h3>
-                    <a href="/analisis-profit" class="text-white-50 text-decoration-none mt-2 d-inline-block border-bottom border-secondary pb-1" style="font-size: 11px;">Lihat Riwayat Penarikan →</a>
+                    <a href="/analisis-profit" class="text-white-50 text-decoration-none mt-2 d-inline-block border-bottom border-secondary pb-1" style="font-size: 11px;" onclick="jalankanLoader('Buka Riwayat Penarikan...')">Lihat Riwayat Penarikan →</a>
                 </div>
 
                 <div class="p-4">
@@ -446,13 +485,13 @@
                 <a href="#" id="btnModalPrint" target="_blank" class="btn btn-outline-primary shadow-sm px-3"><i class="bi bi-printer"></i> Print</a>
                 <div class="d-flex gap-2">
                     <button type="button" id="btnModalEdit" class="btn btn-warning shadow-sm px-3 text-dark fw-bold"><i class="bi bi-pencil-square"></i> Edit</button>
-                    <a href="#" id="btnModalDelete" class="btn btn-danger shadow-sm px-3 fw-bold" onclick="return confirm('Hapus permanen transaksi ini?')"><i class="bi bi-trash"></i></a>
+                    <!-- 🔴 TOMBOL DELETE SUDAH DIAMANKAN -->
+                    <a href="#" id="btnModalDelete" class="btn btn-danger shadow-sm px-3 fw-bold"><i class="bi bi-trash"></i></a>
                 </div>
             </div>
         </div>
     </div>
 </div>
-
 
 <!-- Inject Data JSON dari Server untuk Script -->
 <script id="data-rincian" type="application/json">
@@ -460,6 +499,17 @@
 </script>
 
 <script>
+    // --- 🔴 FUNGSI PENGGERAK LOADER TRANSPARAN ---
+    function jalankanLoader(pesan) {
+        document.getElementById('glassLoaderText').innerText = pesan || 'MEMPROSES...';
+        document.getElementById('glassLoaderSistem').classList.add('active');
+    }
+
+    // Mencegah user klik tombol back tapi layar masih ke-lock (Safari/iOS cache issue)
+    window.addEventListener('pageshow', function(event) {
+        document.getElementById('glassLoaderSistem').classList.remove('active');
+    });
+
     // --- 1. PENCARIAN TABEL TRANSAKSI ---
     function filterTabel() {
         let input = document.getElementById("searchTable").value.toLowerCase();
@@ -517,9 +567,34 @@
         }
 
         document.getElementById('btnModalPrint').href = `/print-kas/${data.id}`;
-        document.getElementById('btnModalDelete').href = `/hapus-kas/${data.id}`;
         
+        // 🔴 KLIK DELETE (KONFIRMASI LALU LOADER TRANSPARAN)
+        document.getElementById('btnModalDelete').onclick = function(e) {
+            e.preventDefault(); 
+            modalDetailKas.hide(); 
+            
+            Swal.fire({
+                title: 'Hapus Transaksi?',
+                text: "Data kas ini akan dihapus permanen!",
+                icon: 'warning',
+                showCancelButton: true,
+                confirmButtonColor: '#dc3545',
+                cancelButtonColor: '#6c757d',
+                confirmButtonText: 'Ya, Hapus!',
+                cancelButtonText: 'Batal'
+            }).then((result) => {
+                if (result.isConfirmed) {
+                    jalankanLoader('Menghapus Data...');
+                    window.location.href = `/hapus-kas/${data.id}`;
+                } else {
+                    modalDetailKas.show(); 
+                }
+            });
+        };
+
+        // 🔴 KLIK EDIT (LANGSUNG LOADER TRANSPARAN)
         document.getElementById('btnModalEdit').onclick = function() {
+            jalankanLoader('Menyiapkan Form Edit...');
             let dDate = new Date(data.tanggal).toISOString().split('T')[0];
             const editObj = { id: data.id, tgl: dDate, jenis: data.jenis, kat: data.kategori, jml: data.jumlah, ket: data.keterangan, poId: data.po_id || "" };
             sessionStorage.setItem('editDataKas', JSON.stringify(editObj));
