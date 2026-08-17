@@ -1,4 +1,5 @@
 require('dotenv').config();
+const APP_VERSION = Date.now();
 const express = require('express');
 const { Pool } = require('pg');
 const path = require('path');
@@ -123,25 +124,22 @@ app.use((req, res, next) => {
 
 // --- RUTE HALAMAN LOGIN ---
 app.get('/', async (req, res) => {
-    // ==============================================================
-    // TAMBAHKAN HEADER INI UNTUK MEMAKSA BROWSER TIDAK MENYIMPAN CACHE
-    // ==============================================================
+    // Header anti-cache untuk HTML tetap biarkan
     res.set('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate');
     res.set('Pragma', 'no-cache');
     res.set('Expires', '0');
-    res.set('Surrogate-Control', 'no-store');
-    // ==============================================================
+
     try {
-        // Cek apakah sudah ada tenant di sistem untuk memunculkan link setup awal
         const result = await db.query("SELECT COUNT(*) as jml FROM settings");
-        const isNewSystem = (result.rows[0].jml === '0'); // PostgreSQL mengembalikan count sebagai string
+        const isNewSystem = (result.rows[0].jml === '0');
 
         res.render('login', { 
-            isNew: isNewSystem 
+            isNew: isNewSystem,
+            version: APP_VERSION // <--- TAMBAHKAN BARIS INI
         });
     } catch (err) {
         console.error(err);
-        res.render('login', { isNew: false });
+        res.render('login', { isNew: false, version: APP_VERSION });
     }
 });
 

@@ -1,4 +1,4 @@
-const CACHE_NAME = 'tatriz-cache-v1';
+const CACHE_NAME = 'tatriz-cache-v2';
 const urlsToCache = [
   '/',
   '/img/Tatriz SystemB.png'
