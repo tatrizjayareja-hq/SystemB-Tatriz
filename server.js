@@ -123,6 +123,14 @@ app.use((req, res, next) => {
 
 // --- RUTE HALAMAN LOGIN ---
 app.get('/', async (req, res) => {
+    // ==============================================================
+    // TAMBAHKAN HEADER INI UNTUK MEMAKSA BROWSER TIDAK MENYIMPAN CACHE
+    // ==============================================================
+    res.set('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate');
+    res.set('Pragma', 'no-cache');
+    res.set('Expires', '0');
+    res.set('Surrogate-Control', 'no-store');
+    // ==============================================================
     try {
         // Cek apakah sudah ada tenant di sistem untuk memunculkan link setup awal
         const result = await db.query("SELECT COUNT(*) as jml FROM settings");
