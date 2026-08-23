@@ -114,7 +114,9 @@
                     <td>Rp <%= (user.gaji_pokok || 0).toLocaleString() %></td>
                     <td>
                         <% if(user.username !== 'admin') { %>
-                            <a href="/hapus-karyawan/<%= user.id %>" onclick="return confirm('Hapus user ini?')" style="color: #ff7675; text-decoration: none;">❌</a>
+                            <form action="/karyawan/resign/<%= user.id %>" method="POST" style="display:inline;" onsubmit="return confirm('Yakin ingin menandai karyawan ini Resign? Akun akan dinonaktifkan permanen.')">
+                                <button type="submit" style="background: none; border: none; cursor: pointer; font-size: 16px;" title="Tandai Resign">🚪 Mark Resign</button>
+                            </form>
                         <% } %>
                     </td>
                 </tr>

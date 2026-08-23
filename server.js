@@ -175,6 +175,10 @@ app.post('/login', async (req, res) => {
         }
 
         const loggedInUser = result.rows[0];
+        if (loggedInUser.status === 'resign') {
+            console.log(`Log: Login ditolak. Akun ${username} sudah berstatus resign.`);
+            return res.send("<script>alert('Akun ini sudah tidak aktif (Resign). Silakan hubungi Admin.'); window.location='/';</script>");
+        }
 
         // ==============================================================
         // BLOK PROTEKSI BRUTE-FORCE (CEK APAKAH AKUN TERKUNCI)
@@ -2195,7 +2199,6 @@ app.get('/analisis-profit', isAdmin, async (req, res) => {
     }
 });
 
-// Halaman Manajemen Karyawan
 app.get('/karyawan', isAdmin, async (req, res) => {
     const tId = req.session.tenantId;
 
@@ -2203,13 +2206,11 @@ app.get('/karyawan', isAdmin, async (req, res) => {
         const sql = `
             SELECT id, nama_lengkap, username, role, COALESCE(gaji_pokok, 0) as gaji_pokok 
             FROM users 
-            WHERE tenant_id = $1 
+            WHERE tenant_id = $1 AND (status IS NULL OR status = 'aktif')
             ORDER BY role DESC, nama_lengkap ASC
         `;
         
-        // PERBAIKAN: Gunakan db.query dan .rows untuk PostgreSQL
         const result = await db.query(sql, [tId]);
-        
         res.render('karyawan', { users: result.rows || [] });
     } catch (err) {
         console.error("🔥 Gagal memuat karyawan:", err.message);
@@ -2318,21 +2319,26 @@ app.get('/piutang-bulanan', isAdmin, async (req, res) => {
     }
 });
 
-app.get('/hapus-karyawan/:id', isAdmin, async (req, res) => {
+// Mengubah status karyawan menjadi 'resign'
+app.post('/karyawan/resign/:id', isAdmin, async (req, res) => {
     const tId = req.session.tenantId;
     const userId = req.params.id;
 
     try {
-        // Tambahan proteksi: Hanya hapus jika ID cocok, Tenant cocok, dan BUKAN username 'admin'
-        await db.query(
-            "DELETE FROM users WHERE id = $1 AND tenant_id = $2 AND username != 'admin'", 
-            [userId, tId]
-        );
-        
+        // Update status jadi 'resign' dan ubah username/password agar tidak bisa dipakai login lagi
+        const sql = `
+            UPDATE users 
+            SET status = 'resign', 
+                username = username || '_resign_' || id, 
+                password = 'DISABLED_ACCOUNT'
+            WHERE id = $1 AND tenant_id = $2 AND username != 'admin'
+        `;
+
+        await db.query(sql, [userId, tId]);
         res.redirect('/karyawan');
     } catch (err) {
-        console.error("🔥 Gagal hapus karyawan:", err.message);
-        res.status(500).send("Gagal menghapus karyawan.");
+        console.error("🔥 Gagal memproses resign karyawan:", err.message);
+        res.send("<script>alert('Gagal memproses status resign!'); window.history.back();</script>");
     }
 });
 
