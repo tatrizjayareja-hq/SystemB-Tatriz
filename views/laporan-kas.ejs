@@ -261,29 +261,42 @@
             <input type="text" id="searchTable" class="form-control form-control-sm w-auto" placeholder="🔍 Cari..." onkeyup="filterTabel()">
         </div>
         <div class="table-responsive" style="max-height: 400px; overflow-y: auto;">
-            <table class="table table-hover align-middle mb-0" id="tabelTransaksi">
+            <!-- Tambahan table-layout: fixed agar kolom bisa diatur lebarnya & text-truncate bisa berfungsi -->
+            <table class="table table-hover align-middle mb-0" id="tabelTransaksi" style="table-layout: fixed; min-width: 600px;">
                 <thead class="table-secondary sticky-top" style="font-size: 12px;">
                     <tr>
-                        <th class="ps-3">Tanggal</th>
-                        <th>Kategori</th>
-                        <th>Jenis</th>
-                        <th class="text-end pe-3">Nominal (Rp)</th>
+                        <th class="ps-3" style="width: 18%;">Tanggal</th>
+                        <th style="width: 32%;">Kategori</th>
+                        <th style="width: 25%;">Keterangan</th> <!-- Menggantikan kolom Jenis -->
+                        <th class="text-end pe-3" style="width: 25%;">Nominal (Rp)</th>
                     </tr>
                 </thead>
                 <tbody style="font-size: 13px;">
                     <% if(rincianKas && rincianKas.length > 0) { %>
                         <% rincianKas.forEach(item => { %>
                             <tr onclick="bukaDetailTabel('<%= item.id %>')">
-                                <td class="ps-3 text-muted"><%= new Date(item.tanggal).toLocaleDateString('id-ID', {day:'2-digit', month:'short'}) %></td>
-                                <td class="fw-bold text-dark"><%= item.kategori %></td>
-                                <td>
-                                    <% if(item.jenis === 'PEMASUKAN') { %>
-                                        <span class="badge bg-success-subtle text-success px-2"><i class="bi bi-arrow-down-left"></i> Masuk</span>
-                                    <% } else { %>
-                                        <span class="badge bg-danger-subtle text-danger px-2"><i class="bi bi-arrow-up-right"></i> Keluar</span>
-                                    <% } %>
+                                <!-- Tanggal -->
+                                <td class="ps-3 text-muted text-truncate">
+                                    <%= new Date(item.tanggal).toLocaleDateString('id-ID', {day:'2-digit', month:'short'}) %>
                                 </td>
-                                <td class="text-end pe-3 <%= item.jenis === 'PEMASUKAN' ? 'text-in' : 'text-out' %>">
+                                
+                                <!-- Kategori + Icon Panah Kecil -->
+                                <td class="fw-bold text-dark text-truncate">
+                                    <% if(item.jenis === 'PEMASUKAN') { %>
+                                        <i class="bi bi-arrow-down-left text-success fw-bold me-1" title="Masuk"></i>
+                                    <% } else { %>
+                                        <i class="bi bi-arrow-up-right text-danger fw-bold me-1" title="Keluar"></i>
+                                    <% } %>
+                                    <%= item.kategori %>
+                                </td>
+                                
+                                <!-- Keterangan (Dipotong jika terlalu panjang) -->
+                                <td class="text-muted text-truncate" title="<%= item.keterangan || '-' %>">
+                                    <%= item.keterangan || '-' %>
+                                </td>
+                                
+                                <!-- Nominal -->
+                                <td class="text-end pe-3 <%= item.jenis === 'PEMASUKAN' ? 'text-in' : 'text-out' %> text-truncate">
                                     <%= Number(item.jumlah || 0).toLocaleString('id-ID') %>
                                 </td>
                             </tr>
@@ -298,8 +311,6 @@
             <small class="text-muted"><i class="bi bi-info-circle"></i> Klik pada baris tabel untuk melihat detail, edit, atau print.</small>
         </div>
     </div>
-
-</div>
 
 <!-- Tombol Tambah Kas Melayang (HP) -->
 <a href="/input-kas" class="fab-kas shadow-lg" onclick="jalankanLoader('Buka Form Input...')"><i class="bi bi-plus-lg"></i> Kas</a>
