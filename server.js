@@ -1091,7 +1091,7 @@ app.post('/update-po/:id', isAdmin, async (req, res) => {
                 const opInput = Number(hrgOpList[i]) || 0;
                 
                 finalHCmt = cmtInput > 0 ? cmtInput : opInput;
-                finalHOp = finalHCmt; // Atau sesuaikan logika internal Anda
+                finalHOp = finalHCmt; 
             } else {
                 // Tenant Luar (Non-Internal): Harga CMT & Operator Wajib Mengikuti Harga Customer
                 finalHCmt = hCu;
@@ -1101,7 +1101,7 @@ app.post('/update-po/:id', isAdmin, async (req, res) => {
             totalTagihanBaru += (qty * hCu);
 
             if (idList[i] && idList[i] !== "") {
-                // UPDATE DETAIL
+                // A. UPDATE DETAIL PO
                 await db.query(
                     `UPDATE po_detail SET 
                         jenis_bordir=$1, nama_desain=$2, jumlah=$3, 
@@ -1109,6 +1109,34 @@ app.post('/update-po/:id', isAdmin, async (req, res) => {
                     WHERE id=$7 AND po_id=$8`,
                     [jbList[i], dsList[i], qty, finalHCmt, finalHOp, hCu, idList[i], poId]
                 );
+
+                // B. SINKRONISASI OTOMATIS KE SURAT JALAN CMT (AGAR HARGA KAS & NOTA IKUT BERUBAH)
+                // Update harga satuan di riwayat detail surat jalan
+                await db.query(
+                    `UPDATE cmt_surat_jalan_detail 
+                     SET harga_cmt_saat_ini = $1 
+                     WHERE po_detail_id = $2`,
+                    [finalHCmt, idList[i]]
+                );
+
+                // Cari Surat Jalan yang mencakup item ini, lalu hitung ulang total biayanya secara otomatis
+                const affectedSJ = await db.query(
+                    `SELECT DISTINCT sj_id FROM cmt_surat_jalan_detail WHERE po_detail_id = $1`,
+                    [idList[i]]
+                );
+
+                for (let rowSJ of affectedSJ.rows) {
+                    await db.query(`
+                        UPDATE cmt_surat_jalan 
+                        SET total_biaya_vendor = (
+                            SELECT SUM(sjd.qty_dikirim * sjd.harga_cmt_saat_ini) 
+                            FROM cmt_surat_jalan_detail sjd 
+                            WHERE sjd.sj_id = cmt_surat_jalan.id
+                        )
+                        WHERE id = $1
+                    `, [rowSJ.sj_id]);
+                }
+
             } else {
                 // INSERT DETAIL BARU
                 await db.query(
