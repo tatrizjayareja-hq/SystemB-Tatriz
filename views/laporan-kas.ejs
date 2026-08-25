@@ -261,41 +261,59 @@
             <input type="text" id="searchTable" class="form-control form-control-sm w-auto" placeholder="🔍 Cari..." onkeyup="filterTabel()">
         </div>
         <div class="table-responsive" style="max-height: 400px; overflow-y: auto;">
-            <!-- Tambahan table-layout: fixed agar kolom bisa diatur lebarnya & text-truncate bisa berfungsi -->
-            <table class="table table-hover align-middle mb-0" id="tabelTransaksi" style="table-layout: fixed; min-width: 600px;">
+            <!-- table-layout: fixed MEMASTIKAN TABEL TIDAK BERANTAKAN -->
+            <table class="table table-hover align-middle mb-0" id="tabelTransaksi" style="table-layout: fixed; min-width: 650px;">
                 <thead class="table-secondary sticky-top" style="font-size: 12px;">
                     <tr>
-                        <th class="ps-3" style="width: 18%;">Tanggal</th>
-                        <th style="width: 32%;">Kategori</th>
-                        <th style="width: 25%;">Keterangan</th> <!-- Menggantikan kolom Jenis -->
-                        <th class="text-end pe-3" style="width: 25%;">Nominal (Rp)</th>
+                        <th class="ps-3" style="width: 15%;">Tanggal</th>
+                        <th style="width: 33%;">Kategori</th>
+                        <th style="width: 32%;">Customer / Vendor</th>
+                        <th class="text-end pe-3" style="width: 20%;">Nominal (Rp)</th>
                     </tr>
                 </thead>
                 <tbody style="font-size: 13px;">
                     <% if(rincianKas && rincianKas.length > 0) { %>
                         <% rincianKas.forEach(item => { %>
                             <tr onclick="bukaDetailTabel('<%= item.id %>')">
-                                <!-- Tanggal -->
+                                
+                                <!-- 1. TANGGAL -->
                                 <td class="ps-3 text-muted text-truncate">
                                     <%= new Date(item.tanggal).toLocaleDateString('id-ID', {day:'2-digit', month:'short'}) %>
                                 </td>
                                 
-                                <!-- Kategori + Icon Panah Kecil -->
-                                <td class="fw-bold text-dark text-truncate">
+                                <!-- 2. KATEGORI (Icon Kotak Berwarna + Kategori) -->
+                                <td class="text-truncate">
                                     <% if(item.jenis === 'PEMASUKAN') { %>
-                                        <i class="bi bi-arrow-down-left text-success fw-bold me-1" title="Masuk"></i>
+                                        <span class="badge bg-success-subtle text-success border border-success border-opacity-25 me-2 py-1 px-2" title="Pemasukan">
+                                            <i class="bi bi-arrow-down-left"></i>
+                                        </span>
                                     <% } else { %>
-                                        <i class="bi bi-arrow-up-right text-danger fw-bold me-1" title="Keluar"></i>
+                                        <span class="badge bg-danger-subtle text-danger border border-danger border-opacity-25 me-2 py-1 px-2" title="Pengeluaran">
+                                            <i class="bi bi-arrow-up-right"></i>
+                                        </span>
                                     <% } %>
-                                    <%= item.kategori %>
+                                    <span class="fw-bold text-dark"><%= item.kategori %></span>
                                 </td>
                                 
-                                <!-- Keterangan (Dipotong jika terlalu panjang) -->
-                                <td class="text-muted text-truncate" title="<%= item.keterangan || '-' %>">
-                                    <%= item.keterangan || '-' %>
+                                <!-- 3. RINCIAN (Nama Target + Keterangan) -->
+                                <td class="text-truncate">
+                                    <% 
+                                        // Deteksi nama siapa yang harus ditampilkan
+                                        let targetName = item.nama_vendor || item.customer_bordir || item.customer_vendor || ""; 
+                                        let ketDetail = item.keterangan ? item.keterangan : "";
+                                        
+                                        // Susun formatnya (Contoh: "Budi (Lunas)")
+                                        let fullText = "";
+                                        if(targetName) fullText += `<span class="fw-bold text-dark">${targetName}</span>`;
+                                        if(ketDetail) fullText += targetName ? ` <small class="text-muted fst-italic">(${ketDetail})</small>` : `<span class="text-muted">${ketDetail}</span>`;
+                                    %>
+                                    <!-- Bungkus dengan title agar teks lengkap muncul saat di-hover mouse -->
+                                    <div class="text-truncate" title="<%= targetName %> <%= ketDetail ? '('+ketDetail+')' : '' %>">
+                                        <%- fullText || '-' %>
+                                    </div>
                                 </td>
                                 
-                                <!-- Nominal -->
+                                <!-- 4. NOMINAL -->
                                 <td class="text-end pe-3 <%= item.jenis === 'PEMASUKAN' ? 'text-in' : 'text-out' %> text-truncate">
                                     <%= Number(item.jumlah || 0).toLocaleString('id-ID') %>
                                 </td>
