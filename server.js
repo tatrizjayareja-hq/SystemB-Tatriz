@@ -1035,11 +1035,14 @@ app.post('/update-po/:id', isAdmin, async (req, res) => {
 
     if (!tId) return res.redirect('/');
 
+    // Tentukan apakah tenant ini termasuk internal
+    const isInternal = (tId === 1 || tId === 100); // Sesuaikan ID tenant internal Anda
+
     let { 
         tanggal, nama_po, customer, status, 
         detail_ids, jenis_bordir, nama_desain, 
         jumlah, harga_cmt, harga_operator, harga_customer,
-        deleted_ids // <--- Tangkap ID yang dihapus dari frontend
+        deleted_ids 
     } = req.body;
 
     const idList = Array.isArray(detail_ids) ? detail_ids : (detail_ids ? [detail_ids] : []);
@@ -1053,12 +1056,10 @@ app.post('/update-po/:id', isAdmin, async (req, res) => {
     try {
         await db.query("BEGIN");
 
-        // --- 1. PROSES PENGHAPUSAN (KUNCI PERBAIKAN) ---
+        // --- 1. PROSES PENGHAPUSAN ---
         if (deleted_ids && deleted_ids.trim() !== "") {
-            // Ubah string "101,102" menjadi array [101, 102]
             const idsToDelete = deleted_ids.split(',').filter(id => id.trim() !== "");
             if (idsToDelete.length > 0) {
-                // Hapus baris yang diminta user, pastikan milik PO ini agar aman
                 await db.query(
                     `DELETE FROM po_detail WHERE id = ANY($1::int[]) AND po_id = $2`,
                     [idsToDelete, poId]
@@ -1066,7 +1067,7 @@ app.post('/update-po/:id', isAdmin, async (req, res) => {
             }
         }
 
-        // 2. Update Header PO
+        // --- 2. UPDATE HEADER PO ---
         await db.query(
             `UPDATE po_utama SET tanggal=$1, nama_po=$2, customer=$3, status=$4 
              WHERE id=$5 AND tenant_id=$6`, 
@@ -1075,7 +1076,7 @@ app.post('/update-po/:id', isAdmin, async (req, res) => {
 
         let totalTagihanBaru = 0;
 
-        // 3. Olah Rincian Item (Update atau Insert)
+        // --- 3. OLAH RINCIAN ITEM ---
         for (let i = 0; i < jbList.length; i++) {
             if (!jbList[i] || jbList[i].trim() === "") continue;
 
@@ -1083,18 +1084,24 @@ app.post('/update-po/:id', isAdmin, async (req, res) => {
             const hCu = Number(hrgCuList[i]) || 0;
             
             let finalHOp, finalHCmt;
-            if (tId !== 1 && tLevel < 2) {
-                finalHOp = hCu;
-                finalHCmt = 0;
+
+            if (isInternal) {
+                // Tenant Internal: Boleh isi harga CMT/Operator sendiri
+                const cmtInput = Number(hrgCmtList[i]) || 0;
+                const opInput = Number(hrgOpList[i]) || 0;
+                
+                finalHCmt = cmtInput > 0 ? cmtInput : opInput;
+                finalHOp = finalHCmt; // Atau sesuaikan logika internal Anda
             } else {
-                finalHOp = Number(hrgOpList[i]) || 0;
-                finalHCmt = Number(hrgCmtList[i]) || 0;
+                // Tenant Luar (Non-Internal): Harga CMT & Operator Wajib Mengikuti Harga Customer
+                finalHCmt = hCu;
+                finalHOp = hCu;
             }
 
             totalTagihanBaru += (qty * hCu);
 
             if (idList[i] && idList[i] !== "") {
-                // UPDATE
+                // UPDATE DETAIL
                 await db.query(
                     `UPDATE po_detail SET 
                         jenis_bordir=$1, nama_desain=$2, jumlah=$3, 
@@ -1103,7 +1110,7 @@ app.post('/update-po/:id', isAdmin, async (req, res) => {
                     [jbList[i], dsList[i], qty, finalHCmt, finalHOp, hCu, idList[i], poId]
                 );
             } else {
-                // INSERT BARU
+                // INSERT DETAIL BARU
                 await db.query(
                     `INSERT INTO po_detail (po_id, jenis_bordir, nama_desain, jumlah, harga_cmt, harga_operator, harga_customer) 
                     VALUES ($1, $2, $3, $4, $5, $6, $7)`,
@@ -1112,12 +1119,10 @@ app.post('/update-po/:id', isAdmin, async (req, res) => {
             }
         }
         
-        // 4. Update total tagihan agar sinkron
+        // --- 4. UPDATE TOTAL TAGIHAN ---
         await db.query(`UPDATE po_utama SET total_harga_customer = $1 WHERE id = $2`, [totalTagihanBaru, poId]);
         
         await db.query("COMMIT");
-        
-        // Gunakan redirect murni agar browser memuat ulang data segar
         res.redirect('/po-data-v2');
 
     } catch (err) {
