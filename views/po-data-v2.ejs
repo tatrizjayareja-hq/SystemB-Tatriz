@@ -162,7 +162,6 @@
                             <a href="https://wa.me/?text=Halo%20<%= po.customer.replace(' ', '%20') %>,%20Berikut%20kami%20lampirkan%20tagihan%20untuk%20PO%20<%= po.nama_po %>" target="_blank" class="btn btn-success btn-sm w-100 fw-bold"><i class="bi bi-whatsapp"></i> Tagih WA</a>
                         </div>
                         <div class="btn-group">
-                            <!-- Link cetak nota tidak dicegat HTMX karena ada target="_blank" otomatis -->
                             <a href="/cetak-nota-gabungan?ids=<%= po.id %>&mode=simple" target="_blank" class="btn btn-primary">
                                 🖨️ Cetak Nota Simple (A6)
                             </a>
@@ -258,8 +257,7 @@
                                             <hr class="my-1">
                                             <a href="/cetak-nota-gabungan?ids=<%= po.id %>" target="_blank" class="fw-bold text-dark"><i class="bi bi-printer"></i> Cetak Nota Lengkap</a>
                                             <a href="/cetak-nota-gabungan?ids=<%= po.id %>&mode=thermal" target="_blank" class="text-secondary"><i class="bi bi-receipt"></i> Cetak Thermal</a>
-                                            <!-- hx-disable di sini penting agar link delete bisa memicu konfirmasi javascript bawaan -->
-                                            <a hx-disable href="/delete-po/<%= po.id %>" class="text-danger fw-bold" onclick="return confirm('Hapus PO ini?')"><i class="bi bi-trash"></i> Hapus PO</a>
+                                            <a href="/delete-po/<%= po.id %>" class="text-danger fw-bold" onclick="return confirm('Hapus PO ini?')"><i class="bi bi-trash"></i> Hapus PO</a>
                                         </div>
                                     </div>
                                 </div>
@@ -715,9 +713,7 @@
         updateCounter();
     }
 
-    // ==== PERUBAHAN UNTUK HTMX ====
-    // Mengganti window.onload menjadi function biasa yang langsung dipanggil
-    function inisialisasiDataPO() {
+    window.onload = function() {
         const sn = localStorage.getItem('filterNama');
         const ss = localStorage.getItem('filterStatus');
         const shl = localStorage.getItem('hideLunas');
@@ -725,10 +721,7 @@
         if (ss !== null) document.getElementById('filterStatus').value = ss;
         if (shl !== null) document.getElementById('checkLunas').checked = (shl === 'true');
         jalankanFilter();
-    }
-
-    // Eksekusi inisialisasi langsung saat elemen script ini dimuat oleh HTMX
-    inisialisasiDataPO();
+    };
 </script>
 
 <%- include('partials/footer') %>
