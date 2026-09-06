@@ -3723,7 +3723,16 @@ app.get('/performa-operator', isAdmin, async (req, res) => {
         const configData = await db.get("SELECT target_bonus FROM settings WHERE tenant_id = $1", [tId]);
         const targetDinamis = parseFloat(configData?.target_bonus || 500000);
 
-        const sqlOps = `SELECT id, nama_lengkap FROM users WHERE tenant_id = $1 AND role = 'operator' ORDER BY nama_lengkap ASC`;
+        // 🟢 PERUBAHAN DI SINI: Tambahkan (AND status != 'resign') atau (AND status = 'active') 
+        // Saya asumsikan kita filter yang bukan resign. Jika ada null (karyawan lama), pakai klausa ini.
+        const sqlOps = `
+            SELECT id, nama_lengkap 
+            FROM users 
+            WHERE tenant_id = $1 
+              AND role = 'operator' 
+              AND (status != 'resign' OR status IS NULL)
+            ORDER BY nama_lengkap ASC
+        `;
         const opsRes = await db.query(sqlOps, [tId]);
         const operators = opsRes.rows;
 
@@ -3754,16 +3763,19 @@ app.get('/performa-operator', isAdmin, async (req, res) => {
                 matriks[r.tgl_key] = { total_omzet_cust: 0, total_upah_op: 0 };
             }
             
-            matriks[r.tgl_key][r.operator_id] = parseFloat(r.upah_op);
-            matriks[r.tgl_key].total_upah_op += parseFloat(r.upah_op);
-            matriks[r.tgl_key].total_omzet_cust += parseFloat(r.omzet_cust);
-
+            // Karena operator yang resign tidak ada di array 'operators', 
+            // pastikan kita hanya menghitung data upah jika operator tersebut masih aktif (ada di object performaOps)
             if (performaOps[r.operator_id]) {
+                matriks[r.tgl_key][r.operator_id] = parseFloat(r.upah_op);
+                matriks[r.tgl_key].total_upah_op += parseFloat(r.upah_op);
+                
                 performaOps[r.operator_id].totalUpah += parseFloat(r.upah_op);
                 if (parseFloat(r.upah_op) >= targetDinamis) {
                     performaOps[r.operator_id].kaliCapaiTarget += 1;
                 }
             }
+            // Catatan: Omzet customer tetap dihitung secara global meski operatornya sudah resign
+            matriks[r.tgl_key].total_omzet_cust += parseFloat(r.omzet_cust);
         });
 
         const [tahun, bulan] = bulanIni.split('-').map(Number);
