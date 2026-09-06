@@ -3214,8 +3214,12 @@ app.get('/input-gaji', isAdmin, async (req, res) => {
                 FROM hasil_qc
                 WHERE tanggal BETWEEN $1 AND $2
             ) gabung ON u.id = gabung.user_id
-            -- PERBAIKAN: Menggunakan LOWER() agar 'QC' maupun 'qc' tetap ikut terhitung gajinya
-            WHERE u.tenant_id = $3 AND LOWER(u.role) IN ('operator', 'qc')
+            
+            -- 🟢 PERUBAHAN DI SINI: Tambahkan filter status
+            WHERE u.tenant_id = $3 
+              AND LOWER(u.role) IN ('operator', 'qc')
+              AND (u.status != 'resign' OR u.status IS NULL)
+              
             GROUP BY u.id, u.nama_lengkap, u.gaji_pokok, u.role, gabung.tanggal
             ORDER BY u.nama_lengkap ASC, gabung.tanggal ASC
         `;
