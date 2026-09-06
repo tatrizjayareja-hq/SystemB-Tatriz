@@ -2852,8 +2852,16 @@ app.get('/input-kerja-admin', isAdmin, async (req, res) => {
         // 2. Ambil Daftar Mesin
         const daftarMesin = await db.all("SELECT id, nama_mesin FROM mesin WHERE tenant_id = $1 ORDER BY id ASC", [tId]);
 
-        // 3. Ambil Daftar User ber-role Operator
-        const daftarOperator = await db.all("SELECT id, nama_lengkap FROM users WHERE tenant_id = $1 AND role = 'operator' ORDER BY nama_lengkap ASC", [tId]);
+        // 3. Ambil Daftar User ber-role Operator (🟢 PERUBAHAN DI SINI)
+        const sqlOperator = `
+            SELECT id, nama_lengkap 
+            FROM users 
+            WHERE tenant_id = $1 
+              AND role = 'operator' 
+              AND (status != 'resign' OR status IS NULL)
+            ORDER BY nama_lengkap ASC
+        `;
+        const daftarOperator = await db.all(sqlOperator, [tId]);
 
         // 4. Ambil Setting Toko
         const config = await db.get("SELECT * FROM settings WHERE tenant_id = $1", [tId]);
