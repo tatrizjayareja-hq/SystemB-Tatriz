@@ -12,31 +12,49 @@
     <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
     
     <style>
-        body { background-color: #f0f4f8; /* Disesuaikan dengan tone biru pucat */ }
+        body { background-color: #f0f4f8; }
         
         /* --- Kustomisasi Navbar Tema Safir & Air --- */
         .navbar-custom {
-            /* Gradasi dasar Biru Safir dan riak tetesan air */
-            background-color: #0f52ba;
-            background-image: 
-                /* Riak air di area kiri */
-                radial-gradient(circle at 15% 50%, transparent 0%, transparent 15px, rgba(255, 255, 255, 0.15) 15.5px, rgba(255, 255, 255, 0.15) 16px, transparent 17px),
-                radial-gradient(circle at 15% 50%, transparent 0%, transparent 8px, rgba(255, 255, 255, 0.1) 8.5px, rgba(255, 255, 255, 0.1) 9px, transparent 10px),
-                
-                /* Riak air di area tengah ke kanan */
-                radial-gradient(circle at 75% 30%, transparent 0%, transparent 20px, rgba(255, 255, 255, 0.1) 20.5px, rgba(255, 255, 255, 0.1) 21px, transparent 22px),
-                
-                /* Gelombang gradasi halus dari kiri ke kanan */
-                linear-gradient(135deg, #0f52ba 0%, #082d66 100%);
-            
+            /* 1. ARAH GRADASI DIBALIK: 
+               Kiri sangat gelap (#04142e) agar logo jelas. 
+               Kanan biru muda jernih (#30c5d2) untuk nuansa air. */
+            background: linear-gradient(to right, #04142e 0%, #0a367c 40%, #0f52ba 70%, #30c5d2 100%);
+            position: relative;
+            overflow: hidden; /* Mengunci efek air agar tidak tumpah keluar navbar */
+            border-bottom: 2px solid rgba(48, 197, 210, 0.4);
             box-shadow: 0 4px 15px rgba(15, 82, 186, 0.2);
-            border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+        }
+        
+        /* 2. EFEK AIR: Pantulan cahaya & Gelembung */
+        .navbar-custom::before {
+            content: '';
+            position: absolute;
+            top: 0; left: 0; right: 0; bottom: 0;
+            background-image: 
+                /* Pantulan cahaya dari permukaan atas */
+                linear-gradient(to bottom, rgba(255, 255, 255, 0.15) 0%, rgba(255, 255, 255, 0) 50%),
+                
+                /* Gelembung air transparan di sisi kanan/tengah */
+                radial-gradient(circle at 85% 65%, rgba(255,255,255,0.25) 0%, rgba(255,255,255,0.1) 2%, transparent 3%),
+                radial-gradient(circle at 75% 30%, rgba(255,255,255,0.2) 0%, rgba(255,255,255,0.05) 3%, transparent 4%),
+                radial-gradient(circle at 92% 20%, rgba(255,255,255,0.3) 0%, rgba(255,255,255,0.1) 1.5%, transparent 2.5%),
+                radial-gradient(circle at 65% 75%, rgba(255,255,255,0.15) 0%, transparent 2%),
+                radial-gradient(circle at 55% 40%, rgba(255,255,255,0.1) 0%, transparent 3%);
+            z-index: 0;
+            pointer-events: none; /* Agar gelembung tidak menghalangi klik menu */
+        }
+        
+        /* Pastikan logo dan menu berada di lapisan atas (di atas gelembung) */
+        .navbar-custom .container-fluid {
+            position: relative;
+            z-index: 1;
         }
         
         .nav-item { margin: 0 1px; } 
         
         .nav-link {
-            color: rgba(255, 255, 255, 0.85) !important;
+            color: #ffffff !important;
             font-size: 13.5px; 
             font-weight: 500;
             display: flex;
@@ -46,13 +64,16 @@
             transition: all 0.3s;
             border-radius: 6px;
             white-space: nowrap; 
+            /* Tambahan bayangan teks agar tetap terbaca meski di area biru muda */
+            text-shadow: 0 1px 3px rgba(0, 0, 0, 0.3); 
         }
         
         .nav-link:hover {
-            /* Ubah hover menjadi cyan/biru muda air */
-            color: #4ae3ff !important;
-            background-color: rgba(255, 255, 255, 0.1);
+            color: #d4f8ff !important;
+            background-color: rgba(255, 255, 255, 0.15);
             transform: translateY(-1px);
+            /* Efek pendaran (glow) air saat disentuh mouse */
+            box-shadow: 0 2px 8px rgba(48, 197, 210, 0.3); 
         }
 
         /* Label PRO Elegan */
@@ -66,12 +87,13 @@
             letter-spacing: 0.5px;
             margin-left: 4px;
             box-shadow: 0 2px 5px rgba(0,0,0,0.2);
+            text-shadow: none; /* Hapus text-shadow untuk badge */
         }
 
         /* GLOBAL QUICK LOADER */
         #quickLoader {
             position: fixed; top: 0; left: 0; width: 100%; height: 100%;
-            background: rgba(240, 244, 248, 0.8); /* Disesuaikan tone bg */
+            background: rgba(240, 244, 248, 0.8);
             backdrop-filter: blur(3px); -webkit-backdrop-filter: blur(3px);
             z-index: 99999; display: flex; justify-content: center; align-items: center;
             opacity: 0; visibility: hidden; transition: opacity 0.2s ease-in-out;
@@ -83,9 +105,9 @@
             .navbar-nav { padding: 15px 0; }
             .nav-link { padding: 12px 15px !important; margin-bottom: 5px; font-size: 15px; }
             .btn-logout-mobile { margin-top: 10px; text-align: center; justify-content: center; }
-            /* Memperlembut gradient saat menu mobile terbuka */
             .navbar-collapse {
-                background: linear-gradient(to bottom, transparent, rgba(8, 45, 102, 0.95));
+                /* Menu dropdown di HP juga disesuaikan temanya */
+                background: linear-gradient(to bottom, rgba(10, 54, 124, 0.95), rgba(48, 197, 210, 0.95));
                 border-radius: 0 0 15px 15px;
                 padding: 0 10px;
             }
@@ -95,7 +117,7 @@
 <body>
 
     <div id="quickLoader">
-        <div class="spinner-border text-primary" style="width: 3rem; height: 3rem;" role="status"></div>
+        <div class="spinner-border text-info" style="width: 3rem; height: 3rem;" role="status"></div>
     </div>
     
     <% const isPro = (user.tenantId === 1 || user.tenantId === 100 || user.tenantLevel >= 2); %>
@@ -202,7 +224,7 @@
                 icon: 'info',
                 iconColor: '#DAA520',
                 showCancelButton: true,
-                confirmButtonColor: '#0f52ba', /* Warna tombol disesuaikan Safir */
+                confirmButtonColor: '#0f52ba', 
                 cancelButtonColor: '#6c757d',
                 confirmButtonText: '<i class="bi bi-rocket-takeoff"></i> Lihat Paket Upgrade',
                 cancelButtonText: 'Tutup',
