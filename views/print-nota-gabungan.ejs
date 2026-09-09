@@ -261,6 +261,16 @@
                 <% } %>
             </div>
 
+            <!-- KODE BARU: Info Rekening Pembayaran (Tampil jika data bank diisi) -->
+            <% if (config.bank_nama || config.bank_rekening) { %>
+            <div style="margin-bottom: 10px; padding: 6px; background-color: #f8f9fa; border: 1px dashed #ccc; border-radius: 4px; page-break-inside: avoid;">
+                <strong>Info Transfer Pembayaran:</strong><br>
+                <%= config.bank_nama %>: <strong><%= config.bank_rekening %></strong><br>
+                a/n <%= config.bank_atas_nama %>
+            </div>
+            <% } %>
+            <!-- AKHIR KODE BARU -->
+
             <div class="ttd-section">
                 <div class="ttd-box">
                     Penerima / Customer,<br>
