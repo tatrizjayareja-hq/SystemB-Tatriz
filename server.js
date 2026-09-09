@@ -644,11 +644,13 @@ app.post('/save-settings-all', upload.single('logo'), async (req, res) => {
         
         const isInternal = (tId === 1 || tId === 100);
 
+        // 1. TAMBAHKAN: bank_nama, bank_rekening, bank_atas_nama
         let { 
             nama_perusahaan, alamat, no_hp, nominal_buffer, 
             target_bonus, nominal_bonus_dasar, beban_tetap,
             jam_kerja_reguler, pembagi_lembur, kelipatan_bonus, nominal_bonus_lipat,
-            nama_mesin_baru 
+            nama_mesin_baru,
+            bank_nama, bank_rekening, bank_atas_nama 
         } = req.body;
 
         if (!isInternal) {
@@ -658,10 +660,9 @@ app.post('/save-settings-all', upload.single('logo'), async (req, res) => {
             nominal_bonus_lipat = oldConfig.nominal_bonus_lipat;
         }
 
-        // --- TAMBAHAN BARU: Pastikan nomor HP selalu berawalan 62 dan bersih dari karakter lain ---
+        // --- Pastikan nomor HP selalu berawalan 62 dan bersih dari karakter lain ---
         let noWaValid = '';
         if (no_hp) {
-            // Hapus karakter non-angka, hapus angka 0 di depan, hapus angka 62 di depan jika ada, lalu tambah 62.
             let cleanNo = no_hp.replace(/\D/g, '').replace(/^0/, '').replace(/^62/, '');
             noWaValid = '62' + cleanNo;
         }
@@ -682,16 +683,18 @@ app.post('/save-settings-all', upload.single('logo'), async (req, res) => {
             logoUrl = publicData.publicUrl;
         }
 
-        // --- TAMBAHAN BARU: Sisipkan jatuh_tempo di SQL Update ---
+        // 2. TAMBAHKAN kolom bank ke dalam query SQL (Perhatikan index parameter $12, $13, $14)
         let sql = `UPDATE settings SET 
                     nama_perusahaan = $1, alamat = $2, no_hp = $3, 
                     nominal_buffer = $4, target_bonus = $5, 
                     nominal_bonus_dasar = $6, beban_tetap = $7,
                     jam_kerja_reguler = $8, pembagi_lembur = $9,
                     kelipatan_bonus = $10, nominal_bonus_lipat = $11,
+                    bank_nama = $12, bank_rekening = $13, bank_atas_nama = $14,
                     is_setup_complete = true,
                     jatuh_tempo = COALESCE(jatuh_tempo, CURRENT_DATE + INTERVAL '30 days')`; 
         
+        // 3. TAMBAHKAN variabel bank ke dalam array params
         let params = [
             nama_perusahaan || 'Tatriz Unit', 
             alamat || '', 
@@ -703,15 +706,19 @@ app.post('/save-settings-all', upload.single('logo'), async (req, res) => {
             parseInt(jam_kerja_reguler) || 8,
             parseInt(pembagi_lembur) || 4,
             parseInt(kelipatan_bonus) || 0,
-            parseInt(nominal_bonus_lipat) || 0
+            parseInt(nominal_bonus_lipat) || 0,
+            bank_nama || '',        // $12
+            bank_rekening || '',    // $13
+            bank_atas_nama || ''    // $14
         ];
 
+        // 4. UBAH index parameter karena params dasar sekarang berjumlah 14
         if (logoUrl) {
-            sql += `, logo_path = $12 WHERE tenant_id = $13`;
-            params.push(logoUrl, tId);
+            sql += `, logo_path = $15 WHERE tenant_id = $16`;
+            params.push(logoUrl, tId); // logoUrl jadi $15, tId jadi $16
         } else {
-            sql += ` WHERE tenant_id = $12`;
-            params.push(tId);
+            sql += ` WHERE tenant_id = $15`;
+            params.push(tId); // tId jadi $15
         }
 
         await db.query(sql, params);

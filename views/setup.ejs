@@ -111,6 +111,26 @@
                 </div>
             </div>
         </div>
+        
+        <!-- KODE BARU: Kartu Informasi Pembayaran / Rekening -->
+        <div class="card">
+            <div class="section-title"><i class="bi bi-bank"></i> Informasi Pembayaran (Tampil di Nota)</div>
+            <div class="grid-2">
+                <div class="form-group">
+                    <label>Nama Bank / E-Wallet</label>
+                    <input type="text" name="bank_nama" value="<%= config.bank_nama || '' %>" placeholder="Contoh: BCA / DANA">
+                </div>
+                <div class="form-group">
+                    <label>Nomor Rekening</label>
+                    <input type="text" name="bank_rekening" value="<%= config.bank_rekening || '' %>" placeholder="Contoh: 1234567890">
+                </div>
+                <div class="form-group" style="grid-column: 1 / -1;">
+                    <label>Atas Nama (Pemilik Rekening)</label>
+                    <input type="text" name="bank_atas_nama" value="<%= config.bank_atas_nama || '' %>" placeholder="Contoh: PT Tatriz System / Budi Santoso">
+                </div>
+            </div>
+        </div>
+        <!-- AKHIR KODE BARU -->
 
         <div class="card">
             <div class="section-title"><i class="bi bi-cash-coin"></i> Kebijakan Finansial & Gaji</div>

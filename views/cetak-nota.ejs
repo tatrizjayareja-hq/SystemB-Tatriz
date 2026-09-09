@@ -179,6 +179,16 @@
                 </div>
             </div>
 
+            <!-- KODE BARU: Info Rekening Pembayaran -->
+            <% if (config.bank_nama || config.bank_rekening) { %>
+            <div style="font-size: 8px; margin-bottom: 8px; padding: 4px; background-color: #f8f9fa; border: 1px solid #ddd; border-radius: 4px;">
+                <strong>Info Transfer Pembayaran:</strong><br>
+                <%= config.bank_nama %>: <strong><%= config.bank_rekening %></strong><br>
+                a/n <%= config.bank_atas_nama %>
+            </div>
+            <% } %>
+            <!-- AKHIR KODE BARU -->
+
             <div style="font-size: 9px; font-style: italic; color: #555; text-align: center; border-top: 1px dashed #ccc; padding-top: 5px;">
                 Barang yang sudah dibeli tidak dapat ditukar/dikembalikan.
             </div>
