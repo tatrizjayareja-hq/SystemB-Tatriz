@@ -1393,40 +1393,56 @@ app.get('/po-data-v2', isAdmin, async (req, res) => {
 
 app.post('/simpan-distribusi-cmt', isAdmin, async (req, res) => {
     const tId = req.session.tenantId;
-    const { po_id, detail_id, nama_vendor } = req.body;
+    // TAMBAHAN: Anda perlu mengirim qty_dikirim dari form frontend
+    const { po_id, detail_id, nama_vendor, qty_dikirim_ke_vendor } = req.body; 
 
     if (!po_id) return res.status(400).send("ID PO tidak valid.");
 
     try {
         await db.query('BEGIN');
 
-        // 1. Ubah status PO Utama menjadi CMT
-        await db.query("UPDATE po_utama SET status = 'CMT' WHERE id = $1 AND tenant_id = $2", [po_id, tId]);
+        // HAPUS atau UBAH logika UPDATE po_utama ini. 
+        // Biarkan status PO tetap "Produksi" atau ubah menjadi "Parsial CMT"
+        // await db.query("UPDATE po_utama SET status = 'CMT' WHERE id = $1 AND tenant_id = $2", [po_id, tId]);
+        await db.query("UPDATE po_utama SET status = 'Parsial CMT' WHERE id = $1 AND tenant_id = $2", [po_id, tId]);
 
-        // 2. Loop rincian pesanan
         if (detail_id && Array.isArray(detail_id)) {
             for (let i = 0; i < detail_id.length; i++) {
                 const vendor = nama_vendor[i].trim();
+                // Ambil qty yang diketik dari form (default ke qty_full jika tidak ada)
+                const qtyKirim = parseInt(qty_dikirim_ke_vendor[i]) || 0; 
                 
-                if (vendor !== '') {
-                    // Ambil jumlah dan harga dari po_detail
-                    const detRes = await db.query("SELECT jumlah, harga_cmt FROM po_detail WHERE id = $1", [detail_id[i]]);
-                    const qtyFull = detRes.rows[0].jumlah;
-                    const hargaCmt = detRes.rows[0].harga_cmt || 0; // Mengambil harga dari PO
+                if (vendor !== '' && qtyKirim > 0) {
+                    const detRes = await db.query("SELECT jumlah, harga_cmt, qty_internal, qty_cmt FROM po_detail WHERE id = $1", [detail_id[i]]);
+                    
+                    const qtyTotalAsli = detRes.rows[0].jumlah;
+                    const qtyCmtLama = detRes.rows[0].qty_cmt || 0;
+                    
+                    // Kalkulasi pemecahan kuantitas
+                    const qtyCmtBaru = qtyCmtLama + qtyKirim;
+                    const qtyInternalBaru = qtyTotalAsli - qtyCmtBaru;
 
-                    // Buat Surat Jalan Baru
+                    // 1. UPDATE tabel po_detail dengan kuantitas yang terpecah
+                    await db.query(`
+                        UPDATE po_detail 
+                        SET qty_cmt = $1, qty_internal = $2 
+                        WHERE id = $3
+                    `, [qtyCmtBaru, qtyInternalBaru, detail_id[i]]);
+
+                    const hargaCmt = detRes.rows[0].harga_cmt || 0; 
+
+                    // 2. Buat Surat Jalan (Sama seperti kode asli Anda)
                     const sjRes = await db.query(`
                         INSERT INTO cmt_surat_jalan (tenant_id, nama_vendor, status, status_pembayaran)
                         VALUES ($1, $2, 'PROSES', 'BELUM') RETURNING id
                     `, [tId, vendor]);
-                    
                     const sjId = sjRes.rows[0].id;
 
-                    // Masukkan ke Surat Jalan Detail (QTY dan HARGA wajib diisi)
+                    // 3. Masukkan ke Surat Jalan Detail menggunakan qtyKirim, bukan qtyFull
                     await db.query(`
                         INSERT INTO cmt_surat_jalan_detail (sj_id, po_detail_id, qty_dikirim, harga_cmt_saat_ini)
                         VALUES ($1, $2, $3, $4)
-                    `, [sjId, detail_id[i], qtyFull, hargaCmt]);
+                    `, [sjId, detail_id[i], qtyKirim, hargaCmt]);
                 }
             }
         }
@@ -2392,22 +2408,14 @@ app.get('/operator', async (req, res) => {
     const tglHariIni = new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Jakarta' }).format(new Date());
 
     try {
-        // 1. Ambil PO Aktif (Penyesuaian db.query untuk PostgreSQL)
+       // 1. Ambil PO Aktif (Telah Diperbaiki untuk Mendukung Parsial CMT)
         const sqlPO = `
-            SELECT p.id, p.nama_po 
+            SELECT DISTINCT p.id, p.nama_po 
             FROM po_utama p
+            JOIN po_detail d ON p.id = d.po_id
             WHERE p.tenant_id = $1 
-            AND (
-                p.status IN ('Produksi', 'DP/Cicil')
-                OR 
-                (p.status = 'CMT' AND EXISTS (
-                    SELECT 1 FROM po_detail d 
-                    WHERE d.po_id = p.id 
-                    AND NOT EXISTS (
-                        SELECT 1 FROM cmt_surat_jalan_detail sjd WHERE sjd.po_detail_id = d.id
-                    )
-                ))
-            )
+            AND p.status IN ('Produksi', 'DP/Cicil', 'CMT', 'Parsial CMT') 
+            AND d.qty_internal > 0
             ORDER BY p.tanggal DESC, p.id DESC
         `;
         const activePosRes = await db.query(sqlPO, [tId]);
@@ -4088,32 +4096,46 @@ app.get('/api/po-cmt-status/:po_id', isAdmin, async (req, res) => {
 // 2. HANDLER BARU: SIMPAN KIRIMAN PARSIAL / SUSULAN DARI HALAMAN DEPAN
 app.post('/admin/kirim-ke-vendor-parsial', isAdmin, async (req, res) => {
     const tId = req.session.tenantId;
-    // Menerima array dari form popup dinamis
     const { po_id, po_detail_ids, nama_vendors, qty_kirims, harga_cmts } = req.body;
 
     try {
         await db.query("BEGIN");
 
-        // Normalisasi data menjadi array (jika user hanya input 1 vendor, data dari bodi form berbentuk string biasa)
         const detailIds = Array.isArray(po_detail_ids) ? po_detail_ids : [po_detail_ids];
         const vendors = Array.isArray(nama_vendors) ? nama_vendors : [nama_vendors];
         const qtys = Array.isArray(qty_kirims) ? qty_kirims : [qty_kirims];
         const hargas = Array.isArray(harga_cmts) ? harga_cmts : [harga_cmts];
 
-        // Looping untuk memproses setiap pengiriman vendor yang diisi di popup
         for (let i = 0; i < vendors.length; i++) {
             const currentVendor = vendors[i]?.trim();
             const currentQty = parseInt(qtys[i]) || 0;
             const currentDetailId = detailIds[i];
             const currentHarga = parseFloat(hargas[i]) || 0;
 
-            // Lewati jika nama vendor kosong atau qty 0 (mencegah row kosong tersimpan)
             if (!currentVendor || currentQty <= 0) continue;
 
-            // Hitung total biaya untuk Surat Jalan ini
+            // ================================================================
+            // 🌟 TAMBAHAN BARU: PECAH KUANTITAS INTERNAL DAN CMT DI PO_DETAIL
+            // ================================================================
+            const detRes = await db.query("SELECT jumlah, qty_internal, qty_cmt FROM po_detail WHERE id = $1", [currentDetailId]);
+            
+            const qtyTotalAsli = detRes.rows[0].jumlah;
+            const qtyCmtLama = detRes.rows[0].qty_cmt || 0;
+            
+            const qtyCmtBaru = qtyCmtLama + currentQty;
+            const qtyInternalBaru = qtyTotalAsli - qtyCmtBaru;
+
+            // Potong sisa pekerjaan untuk internal
+            await db.query(`
+                UPDATE po_detail 
+                SET qty_cmt = $1, qty_internal = $2 
+                WHERE id = $3
+            `, [qtyCmtBaru, qtyInternalBaru, currentDetailId]);
+            // ================================================================
+
             const totalBiayaVendor = currentQty * currentHarga;
 
-            // A. Buat Header Surat Jalan Baru (Status default: PROSES, Pembayaran: BELUM LUNAS)
+            // A. Buat Header Surat Jalan Baru
             const sjRes = await db.query(
                 `INSERT INTO cmt_surat_jalan (tenant_id, nama_vendor, total_biaya_vendor, status, status_pembayaran, tanggal_kirim) 
                  VALUES ($1, $2, $3, 'PROSES', 'BELUM LUNAS', CURRENT_DATE) RETURNING id`,
@@ -4129,14 +4151,14 @@ app.post('/admin/kirim-ke-vendor-parsial', isAdmin, async (req, res) => {
             );
         }
 
-        // C. UPDATE STATUS PO UTAMA MENJADI 'CMT'
-        // Langkah ini otomatis mengunci PO di halaman depan dan merubah fungsi tombolnya menjadi "Susulan"
-        await db.query("UPDATE po_utama SET status = 'CMT' WHERE id = $1 AND tenant_id = $2", [po_id, tId]);
+        // C. UPDATE STATUS PO UTAMA
+        // Kita ubah menjadi 'Parsial CMT' agar logikanya lebih pas bahwa tidak semua di makloon-kan.
+        // (Pastikan query di halaman operator mengizinkan status 'Parsial CMT' ini lewat)
+        await db.query("UPDATE po_utama SET status = 'Parsial CMT' WHERE id = $1 AND tenant_id = $2", [po_id, tId]);
 
         await db.query("COMMIT");
         
-        // Response sukses berupa alert javascript dan merefresh halaman PO Data
-        res.redirect('/po-data-v2'); // <-- Sesuaikan dengan alamat rute halaman utama PO Anda (misal: /po-data atau /admin/po)
+        res.redirect('/po-data-v2'); 
 
     } catch (err) {
         if (db) await db.query("ROLLBACK");
