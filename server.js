@@ -4050,15 +4050,25 @@ app.get('/api/po-cmt-status/:po_id', isAdmin, async (req, res) => {
                 p.customer,
                 d.id as po_detail_id,
                 d.nama_desain,
+                d.jenis_bordir,
                 d.harga_cmt,
                 d.jumlah as total_order,
-                -- Hitung total yang sudah dikirim ke vendor selama ini
+                
+                -- 1. Hitung total yang sudah dikirim ke vendor CMT
                 COALESCE((
                     SELECT SUM(sjd.qty_dikirim) 
                     FROM cmt_surat_jalan_detail sjd
                     JOIN cmt_surat_jalan sj ON sjd.sj_id = sj.id
                     WHERE sjd.po_detail_id = d.id AND sj.tenant_id = $1
-                ), 0) as total_terkirim
+                ), 0) as total_terkirim,
+
+                -- 2. 🌟 TAMBAHAN BARU: Hitung total yang sudah selesai dikerjakan INTERNAL
+                COALESCE((
+                    SELECT SUM(h.jumlah_setor) 
+                    FROM hasil_kerja h 
+                    WHERE h.detail_id = d.id
+                ), 0) as total_internal
+
             FROM po_utama p
             JOIN po_detail d ON d.po_id = p.id
             WHERE p.id = $2 AND p.tenant_id = $1
@@ -4072,19 +4082,24 @@ app.get('/api/po-cmt-status/:po_id', isAdmin, async (req, res) => {
 
         // Susun data agar mudah dibaca oleh JavaScript Popup di frontend
         const data = result.rows.map(row => {
-        const sisaGudang = row.total_order - row.total_terkirim;
-        return {
-            po_id: row.po_id,
-            nama_po: row.nama_po,
-            customer: row.customer,
-            po_detail_id: row.po_detail_id,
-            nama_desain: row.nama_desain,
-            harga_cmt: parseFloat(row.harga_cmt || 0),
-            total_order: parseInt(row.total_order),
-            total_terkirim: parseInt(row.total_terkirim),
-            sisa_gudang: sisaGudang < 0 ? 0 : sisaGudang // ➔ Di sini sudah aman menggunakan d!
-        };
-    });
+            
+            // 🌟 LOGIKA BARU: Sisa gudang = Total - (Sudah di CMT + Sudah dikerjakan Internal)
+            const sisaGudang = row.total_order - row.total_terkirim - row.total_internal;
+            
+            return {
+                po_id: row.po_id,
+                nama_po: row.nama_po,
+                customer: row.customer,
+                po_detail_id: row.po_detail_id,
+                nama_desain: row.nama_desain,
+                jenis_bordir: row.jenis_bordir, // Menambahkan jenis bordir agar sinkron dengan UI popup Anda
+                harga_cmt: parseFloat(row.harga_cmt || 0),
+                total_order: parseInt(row.total_order),
+                total_terkirim: parseInt(row.total_terkirim),
+                total_internal: parseInt(row.total_internal),
+                sisa_gudang: sisaGudang < 0 ? 0 : sisaGudang // Cegah angka minus jika ada kelebihan produksi
+            };
+        });
 
         res.json(data);
     } catch (err) {

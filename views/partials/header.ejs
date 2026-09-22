@@ -116,6 +116,96 @@
 </head>
 <body>
 
+    <!-- ============================================== -->
+<!-- MODAL POPUP INPUT HASIL KERJA ADMIN -->
+<!-- ============================================== -->
+<div class="modal fade" id="modalInputAdmin" tabindex="-1" aria-labelledby="modalInputAdminLabel" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-header" style="background-color: #f8f9fa; border-bottom: 3px solid #e67e22;">
+                <h5 class="modal-title fw-bold" id="modalInputAdminLabel" style="color: #333;">
+                    🛠️ Input Hasil Kerja (Admin)
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            
+            <div class="modal-body">
+                <!-- FORM MULAI DI SINI -->
+                <form action="/admin/simpan-kerja" method="POST" id="formInputKerjaAdmin">
+                    
+                    <div class="mb-3">
+                        <label class="form-label fw-bold">Pilih Operator</label>
+                        <select name="user_id_manual" class="form-select" required>
+                            <option value="">-- Siapa yang mengerjakan? --</option>
+                            <% daftarOperator.forEach(op => { %>
+                                <option value="<%= op.id %>"><%= op.nama_lengkap %></option>
+                            <% }) %>
+                        </select>
+                    </div>
+
+                    <div class="mb-3">
+                        <label class="form-label fw-bold">Tanggal & Shift</label>
+                        <div class="d-flex gap-2">
+                            <input type="date" name="tanggal" class="form-control" required>
+                            <select name="shift" class="form-select" style="width: 40%;">
+                                <option value="Pagi">Pagi</option>
+                                <option value="Sore">Sore</option>
+                                <option value="Malam">Malam</option>
+                            </select>
+                        </div>
+                    </div>
+
+                    <div class="mb-3">
+                        <label class="form-label fw-bold">Pilih Pesanan (PO)</label>
+                        <select name="po_id" class="form-select" onchange="muatDaftarDesain(this.value)" required>
+                            <option value="">-- Pilih PO --</option>
+                            <% active_pos.forEach(po => { %>
+                                <option value="<%= po.id %>"><%= po.nama_po %></option>
+                            <% }) %>
+                        </select>
+                    </div>
+
+                    <div class="mb-3">
+                        <label class="form-label fw-bold">Pilih Jenis Bordir</label>
+                        <select name="detail_id" id="select_jenis" class="form-select" onchange="pilihOtomatisDesain(this)" required disabled>
+                            <option value="">-- Pilih Jenis --</option>
+                        </select>
+                    </div>
+
+                    <input type="hidden" name="harga_op" id="input_harga_op">
+
+                    <!-- Kotak Info Harga & Setoran -->
+                    <div id="info_bordir" style="display: none; background: #fff5e6; padding: 15px; border-radius: 10px; margin-bottom: 15px; border: 1px solid #ffe0b2;">
+                        <div class="mb-2">
+                            <small class="text-muted">Nama Desain:</small> <strong id="display_nama_desain"></strong><br>
+                            <small class="text-muted">Upah Op:</small> <strong id="display_harga" class="text-success"></strong>
+                        </div>
+                        <label class="form-label fw-bold mb-1">Jumlah Hasil (Pcs)</label>
+                        <input type="number" name="jumlah_setor" id="input_setor" class="form-control" required placeholder="0">
+                    </div>
+
+                    <div class="mb-3">
+                        <label class="form-label fw-bold">Mesin</label>
+                        <select name="mesin_id" class="form-select" required>
+                            <% daftarMesin.forEach(m => { %>
+                                <option value="<%= m.id %>"><%= m.nama_mesin %></option>
+                            <% }) %>
+                        </select>
+                    </div>
+
+                </form>
+            </div>
+            
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Batal</button>
+                <button type="submit" form="formInputKerjaAdmin" class="btn text-white fw-bold" style="background-color: #e67e22;">
+                    KONFIRMASI SIMPAN
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
     <div id="quickLoader">
         <div class="spinner-border text-info" style="width: 3rem; height: 3rem;" role="status"></div>
     </div>
@@ -154,7 +244,8 @@
                         </a>
                     </li>
                     <li class="nav-item">
-                        <a class="nav-link nav-link-load" href="/input-kerja-admin">
+                        <!-- Hapus class nav-link-load dan href diubah agar memicu modal Bootstrap -->
+                        <a class="nav-link" href="#" data-bs-toggle="modal" data-bs-target="#modalInputAdmin">
                             <i class="bi bi-person-plus"></i> Input Admin
                         </a>
                     </li>
@@ -236,5 +327,67 @@
             });
         }
     </script>
+    <script>
+    let dataSimpanan = []; 
+
+    async function muatDaftarDesain(poId) {
+        const selectJenis = document.getElementById('select_jenis');
+        const infoDiv = document.getElementById('info_bordir');
+        
+        infoDiv.style.display = 'none';
+        if(!poId) { 
+            selectJenis.innerHTML = '<option value="">-- Pilih Jenis --</option>';
+            selectJenis.disabled = true; 
+            return; 
+        }
+
+        try {
+            const res = await fetch(`/api/po-details/${poId}`);
+            dataSimpanan = await res.json(); 
+            
+            let html = '<option value="">-- Pilih Jenis Bordir --</option>';
+            
+            dataSimpanan.forEach(d => {
+                const sisaKerja = d.sisa < 0 ? 0 : d.sisa;
+                html += `<option value="${d.id}" 
+                                 data-nama="${d.nama_desain}" 
+                                 data-harga="${d.harga_operator}" 
+                                 data-sisa="${sisaKerja}">
+                            ${d.jenis_bordir} (Sisa: ${sisaKerja})
+                         </option>`;
+            });
+            
+            selectJenis.innerHTML = html;
+            selectJenis.disabled = false;
+        } catch (err) {
+            console.error("Gagal ambil data:", err);
+            alert("Gagal mengambil rincian desain.");
+        }
+    }
+
+    function pilihOtomatisDesain(el) {
+        const infoDiv = document.getElementById('info_bordir');
+        const selected = el.options[el.selectedIndex];
+        
+        if(el.value) {
+            const namaDesain = selected.getAttribute('data-nama');
+            const harga = selected.getAttribute('data-harga');
+            const sisa = selected.getAttribute('data-sisa');
+
+            document.getElementById('display_nama_desain').innerText = namaDesain;
+            document.getElementById('display_harga').innerText = "Rp " + parseInt(harga).toLocaleString('id-ID');
+            document.getElementById('input_harga_op').value = harga;
+            
+            const inputSetor = document.getElementById('input_setor');
+            inputSetor.placeholder = "Sisa PO: " + sisa;
+            inputSetor.removeAttribute('max'); 
+            inputSetor.value = sisa;
+            
+            infoDiv.style.display = 'block';
+        } else {
+            infoDiv.style.display = 'none';
+        }
+    }
+</script>
 </body>
 </html>
