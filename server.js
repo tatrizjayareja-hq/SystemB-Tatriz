@@ -2410,7 +2410,7 @@ app.get('/operator', async (req, res) => {
     try {
        // 1. Ambil PO Aktif (Telah Diperbaiki untuk Mendukung Parsial CMT)
         const sqlPO = `
-            SELECT DISTINCT p.id, p.nama_po 
+            SELECT DISTINCT p.id, p.nama_po, p.tanggal 
             FROM po_utama p
             JOIN po_detail d ON p.id = d.po_id
             WHERE p.tenant_id = $1 
