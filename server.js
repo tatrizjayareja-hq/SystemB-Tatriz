@@ -2883,50 +2883,50 @@ app.get('/input-kerja-admin', isAdmin, async (req, res) => {
     const tId = req.session.tenantId;
 
     try {
-        // 1. Ambil PO Produksi, ATAU PO CMT yang masih punya part internal (belum dibuatkan Surat Jalan)
+        // 1. Ambil PO Produksi, ATAU PO Parsial CMT (Menggunakan logika qty_internal)
         const sqlActivePOs = `
-            SELECT id, nama_po 
+            SELECT DISTINCT u.id, u.nama_po 
             FROM po_utama u
+            JOIN po_detail d ON u.id = d.po_id
             WHERE u.tenant_id = $1 
+            AND u.status IN ('Produksi', 'DP/Cicil', 'CMT', 'Parsial CMT') 
             AND (
-                u.status IN ('Produksi', 'DP/Cicil')
+                d.qty_internal > 0 
                 OR 
-                (u.status = 'CMT' AND EXISTS (
-                    SELECT 1 FROM po_detail d 
-                    WHERE d.po_id = u.id 
-                    AND NOT EXISTS (
-                        SELECT 1 FROM cmt_surat_jalan_detail sjd WHERE sjd.po_detail_id = d.id
-                    )
-                ))
+                (d.qty_internal = 0 AND d.qty_cmt = 0 AND d.jumlah > 0)
             )
-            ORDER BY u.tanggal DESC
+            ORDER BY u.id DESC
         `;
         
-        // Sesuaikan dengan driver database Anda (db.all atau db.query)
-        const active_pos = await db.all(sqlActivePOs, [tId]);
+        // Perbaikan: Gunakan db.query dan ambil .rows untuk PostgreSQL
+        const activePosRes = await db.query(sqlActivePOs, [tId]);
+        const active_pos = activePosRes.rows;
 
         // 2. Ambil Daftar Mesin
-        const daftarMesin = await db.all("SELECT id, nama_mesin FROM mesin WHERE tenant_id = $1 ORDER BY id ASC", [tId]);
+        const mesinRes = await db.query("SELECT id, nama_mesin FROM mesin WHERE tenant_id = $1 ORDER BY id ASC", [tId]);
+        const daftarMesin = mesinRes.rows;
 
-        // 3. Ambil Daftar User ber-role Operator (🟢 PERUBAHAN DI SINI)
+        // 3. Ambil Daftar User ber-role Operator
         const sqlOperator = `
             SELECT id, nama_lengkap 
             FROM users 
             WHERE tenant_id = $1 
-              AND role = 'operator' 
+              AND role ILIKE 'operator' 
               AND (status != 'resign' OR status IS NULL)
             ORDER BY nama_lengkap ASC
         `;
-        const daftarOperator = await db.all(sqlOperator, [tId]);
+        const operatorRes = await db.query(sqlOperator, [tId]);
+        const daftarOperator = operatorRes.rows;
 
         // 4. Ambil Setting Toko
-        const config = await db.get("SELECT * FROM settings WHERE tenant_id = $1", [tId]);
+        const configRes = await db.query("SELECT * FROM settings WHERE tenant_id = $1", [tId]);
+        const config = configRes.rows[0] || { nama_perusahaan: "Tatriz" };
 
         res.render('input-kerja-admin', {
             active_pos: active_pos || [],
             daftarMesin: daftarMesin || [],
             daftarOperator: daftarOperator || [], 
-            config: config || { nama_perusahaan: "Tatriz" },
+            config: config,
             kurangnya: 0, 
             user: req.session
         });
@@ -2944,14 +2944,10 @@ app.post('/admin/simpan-kerja', isAdmin, async (req, res) => {
         detail_id, jumlah_setor, mesin_id 
     } = req.body;
 
-    // 1. Tentukan target user (Admin input untuk OP atau OP input sendiri)
     let targetUserId = user_id_manual ? parseInt(user_id_manual) : req.session.userId;
-
-    // 2. Validasi Jumlah
     const finalJumlahSetor = parseInt(jumlah_setor) || 0;
 
     try {
-        // Mulai Transaksi agar data aman
         await db.query("BEGIN");
 
         // 3. Simpan ke Tabel hasil_kerja
@@ -2971,21 +2967,31 @@ app.post('/admin/simpan-kerja', isAdmin, async (req, res) => {
             finalJumlahSetor
         ]);
 
-        // 4. AUTO-UPDATE STATUS KE QC JIKA TARGET TERCAPAI
+        // 4. AUTO-UPDATE STATUS KE QC JIKA TARGET INTERNAL TERCAPAI
+        // 🌟 PERBAIKAN: Gunakan qty_internal sebagai target, BUKAN d.jumlah
         const sqlCheck = `
             SELECT 
-                (SELECT SUM(jumlah) FROM po_detail WHERE po_id = $1) as target,
-                (SELECT SUM(jumlah_setor) FROM hasil_kerja WHERE po_id = $1) as realisasi
+                (SELECT SUM(
+                    CASE 
+                        WHEN qty_internal = 0 AND qty_cmt = 0 THEN jumlah 
+                        ELSE qty_internal 
+                    END
+                ) FROM po_detail WHERE po_id = $1) as target,
+                (SELECT COALESCE(SUM(jumlah_setor), 0) FROM hasil_kerja WHERE po_id = $1) as realisasi
         `;
-        const row = await db.get(sqlCheck, [parseInt(po_id)]);
+        // Gunakan db.query dan .rows[0]
+        const checkRes = await db.query(sqlCheck, [parseInt(po_id)]);
+        const row = checkRes.rows[0];
 
         if (row && parseFloat(row.realisasi) >= parseFloat(row.target)) {
-            await db.query("UPDATE po_utama SET status = 'QC' WHERE id = $1", [parseInt(po_id)]);
+            // Hanya update jika status saat ini bukan CMT atau Parsial CMT yang belum selesai,
+            // untuk lebih amannya, biarkan operator/admin yang merubah manual ke QC jika ada barang CMT.
+            // Tapi jika ingin paksa Auto-QC, kodenya sbb:
+            await db.query("UPDATE po_utama SET status = 'QC' WHERE id = $1 AND status NOT IN ('Lunas', 'Clear')", [parseInt(po_id)]);
         }
 
         await db.query("COMMIT");
 
-        // 5. Response Berdasarkan Role
         if (req.session.role === 'admin') {
             res.send("<script>window.location='/input-kerja-admin';</script>");
         } else {
