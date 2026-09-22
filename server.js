@@ -1263,14 +1263,30 @@ app.post('/save-po-v2', isAdmin, async (req, res) => {
 
             totalTagihan += (qty * hCu);
 
+            // ==========================================
+            // 🌟 BAGIAN YANG BERUBAH HANYA DI BAWAH INI
+            // ==========================================
             const sqlDetail = `
-                INSERT INTO po_detail (po_id, jenis_bordir, nama_desain, jumlah, harga_operator, harga_customer, harga_cmt) 
-                VALUES ($1, $2, $3, $4, $5, $6, $7)
+                INSERT INTO po_detail (
+                    po_id, jenis_bordir, nama_desain, jumlah, 
+                    qty_internal, qty_cmt, -- Kolom baru ditambahkan
+                    harga_operator, harga_customer, harga_cmt
+                ) 
+                VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
             `;
             
             await db.query(sqlDetail, [
-                poId, jbList[i], dsList[i], qty, finalOp, hCu, finalCmt
+                poId, 
+                jbList[i], 
+                dsList[i], 
+                qty,        // $4: untuk kolom 'jumlah' (total)
+                qty,        // $5: untuk kolom 'qty_internal' (set default sama dengan jumlah pesanan)
+                0,          // $6: untuk kolom 'qty_cmt' (set default 0 saat awal buat PO)
+                finalOp, 
+                hCu, 
+                finalCmt
             ]);
+            // ==========================================
         }
 
         // 3. UPDATE TOTAL HARGA DI HEADER
@@ -1293,7 +1309,7 @@ app.post('/save-po-v2', isAdmin, async (req, res) => {
             </script>
         `);
     }
-})
+});
 
 // RUTE HALAMAN DATA PO V2
 app.get('/po-data-v2', isAdmin, async (req, res) => {
@@ -2415,7 +2431,14 @@ app.get('/operator', async (req, res) => {
             JOIN po_detail d ON p.id = d.po_id
             WHERE p.tenant_id = $1 
             AND p.status IN ('Produksi', 'DP/Cicil', 'CMT', 'Parsial CMT') 
-            AND d.qty_internal > 0
+            
+            -- 🌟 LOGIKA BARU: Toleransi untuk data lama
+            AND (
+                d.qty_internal > 0 
+                OR 
+                (d.qty_internal = 0 AND d.qty_cmt = 0 AND d.jumlah > 0)
+            )
+            
             ORDER BY p.tanggal DESC, p.id DESC
         `;
         const activePosRes = await db.query(sqlPO, [tId]);
@@ -2679,17 +2702,35 @@ app.get('/api/po-details/:id', async (req, res) => {
             d.jenis_bordir, 
             d.nama_desain, 
             d.harga_operator, 
-            d.jumlah,
-            -- 1. Sisa untuk OPERATOR (Target global dikurangi yang sudah dikerjakan operator)
-            (d.jumlah - COALESCE((SELECT SUM(jumlah_setor) FROM hasil_kerja WHERE detail_id = d.id), 0)) as sisa,
+            d.jumlah as target_asli,
+            
+            -- Menentukan target riil untuk operator internal (mengakomodasi data lama)
+            (CASE 
+                WHEN d.qty_internal = 0 AND d.qty_cmt = 0 THEN d.jumlah 
+                ELSE d.qty_internal 
+            END) as target_internal,
+
+            -- 1. Sisa untuk OPERATOR (Target Internal dikurangi yang sudah disetor)
+            ((CASE 
+                WHEN d.qty_internal = 0 AND d.qty_cmt = 0 THEN d.jumlah 
+                ELSE d.qty_internal 
+            END) - COALESCE((SELECT SUM(jumlah_setor) FROM hasil_kerja WHERE detail_id = d.id), 0)) as sisa,
+            
             -- 2. Total yang SUDAH SETOR dari Operator (Untuk info QC)
             COALESCE((SELECT SUM(jumlah_setor) FROM hasil_kerja WHERE detail_id = d.id), 0) as total_operator,
+            
             -- 3. Total yang SUDAH PERIKSA oleh QC
             COALESCE((SELECT SUM(jumlah_qc) FROM hasil_qc WHERE detail_id = d.id), 0) as total_sudah_qc
+            
         FROM po_detail d
         WHERE d.po_id = $1
-        AND NOT EXISTS (
-            SELECT 1 FROM cmt_surat_jalan_detail sjd WHERE sjd.po_detail_id = d.id
+        
+        -- 🌟 FILTER BARU: Pastikan hanya part yang masih ada pengerjaan internal yang muncul.
+        -- Jika part tersebut 100% di-CMT-kan (qty_internal = 0, qty_cmt = 1000), part ini tidak akan muncul.
+        AND (
+            d.qty_internal > 0 
+            OR 
+            (d.qty_internal = 0 AND d.qty_cmt = 0 AND d.jumlah > 0)
         )
     `;
     
