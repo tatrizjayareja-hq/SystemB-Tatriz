@@ -13,19 +13,33 @@
             color: #2b2521; 
         }
 
-        /* CONTAINER NOTA BERGAYA BATIK */
+        /* CONTAINER NOTA DENGAN BINGKAI BATIK KOMPLEKS */
         .nota-box {
             position: relative; 
             box-sizing: border-box; 
             display: flex; 
             flex-direction: column;
-            border: 3px double #8c6239; 
-            outline: 1px solid #d4af37;
-            outline-offset: -6px;
+            border: 2px solid #8c6239; 
+            outline: 2px solid #d4af37;
+            outline-offset: -5px;
             margin: auto; 
             background: #fffdf9; 
             box-shadow: 0 4px 15px rgba(0,0,0,0.15);
+            padding: 12px;
         }
+
+        /* ORNAMEN BATIK DI 4 SUDUT (SVG REUSABLE) */
+        .corner-ornament {
+            position: absolute;
+            width: 32px;
+            height: 32px;
+            z-index: 2;
+            pointer-events: none;
+        }
+        .corner-tl { top: 2px; left: 2px; }
+        .corner-tr { top: 2px; right: 2px; transform: scaleX(-1); }
+        .corner-bl { bottom: 2px; left: 2px; transform: scaleY(-1); }
+        .corner-br { bottom: 2px; right: 2px; transform: scale(-1, -1); }
 
         .content-area { position: relative; z-index: 1; }
         .footer-nota { margin-top: 15px; padding-top: 10px; page-break-inside: avoid; break-inside: avoid; } 
@@ -36,10 +50,12 @@
             align-items: center; 
             border-bottom: 2px solid #8c6239; 
             padding-bottom: 8px; 
-            margin-bottom: 12px; 
-            background: linear-gradient(to right, rgba(212,175,55,0.08), transparent);
+            margin-bottom: 6px; 
+            background: linear-gradient(to right, rgba(212,175,55,0.1), rgba(140,98,57,0.05));
             padding: 8px;
             border-radius: 4px;
+            position: relative;
+            z-index: 1;
         }
         .logo-header { width: 50px; height: 50px; object-fit: contain; margin-right: 12px; filter: drop-shadow(0 1px 2px rgba(0,0,0,0.2)); }
         .company-info { flex-grow: 1; }
@@ -49,8 +65,8 @@
         .label-nota h3 { margin: 0; color: #8c6239; font-size: 15px; letter-spacing: 1.5px; text-transform: uppercase; font-weight: bold; }
         .label-nota p { margin: 1px 0; font-size: 9px; color: #5a4a3e; }
 
-        /* TABEL TRANSAKSI BERWARNA BATIK */
-        table { width: 100%; border-collapse: collapse; margin-top: 5px; line-height: 1.3; }
+        /* TABEL TRANSAKSI */
+        table { width: 100%; border-collapse: collapse; margin-top: 5px; line-height: 1.3; position: relative; z-index: 1; }
         th { 
             background: #4a2c11; 
             color: #f4efe6; 
@@ -67,7 +83,7 @@
         
         .master-row td { background: #f7f1e5; font-weight: bold; border-top: 1px solid #c2b280; border-bottom: 1px solid #c2b280; color: #3a220f; }
         .detail-row td { color: #4a3e3d; padding: 4px 4px; }
-        .subtotal-po td { font-style: italic; background: #fffdf9; border-bottom: 1px solid #e6ded1; padding: 4px 3px; }
+        .subtotal-po td { font-style: italic; background: rgba(255, 253, 249, 0.8); border-bottom: 1px solid #e6ded1; padding: 4px 3px; }
         
         /* FOOTER & TOTAL BOX */
         .total-box { width: 100%; border-top: 2px solid #8c6239; padding-top: 6px; margin-bottom: 10px; page-break-inside: avoid; }
@@ -82,14 +98,14 @@
         .ttd-box { width: 40%; color: #3a220f; }
         .ttd-space { height: 40px; }
 
-        /* WATERMARK ORNAMEN BATIK */
-        .watermark-batik { 
+        /* WATERMARK LOGO UTAMA */
+        .watermark { 
             position: absolute; 
-            top: 50%; 
+            top: 45%; 
             left: 50%; 
-            transform: translate(-50%, -50%); 
-            opacity: 0.05; 
-            width: 320px; 
+            transform: translate(-50%, -50%) rotate(-15deg); 
+            opacity: 0.06; 
+            width: 260px; 
             z-index: 0; 
             pointer-events: none; 
         }
@@ -97,12 +113,13 @@
         .text-end { text-align: right !important; }
         .text-center { text-align: center !important; }
 
-        /* MOTIF CORAK BATIK CSS LIST ATAU BORDER ORNAMEN */
+        /* MOTIF CORAK PEMBATAS BATIK SYMMETRIC */
         .batik-divider {
-            height: 4px;
-            background: repeating-linear-gradient(45deg, #8c6239, #8c6239 5px, #d4af37 5px, #d4af37 10px, #4a2c11 10px, #4a2c11 15px);
-            margin: 6px 0;
+            height: 6px;
+            background: repeating-linear-gradient(45deg, #8c6239, #8c6239 6px, #d4af37 6px, #d4af37 12px, #4a2c11 12px, #4a2c11 18px);
+            margin: 4px 0 8px 0;
             border-radius: 2px;
+            border: 1px solid #4a2c11;
         }
     </style>
 
@@ -112,12 +129,13 @@
             @media print {
                 @page { size: 105mm 148mm; margin: 0; }
                 body { padding: 0 !important; -webkit-print-color-adjust: exact; print-color-adjust: exact; background: none; }
-                .nota-box { width: 105mm; height: auto; min-height: unset; padding: 5mm; border: none !important; outline: none !important; box-shadow: none !important; }
+                .nota-box { width: 105mm; height: auto; min-height: unset; padding: 4mm; border: none !important; outline: none !important; box-shadow: none !important; }
                 * { font-size: 10px !important; }
                 .company-info h2 { font-size: 11px !important; }
                 .total-row { font-size: 11px !important; }
                 .sisa-row, .lunas-row { font-size: 12px !important; }
                 .ttd-section { font-size: 9px !important; }
+                .corner-ornament { display: none; }
             }
             @media screen { .nota-box { width: 100%; max-width: 105mm; height: auto; min-height: unset; padding: 5mm; } * { font-size: 10px; } }
             table { table-layout: auto; }
@@ -128,12 +146,13 @@
             @media print {
                 @page { size: A5 landscape; margin: 0.5cm; }
                 body { padding: 0 !important; -webkit-print-color-adjust: exact; print-color-adjust: exact; background: none; }
-                .nota-box { width: 100%; height: auto; min-height: unset; padding: 8mm; border: none !important; outline: none !important; box-shadow: none !important; }
+                .nota-box { width: 100%; height: auto; min-height: unset; padding: 6mm; border: none !important; outline: none !important; box-shadow: none !important; }
                 * { font-size: 11px !important; }
                 .company-info h2 { font-size: 14px !important; }
                 .total-row { font-size: 12px !important; }
                 .sisa-row, .lunas-row { font-size: 14px !important; }
                 .ttd-section { font-size: 10px !important; }
+                .corner-ornament { display: none; }
             }
             @media screen { .nota-box { width: 100%; max-width: 210mm; height: auto; min-height: unset; padding: 8mm; overflow-x: auto;} * { font-size: 11px; } }
             table { table-layout: fixed; }
@@ -142,12 +161,12 @@
 </head>
 
 <body>
-    <!-- LOADER SYSTEM BERGAYA TRADISIONAL KHAS TATRIZ -->
+    <!-- LOADER SYSTEM BERGAYA TRADISIONAL -->
     <div id="loaderSistem" style="
         position: fixed;
         top: 0; left: 0;
         width: 100%; height: 100%;
-        background: #2b1a0e; /* Warna cokelat kayu gelap batik */
+        background: #2b1a0e;
         z-index: 99999;
         display: flex;
         flex-direction: column;
@@ -165,7 +184,7 @@
         .spinner-tatriz {
             width: 50px; height: 50px;
             border: 5px solid rgba(212, 175, 55, 0.2);
-            border-top: 5px solid #d4af37; /* Aksen emas batik */
+            border-top: 5px solid #d4af37;
             border-radius: 50%;
             animation: putarLoaderTatriz 1s linear infinite;
         }
@@ -180,13 +199,30 @@
     </style>
 
     <div class="nota-box">
-        <!-- SVG Watermark Motif Kawung / Batik -->
-        <svg class="watermark-batik" viewBox="0 0 100 100" fill="#8c6239" xmlns="http://www.w3.org/2000/svg">
-            <path d="M50 0 C30 20 30 30 50 50 C30 30 20 30 0 50 C20 30 30 20 50 0 Z" />
-            <path d="M50 0 C70 20 70 30 50 50 C70 30 80 30 100 50 C80 30 70 20 50 0 Z" />
-            <path d="M50 100 C30 80 30 70 50 50 C30 70 20 70 0 50 C20 70 30 80 50 100 Z" />
-            <path d="M50 100 C70 80 70 70 50 50 C70 70 80 70 100 50 C80 70 70 80 50 100 Z" />
+        <!-- SVG ORNAMEN BATIK SUDUT BINGKAI -->
+        <svg class="corner-ornament corner-tl" viewBox="0 0 100 100" fill="#8c6239" xmlns="http://www.w3.org/2000/svg">
+            <path d="M0,0 L100,0 C60,20 40,40 20,60 L0,100 Z" fill="#8c6239"/>
+            <path d="M0,0 L60,0 C40,15 25,25 0,60 Z" fill="#d4af37"/>
+            <circle cx="20" cy="20" r="5" fill="#4a2c11"/>
         </svg>
+        <svg class="corner-ornament corner-tr" viewBox="0 0 100 100" fill="#8c6239" xmlns="http://www.w3.org/2000/svg">
+            <path d="M0,0 L100,0 C60,20 40,40 20,60 L0,100 Z" fill="#8c6239"/>
+            <path d="M0,0 L60,0 C40,15 25,25 0,60 Z" fill="#d4af37"/>
+            <circle cx="20" cy="20" r="5" fill="#4a2c11"/>
+        </svg>
+        <svg class="corner-ornament corner-bl" viewBox="0 0 100 100" fill="#8c6239" xmlns="http://www.w3.org/2000/svg">
+            <path d="M0,0 L100,0 C60,20 40,40 20,60 L0,100 Z" fill="#8c6239"/>
+            <path d="M0,0 L60,0 C40,15 25,25 0,60 Z" fill="#d4af37"/>
+            <circle cx="20" cy="20" r="5" fill="#4a2c11"/>
+        </svg>
+        <svg class="corner-ornament corner-br" viewBox="0 0 100 100" fill="#8c6239" xmlns="http://www.w3.org/2000/svg">
+            <path d="M0,0 L100,0 C60,20 40,40 20,60 L0,100 Z" fill="#8c6239"/>
+            <path d="M0,0 L60,0 C40,15 25,25 0,60 Z" fill="#d4af37"/>
+            <circle cx="20" cy="20" r="5" fill="#4a2c11"/>
+        </svg>
+
+        <!-- WATERMARK LOGO UTAMA PERUSAHAAN -->
+        <img src="<%= config.logo_path %>" class="watermark">
 
         <div class="header-container">
             <img src="<%= config.logo_path %>" class="logo-header">
@@ -202,7 +238,7 @@
             </div>
         </div>
 
-        <!-- Garis Motif Hias Batik -->
+        <!-- Garis Motif Batik -->
         <div class="batik-divider"></div>
 
         <div class="content-area">
