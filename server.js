@@ -133,7 +133,9 @@ app.post('/api/ai/create-order', async (req, res) => {
 
         const tenantId = 1; 
         const tanggalHariIni = new Date().toISOString().split('T')[0];
-        const namaPO = `Order AI - ${customer_name} (${tanggalHariIni})`;
+        const namaPO = po_name && po_name.trim() !== '' 
+        ? po_name 
+        : `Order AI - ${customer_name} (${tanggalHariIni})`;
 
         // Hitung total harga seluruh item
         let totalHargaPO = 0;
