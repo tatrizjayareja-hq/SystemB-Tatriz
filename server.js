@@ -122,7 +122,8 @@ app.post('/api/ai/create-order', async (req, res) => {
             return res.status(401).json({ success: false, error: 'Akses ditolak: API Key tidak valid' });
         }
 
-        const { customer_name, items, down_payment, deadline } = req.body;
+        // 1. Destructure variabel dengan aman (termasuk po_name & status)
+        const { customer_name, po_name, status, items, down_payment, deadline } = req.body;
 
         if (!customer_name || !items || !Array.isArray(items) || items.length === 0) {
             return res.status(400).json({ 
@@ -133,9 +134,16 @@ app.post('/api/ai/create-order', async (req, res) => {
 
         const tenantId = 1; 
         const tanggalHariIni = new Date().toISOString().split('T')[0];
-        const namaPO = po_name && po_name.trim() !== '' 
-        ? po_name 
-        : `Order AI - ${customer_name} (${tanggalHariIni})`;
+        
+        // 2. Pastikan po_name aman dari error undefined
+        const namaPO = (po_name && typeof po_name === 'string' && po_name.trim() !== '') 
+            ? po_name.trim() 
+            : `Order AI - ${customer_name} (${tanggalHariIni})`;
+
+        // Status default adalah 'Antri', kecuali jika AI mengirimkan status khusus (misal 'Design')
+        const statusPO = (status && typeof status === 'string' && status.trim() !== '') 
+            ? status.trim() 
+            : 'Antri';
 
         // Hitung total harga seluruh item
         let totalHargaPO = 0;
@@ -150,12 +158,12 @@ app.post('/api/ai/create-order', async (req, res) => {
         // A. Insert Header PO (po_utama)
         const sqlHeader = `
             INSERT INTO po_utama (tenant_id, tanggal, nama_po, customer, status, total_harga_customer) 
-            VALUES ($1, $2, $3, $4, 'Antri', $5) RETURNING id
+            VALUES ($1, $2, $3, $4, $5, $6) RETURNING id
         `;
-        const headerRes = await db.query(sqlHeader, [tenantId, tanggalHariIni, namaPO, customer_name, totalHargaPO]);
+        const headerRes = await db.query(sqlHeader, [tenantId, tanggalHariIni, namaPO, customer_name, statusPO, totalHargaPO]);
         const poId = headerRes.rows[0].id;
 
-        // B. Insert Banyak Detail PO (po_detail) via Looping
+        // B. Insert Detail PO (po_detail)
         const sqlDetail = `
             INSERT INTO po_detail (
                 po_id, jenis_bordir, nama_desain, jumlah, 
@@ -168,6 +176,7 @@ app.post('/api/ai/create-order', async (req, res) => {
         for (const item of items) {
             const qty = parseInt(item.quantity) || 0;
             const price = parseFloat(item.price_per_unit) || 0;
+            const priceCmt = parseFloat(item.price_per_unit_cmt) || price;
             const jenis = item.jenis_bordir || 'Bordir Komputer';
             const desain = item.nama_desain || 'Logo';
 
@@ -178,9 +187,9 @@ app.post('/api/ai/create-order', async (req, res) => {
                 qty,
                 qty,
                 0,
-                price,
-                price,
-                price
+                price,     // harga_operator
+                price,     // harga_customer
+                priceCmt   // harga_cmt
             ]);
         }
 
@@ -192,20 +201,23 @@ app.post('/api/ai/create-order', async (req, res) => {
                 VALUES ($1, $2, 'PEMASUKAN', 'DP/CICILAN', $3, $4, $5)
             `, [tenantId, tanggalHariIni, poId, dpVal, `DP Order via AI (${customer_name})`]);
 
-            await db.query("UPDATE po_utama SET status = 'DP/Cicil' WHERE id = \$1", [poId]);
+            if (statusPO !== 'Design') {
+                await db.query("UPDATE po_utama SET status = 'DP/Cicil' WHERE id = \$1", [poId]);
+            }
         }
 
         await db.query("COMMIT");
 
         return res.json({
             success: true,
-            message: `Order ${customer_name} berisi ${items.length} item berhasil disimpan!`,
+            message: `Order "${namaPO}" untuk ${customer_name} berhasil disimpan dengan status ${statusPO}!`,
             data: {
                 po_id: poId,
                 customer: customer_name,
+                po_name: namaPO,
+                status: statusPO,
                 total_items: items.length,
-                total_harga: totalHargaPO,
-                dp: dpVal
+                total_harga: totalHargaPO
             }
         });
 
