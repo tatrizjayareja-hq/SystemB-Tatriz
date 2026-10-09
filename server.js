@@ -110,6 +110,106 @@ const isQC = (req, res, next) => {
     res.status(403).send("Akses Ditolak: Fitur Khusus QC!");
 };
 
+// ==============================================================
+// ENDPOINT KHUSUS AI LOKAL (PEMBUATAN ORDER SECARA OTOMATIS)
+// ==============================================================
+app.post('/api/ai/create-order', async (req, res) => {
+    try {
+        // 1. Verifikasi API Key Rahasia
+        const authHeader = req.headers['authorization'];
+        const expectedKey = `Bearer ${process.env.AI_SECRET_KEY || 'proyek_ai_untuk_tatriz_systemB_88'}`;
+
+        if (!authHeader || authHeader !== expectedKey) {
+            return res.status(401).json({ success: false, error: 'Akses ditolak: API Key tidak valid' });
+        }
+
+        // 2. Ambil Data dari AI Lokal
+        const { customer_name, item_description, quantity, price_per_unit, down_payment, deadline } = req.body;
+
+        // 3. Validasi oleh Tatriz SystemB (Data Wajib)
+        if (!customer_name || !item_description || !quantity || !price_per_unit) {
+            return res.status(400).json({ 
+                success: false, 
+                error: 'Data tidak lengkap. Nama pelanggan, deskripsi item, jumlah, dan harga wajib ada.' 
+            });
+        }
+
+        // 4. Tentukan Tenant ID (Default ke Tenant Utama / 1 atau sesuaikan kebutuhan)
+        const tenantId = 1; 
+        const tanggalHariIni = new Date().toISOString().split('T')[0];
+        const namaPO = `Order AI - ${customer_name} (${tanggalHariIni})`;
+
+        const qty = parseInt(quantity) || 0;
+        const hargaCust = parseFloat(price_per_unit) || 0;
+        const totalHarga = qty * hargaCust;
+
+        await db.query("BEGIN");
+
+        // A. Insert ke po_utama
+        const sqlHeader = `
+            INSERT INTO po_utama (tenant_id, tanggal, nama_po, customer, status, total_harga_customer) 
+            VALUES ($1, $2, $3, $4, 'Antri', $5) RETURNING id
+        `;
+        const headerRes = await db.query(sqlHeader, [tenantId, tanggalHariIni, namaPO, customer_name, totalHarga]);
+        const poId = headerRes.rows[0].id;
+
+        // B. Insert ke po_detail (Mengikuti struktur presisi V2 Tatriz SystemB)
+        const sqlDetail = `
+            INSERT INTO po_detail (
+                po_id, jenis_bordir, nama_desain, jumlah, 
+                qty_internal, qty_cmt, 
+                harga_operator, harga_customer, harga_cmt
+            ) 
+            VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+        `;
+        
+        await db.query(sqlDetail, [
+            poId, 
+            'Bordir Komputer',  // jenis_bordir default
+            item_description,   // nama_desain dari AI
+            qty,                // jumlah total
+            qty,                // qty_internal
+            0,                  // qty_cmt
+            hargaCust,          // harga_operator (mengikuti harga_customer)
+            hargaCust,          // harga_customer
+            hargaCust           // harga_cmt
+        ]);
+
+        // C. Jika ada DP (Down Payment), buatkan catatan Arus Kas Pemasukan otomatis
+        const dpVal = parseFloat(down_payment) || 0;
+        if (dpVal > 0) {
+            await db.query(`
+                INSERT INTO arus_kas (tenant_id, tanggal, jenis, kategori, po_id, jumlah, keterangan)
+                VALUES ($1, $2, 'PEMASUKAN', 'DP/CICILAN', $3, $4, $5)
+            `, [tenantId, tanggalHariIni, poId, dpVal, `DP Order via AI (${customer_name})`]);
+
+            // Update status PO jika ada DP
+            await db.query("UPDATE po_utama SET status = 'DP/Cicil' WHERE id = \$1", [poId]);
+        }
+
+        await db.query("COMMIT");
+
+        // 5. Kembalikan Respon Sukses ke AI Lokal
+        return res.json({
+            success: true,
+            message: 'Order berhasil disimpan ke Tatriz SystemB!',
+            data: {
+                po_id: poId,
+                customer: customer_name,
+                item: item_description,
+                quantity: qty,
+                total_harga: totalHarga,
+                dp: dpVal
+            }
+        });
+
+    } catch (err) {
+        await db.query("ROLLBACK").catch(() => {});
+        console.error("🔥 Error API AI Create Order:", err.message);
+        return res.status(500).json({ success: false, error: 'Gagal menyimpan ke database: ' + err.message });
+    }
+});
+
 app.use((req, res, next) => {
     // res.locals membuat variabel 'user' otomatis tersedia di SEMUA file .ejs
     res.locals.user = req.session.userId ? {
