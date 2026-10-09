@@ -111,11 +111,10 @@ const isQC = (req, res, next) => {
 };
 
 // ==============================================================
-// ENDPOINT KHUSUS AI LOKAL (PEMBUATAN ORDER SECARA OTOMATIS)
+// ENDPOINT KHUSUS AI LOKAL (PEMBUATAN ORDER MULTI-ITEM)
 // ==============================================================
 app.post('/api/ai/create-order', async (req, res) => {
     try {
-        // 1. Verifikasi API Key Rahasia
         const authHeader = req.headers['authorization'];
         const expectedKey = `Bearer ${process.env.AI_SECRET_KEY || 'proyek_ai_untuk_tatriz_systemB_88'}`;
 
@@ -123,37 +122,38 @@ app.post('/api/ai/create-order', async (req, res) => {
             return res.status(401).json({ success: false, error: 'Akses ditolak: API Key tidak valid' });
         }
 
-        // 2. Ambil Data dari AI Lokal
-        const { customer_name, item_description, quantity, price_per_unit, down_payment, deadline } = req.body;
+        const { customer_name, items, down_payment, deadline } = req.body;
 
-        // 3. Validasi oleh Tatriz SystemB (Data Wajib)
-        if (!customer_name || !item_description || !quantity || !price_per_unit) {
+        if (!customer_name || !items || !Array.isArray(items) || items.length === 0) {
             return res.status(400).json({ 
                 success: false, 
-                error: 'Data tidak lengkap. Nama pelanggan, deskripsi item, jumlah, dan harga wajib ada.' 
+                error: 'Data tidak lengkap. Nama pelanggan dan minimal 1 item bordir wajib diisi.' 
             });
         }
 
-        // 4. Tentukan Tenant ID (Default ke Tenant Utama / 1 atau sesuaikan kebutuhan)
         const tenantId = 1; 
         const tanggalHariIni = new Date().toISOString().split('T')[0];
         const namaPO = `Order AI - ${customer_name} (${tanggalHariIni})`;
 
-        const qty = parseInt(quantity) || 0;
-        const hargaCust = parseFloat(price_per_unit) || 0;
-        const totalHarga = qty * hargaCust;
+        // Hitung total harga seluruh item
+        let totalHargaPO = 0;
+        items.forEach(item => {
+            const qty = parseInt(item.quantity) || 0;
+            const price = parseFloat(item.price_per_unit) || 0;
+            totalHargaPO += (qty * price);
+        });
 
         await db.query("BEGIN");
 
-        // A. Insert ke po_utama
+        // A. Insert Header PO (po_utama)
         const sqlHeader = `
             INSERT INTO po_utama (tenant_id, tanggal, nama_po, customer, status, total_harga_customer) 
             VALUES ($1, $2, $3, $4, 'Antri', $5) RETURNING id
         `;
-        const headerRes = await db.query(sqlHeader, [tenantId, tanggalHariIni, namaPO, customer_name, totalHarga]);
+        const headerRes = await db.query(sqlHeader, [tenantId, tanggalHariIni, namaPO, customer_name, totalHargaPO]);
         const poId = headerRes.rows[0].id;
 
-        // B. Insert ke po_detail (Mengikuti struktur presisi V2 Tatriz SystemB)
+        // B. Insert Banyak Detail PO (po_detail) via Looping
         const sqlDetail = `
             INSERT INTO po_detail (
                 po_id, jenis_bordir, nama_desain, jumlah, 
@@ -162,20 +162,27 @@ app.post('/api/ai/create-order', async (req, res) => {
             ) 
             VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
         `;
-        
-        await db.query(sqlDetail, [
-            poId, 
-            'Bordir Komputer',  // jenis_bordir default
-            item_description,   // nama_desain dari AI
-            qty,                // jumlah total
-            qty,                // qty_internal
-            0,                  // qty_cmt
-            hargaCust,          // harga_operator (mengikuti harga_customer)
-            hargaCust,          // harga_customer
-            hargaCust           // harga_cmt
-        ]);
 
-        // C. Jika ada DP (Down Payment), buatkan catatan Arus Kas Pemasukan otomatis
+        for (const item of items) {
+            const qty = parseInt(item.quantity) || 0;
+            const price = parseFloat(item.price_per_unit) || 0;
+            const jenis = item.jenis_bordir || 'Bordir Komputer';
+            const desain = item.nama_desain || 'Logo';
+
+            await db.query(sqlDetail, [
+                poId, 
+                jenis,
+                desain,
+                qty,
+                qty,
+                0,
+                price,
+                price,
+                price
+            ]);
+        }
+
+        // C. Simpan DP jika ada
         const dpVal = parseFloat(down_payment) || 0;
         if (dpVal > 0) {
             await db.query(`
@@ -183,22 +190,19 @@ app.post('/api/ai/create-order', async (req, res) => {
                 VALUES ($1, $2, 'PEMASUKAN', 'DP/CICILAN', $3, $4, $5)
             `, [tenantId, tanggalHariIni, poId, dpVal, `DP Order via AI (${customer_name})`]);
 
-            // Update status PO jika ada DP
             await db.query("UPDATE po_utama SET status = 'DP/Cicil' WHERE id = \$1", [poId]);
         }
 
         await db.query("COMMIT");
 
-        // 5. Kembalikan Respon Sukses ke AI Lokal
         return res.json({
             success: true,
-            message: 'Order berhasil disimpan ke Tatriz SystemB!',
+            message: `Order ${customer_name} berisi ${items.length} item berhasil disimpan!`,
             data: {
                 po_id: poId,
                 customer: customer_name,
-                item: item_description,
-                quantity: qty,
-                total_harga: totalHarga,
+                total_items: items.length,
+                total_harga: totalHargaPO,
                 dp: dpVal
             }
         });
