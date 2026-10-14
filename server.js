@@ -1465,21 +1465,40 @@ app.get('/po-data-v2', isAdmin, async (req, res) => {
 
     const isPro = (tId === 1 || req.session.tenantLevel >= 2);
     const isInternal = (tId === 1 || tId === 100);
+
+    // Tangkap semua parameter filter
+    const searchQuery = req.query.search || '';
+    const selectedStatus = req.query.status || 'ALL';
     const selectedCustomer = req.query.customer || '';
 
     try {
-        let statusFilter = "u.status NOT IN ('Lunas', 'Clear')";
         let queryParams = [tId];
         let whereClauses = ["u.tenant_id = \$1"];
+        let paramIndex = 2;
 
-        // Jika user memilih customer dari dropdown, longgarkan filter untuk membuka arsip lunas khusus customer tersebut
+        // 1. FILTER STATUS & ARSIP LUNAS (Cerdas & Fleksibel)
         if (selectedCustomer) {
-            whereClauses.push(`u.customer = $2`);
+            // Jika customer dipilih, izinkan melihat semua status (termasuk Lunas/Clear) milik customer tersebut
+            whereClauses.push(`u.customer = $${paramIndex++}`);
             queryParams.push(selectedCustomer);
-            statusFilter = "1=1"; 
         }
 
-        whereClauses.push(statusFilter);
+        if (selectedStatus !== 'ALL') {
+            // Jika user memilih status spesifik dari dropdown status
+            whereClauses.push(`u.status = $${paramIndex++}`);
+            queryParams.push(selectedStatus);
+        } else if (!selectedCustomer) {
+            // Default performa: Sembunyikan Lunas & Clear jika tidak pilih customer & tidak pilih status ALL
+            whereClauses.push(`u.status NOT IN ('Lunas', 'Clear')`);
+        }
+
+        // 2. FILTER PENCARIAN KETIK (Live Search / Text Search)
+        if (searchQuery) {
+            whereClauses.push(`(u.nama_po ILIKE $${paramIndex} OR u.customer ILIKE $${paramIndex})`);
+            queryParams.push(`%${searchQuery}%`);
+            paramIndex++;
+        }
+
         let whereString = `WHERE ${whereClauses.join(' AND ')}`;
 
         const sqlOrders = `
@@ -1547,6 +1566,8 @@ app.get('/po-data-v2', isAdmin, async (req, res) => {
             vendors: vendors.rows,
             listCustomer: listCustomerRes.rows || [],
             selectedCustomer: selectedCustomer,
+            selectedStatus: selectedStatus,
+            searchQuery: searchQuery,
             user: req.session,
             isPro: isPro,      
             isInternal: isInternal 

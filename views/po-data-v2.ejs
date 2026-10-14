@@ -46,14 +46,17 @@
     <div class="card shadow-sm border-0 mb-3">
         <div class="card-body py-2">
             <form method="GET" action="/po-data-v2" class="row g-2 align-items-center">
-                <!-- Kolom Pencarian -->
+                <!-- Kolom Pencarian (Tekan Enter atau ketik lalu submit) -->
                 <div class="col-12 col-md-3">
-                    <input type="text" id="liveSearch" name="search" value="<%= typeof searchQuery !== 'undefined' ? searchQuery : '' %>" class="form-control form-control-sm" placeholder="🔍 Cari PO / Customer...">
+                    <div class="input-group input-group-sm">
+                        <input type="text" name="search" value="<%= typeof searchQuery !== 'undefined' ? searchQuery : '' %>" class="form-control" placeholder="🔍 Cari PO / Customer...">
+                        <button type="submit" class="btn btn-outline-secondary"><i class="bi bi-search"></i></button>
+                    </div>
                 </div>
                 
-                <!-- Kolom Status -->
+                <!-- Kolom Status (Berfungsi Normal Menyaring Status) -->
                 <div class="col-5 col-md-2">
-                    <select id="filterStatus" name="status" class="form-select form-select-sm" onchange="this.form.submit()">
+                    <select name="status" class="form-select form-select-sm" onchange="this.form.submit()">
                         <option value="ALL" <%= (typeof selectedStatus === 'undefined' || selectedStatus === 'ALL') ? 'selected' : '' %>>- Semua Status -</option>
                         <option value="Design" <%= typeof selectedStatus !== 'undefined' && selectedStatus === 'Design' ? 'selected' : '' %>>Design</option>
                         <option value="Antri" <%= typeof selectedStatus !== 'undefined' && selectedStatus === 'Antri' ? 'selected' : '' %>>Antri</option>
@@ -66,10 +69,10 @@
                     </select>
                 </div>
 
-                <!-- Filter Khusus Customer untuk Membuka Arsip Lunas (Sesuai Syarat Performa) -->
+                <!-- Filter Customer (Membuka Arsip Lunas) -->
                 <div class="col-7 col-md-4">
                     <select name="customer" class="form-select form-select-sm border-success" onchange="this.form.submit()">
-                        <option value="">-- Pilih Customer (Opsional untuk Arsip Lunas) --</option>
+                        <option value="">-- Pilih Customer (Arsip Lunas) --</option>
                         <% if (typeof listCustomer !== 'undefined' && listCustomer.length > 0) { %>
                             <% listCustomer.forEach(c => { %>
                                 <option value="<%= c.customer %>" <%= (typeof selectedCustomer !== 'undefined' && selectedCustomer === c.customer) ? 'selected' : '' %>><%= c.customer %></option>
