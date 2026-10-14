@@ -1542,6 +1542,32 @@ app.get('/po-data-v2', isAdmin, async (req, res) => {
     }
 });
 
+// Endpoint untuk mengambil PO berdasarkan Customer (Termasuk yang Lunas khusus untuk arsip/cek)
+app.get('/api/customer-po-history', isInternalOrAdmin, async (req, res) => {
+    const tId = req.session.tenantId;
+    const customerName = req.query.customer;
+
+    if (!customerName) {
+        return res.json([]);
+    }
+
+    try {
+        // Query ini meloloskan status 'Lunas' atau 'Clear' TAPI hanya untuk 1 customer spesifik
+        const queryStr = `
+            SELECT id, nama_po, tanggal, status, total_harga_customer 
+            FROM po_utama 
+            WHERE tenant_id = $1 AND customer = $2 
+            ORDER BY id DESC 
+            LIMIT 50
+        `;
+        const result = await db.query(queryStr, [tId, customerName]);
+        res.json(result.rows);
+    } catch (err) {
+        console.error("🔥 Error get customer PO history:", err.message);
+        res.status(500).json({ error: "Gagal memuat riwayat PO customer." });
+    }
+});
+
 // RUTE HALAMAN DATA PO V2
 app.get('/po-data-v1', isAdmin, async (req, res) => {
     if (!req.session.userId) return res.redirect('/');

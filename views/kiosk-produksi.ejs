@@ -8,22 +8,60 @@
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.0/font/bootstrap-icons.css">
     <style>
         body { background: #1e272e; color: #fff; font-family: 'Segoe UI', sans-serif; overflow-x: hidden; padding-bottom: 30px; user-select: none; -webkit-user-select: none; }
+        
         .kiosk-header { background: #0a463c; padding: 15px 20px; box-shadow: 0 4px 10px rgba(0,0,0,0.5); border-bottom: 3px solid #0fb9b1; }
         .logo-img { height: 40px; background: white; padding: 4px; border-radius: 6px; }
-        .po-card { background: #2d3436; border-left: 6px solid #636e72; border-radius: 12px; transition: 0.2s; overflow: hidden; box-shadow: 0 4px 6px rgba(0,0,0,0.2); }
+        
+        .po-card { 
+            background: #2d3436; 
+            border-left: 6px solid #636e72;
+            border-radius: 12px; transition: 0.2s; 
+            overflow: hidden;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.2);
+        }
+        
         .po-card-header { padding: 15px; cursor: pointer; transition: 0.2s; }
         .po-card-header:active { background: rgba(255,255,255,0.05); }
+        
         .po-card.new { border-left-color: #0fb9b1; }   
         .po-card.under { border-left-color: #f39c12; } 
         .po-card.done { border-left-color: #2ecc71; }  
         .po-card.over { border-left-color: #ff4757; }  
+
         .po-title { font-size: 1.15rem; font-weight: bold; color: #fff; line-height: 1.3; }
-        .collapse-area { background: #1e272e; padding: 15px; border-top: 1px solid #636e72; box-shadow: inset 0 5px 10px rgba(0,0,0,0.2); }
-        .sub-item { background: #f5f6fa; color: #2f3640; padding: 12px 15px; border-radius: 8px; margin-bottom: 10px; cursor: pointer; border-left: 4px solid #0fb9b1; transition: 0.2s; display: flex; justify-content: space-between; align-items: center; }
+        
+        .collapse-area {
+            background: #1e272e; 
+            padding: 15px;
+            border-top: 1px solid #636e72;
+            box-shadow: inset 0 5px 10px rgba(0,0,0,0.2);
+        }
+        .sub-item {
+            background: #f5f6fa;
+            color: #2f3640;
+            padding: 12px 15px;
+            border-radius: 8px;
+            margin-bottom: 10px;
+            cursor: pointer;
+            border-left: 4px solid #0fb9b1;
+            transition: 0.2s;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
         .sub-item:active { transform: scale(0.95); background: #dcdde1; }
         .sub-item:last-child { margin-bottom: 0; }
+
         .blink-warn { animation: blinker 1.2s linear infinite; }
         @keyframes blinker { 50% { opacity: 0.4; } }
+
+        #quickLoader {
+            position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(0, 0, 0, 0.7); backdrop-filter: blur(4px); -webkit-backdrop-filter: blur(4px);
+            z-index: 99999; display: flex; justify-content: center; align-items: center;
+            opacity: 0; visibility: hidden; transition: opacity 0.2s ease-in-out;
+        }
+        #quickLoader.show { opacity: 1; visibility: visible; }
     </style>
 </head>
 <body>
@@ -35,6 +73,7 @@
         });
         
         let estimasiHariGlobal = Math.ceil(totalNilaiAntrian / targetHarianDB); 
+        
         let tglSelesaiGlobal = new Date();
         tglSelesaiGlobal.setDate(tglSelesaiGlobal.getDate() + estimasiHariGlobal);
         
@@ -43,6 +82,10 @@
         let y = tglSelesaiGlobal.getFullYear();
         let teksTanggalSelesai = `${d}/${m}/${y}`;
     %>
+
+    <div id="quickLoader">
+        <div class="spinner-border text-primary" style="width: 3rem; height: 3rem;" role="status"></div>
+    </div>
 
     <div class="kiosk-header d-flex justify-content-between align-items-center flex-wrap gap-2 sticky-top">
         <div class="d-flex align-items-center gap-3">
@@ -157,8 +200,11 @@
                                             if(sisa < 0) warnaTeks = "text-danger blink-warn"; 
                                             else if(sisa > 0) warnaTeks = "text-warning"; 
                                             else warnaTeks = "text-success"; 
+
+                                            let poAman = po.nama_po ? po.nama_po.replace(/'/g, "\\'") : "";
+                                            let desainAman = sub.nama_desain ? sub.nama_desain.replace(/'/g, "\\'") : "";
                                 %>
-                                    <div class="sub-item shadow-sm" onclick="bukaFormKiosk('<%= po.id %>', '<%= sub.id %>')">
+                                    <div class="sub-item shadow-sm" onclick="bukaLoginKiosk('<%= po.id %>', '<%= poAman %>', '<%= sub.id %>', '<%= desainAman %>')">
                                         <div>
                                             <strong class="d-block text-dark" style="font-size: 14px;"><%= sub.nama_desain %></strong>
                                             <small class="text-muted"><%= sub.jenis_bordir %></small>
@@ -189,12 +235,14 @@
             document.getElementById('clock').innerText = now.toLocaleTimeString('id-ID', { hour12: false });
         }, 1000);
 
-        // Langsung lempar ke halaman form kiosk khusus tanpa modal login
-        function bukaFormKiosk(poId, detailId) {
+        // LANGSUNG LEMPAR KE FORM KIOSK KHUSUS (Tanpa modal login akun)
+        function bukaLoginKiosk(poId, namaPo, detailId, namaDesain) {
             window.location.href = `/kiosk-input-kerja?po_id=${poId}&detail_id=${detailId}`;
         }
 
-        // Sistem Pengunci Navigasi Kiosk (Anti-Escape)
+        // ==========================================
+        // 🔒 SISTEM PENGUNCI NAVIGASI KIOSK (ANTI-ESCAPE)
+        // ==========================================
         document.addEventListener('contextmenu', event => event.preventDefault());
 
         function kunciRiwayatBrowser() {
@@ -211,7 +259,7 @@
             const doc = window.document;
             const docEl = doc.documentElement;
 
-            const requestFullscreen = docEl.requestFullscreen || docEl.mozRequestFullScreen || docEl.webkitRequestFullscreen || docEl.msRequestFullscreen;
+            const requestFullscreen = docEl.requestFullscreen || docEl.mozRequestFullScreen || docEl.webkitRequestFullScreen || docEl.msRequestFullscreen;
             const exitFullscreen = doc.exitFullscreen || doc.mozCancelFullScreen || doc.webkitExitFullscreen || doc.msExitFullscreen;
 
             if (!doc.fullscreenElement && !doc.mozFullScreenElement && !doc.webkitFullscreenElement && !doc.msFullscreenElement) {
