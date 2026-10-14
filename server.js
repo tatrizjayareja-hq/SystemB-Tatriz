@@ -3674,6 +3674,109 @@ app.get('/kiosk-produksi', async (req, res) => {
     }
 });
 
+// --- RUTE KHUSUS KIOSK INPUT (TERPISAH DARI ADMIN) ---
+
+// 1. Middleware khusus pengecekan sesi Kiosk
+const isKioskSession = (req, res, next) => {
+    // Izinkan jika dia admin ATAU sedang dalam mode kiosk yang sah
+    if (req.session.userId && (req.session.role === 'admin' || req.session.role === 'kiosk' || req.session.isKioskMode)) {
+        return next();
+    }
+    res.redirect('/kiosk-produksi');
+};
+
+// 2. Halaman Form Input khusus Kiosk
+app.get('/kiosk-input-kerja', isKioskSession, async (req, res) => {
+    const tId = req.session.tenantId;
+    const prePoId = req.query.po_id || null;
+    const preDetailId = req.query.detail_id || null;
+
+    try {
+        // Ambil daftar PO aktif
+        const activePosRes = await db.query(`
+            SELECT DISTINCT u.id, u.nama_po, u.customer, u.tanggal
+            FROM po_utama u
+            JOIN po_detail d ON u.id = d.po_id
+            WHERE u.tenant_id = $1 
+            AND u.status IN ('Produksi', 'DP/Cicil', 'CMT', 'Parsial CMT') 
+            AND (d.qty_internal > 0 OR (d.qty_internal = 0 AND d.qty_cmt = 0 AND d.jumlah > 0))
+            ORDER BY u.id DESC
+        `, [tId]);
+
+        // Ambil daftar mesin
+        const mesinRes = await db.query("SELECT id, nama_mesin FROM mesin WHERE tenant_id = \$1 ORDER BY id ASC", [tId]);
+
+        // Ambil daftar operator (untuk dipilih siapa yang mengerjakan)
+        const operatorRes = await db.query(`
+            SELECT id, nama_lengkap FROM users 
+            WHERE tenant_id = $1 AND role ILIKE 'operator' AND (status != 'resign' OR status IS NULL)
+            ORDER BY nama_lengkap ASC
+        `, [tId]);
+
+        const configRes = await db.query("SELECT * FROM settings WHERE tenant_id = \$1", [tId]);
+
+        res.render('admin/kiosk-input-form', {
+            active_pos: activePosRes.rows || [],
+            daftarMesin: mesinRes.rows || [],
+            daftarOperator: operatorRes.rows || [],
+            config: configRes.rows[0] || {},
+            prePoId,
+            preDetailId,
+            user: req.session
+        });
+
+    } catch (err) {
+        console.error("🔥 Error Kiosk Input Form:", err.message);
+        res.status(500).send("Gagal memuat form kiosk.");
+    }
+});
+
+// 3. Proses Simpan Khusus Kiosk (Otomatis kembali ke /kiosk-produksi setelah simpan)
+app.post('/kiosk-simpan-kerja', isKioskSession, async (req, res) => {
+    const tId = req.session.tenantId;
+    const { user_id_manual, tanggal, shift, po_id, detail_id, jumlah_setor, mesin_id } = req.body;
+
+    let targetUserId = user_id_manual ? parseInt(user_id_manual) : req.session.userId;
+    const finalJumlahSetor = parseInt(jumlah_setor) || 0;
+
+    try {
+        await db.query("BEGIN");
+
+        const sqlInsert = `
+            INSERT INTO hasil_kerja 
+            (tenant_id, operator_id, po_id, detail_id, mesin_id, tanggal, shift, jumlah_setor) 
+            VALUES ($1, $2, $3, $4, $5, $6, $7, $8)`;
+        
+        await db.query(sqlInsert, [
+            tId, targetUserId, parseInt(po_id), parseInt(detail_id), 
+            parseInt(mesin_id), tanggal, shift, finalJumlahSetor
+        ]);
+
+        // Cek Auto-QC jika target tercapai
+        const sqlCheck = `
+            SELECT 
+                (SELECT SUM(CASE WHEN qty_internal = 0 AND qty_cmt = 0 THEN jumlah ELSE qty_internal END) FROM po_detail WHERE po_id = $1) as target,
+                (SELECT COALESCE(SUM(jumlah_setor), 0) FROM hasil_kerja WHERE po_id = $1) as realisasi
+        `;
+        const checkRes = await db.query(sqlCheck, [parseInt(po_id)]);
+        const row = checkRes.rows[0];
+
+        if (row && parseFloat(row.realisasi) >= parseFloat(row.target)) {
+            await db.query("UPDATE po_utama SET status = 'QC' WHERE id = \$1 AND status NOT IN ('Lunas', 'Clear')", [parseInt(po_id)]);
+        }
+
+        await db.query("COMMIT");
+
+        // Setelah sukses, arahkan kembali ke layar utama Kiosk!
+        res.redirect('/kiosk-produksi');
+
+    } catch (err) {
+        await db.query("ROLLBACK").catch(() => {});
+        console.error("🔥 Error Kiosk Simpan Kerja:", err.message);
+        res.status(500).send("Gagal menyimpan data: " + err.message);
+    }
+});
+
 // B. RUTE UNTUK MEMPROSES LOGIN DARI POPUP KIOSK
 app.post('/login-kiosk', async (req, res) => {
     const { user_id, password, po_id, detail_id } = req.body;
