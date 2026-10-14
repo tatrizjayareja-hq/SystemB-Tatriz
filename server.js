@@ -228,6 +228,35 @@ app.post('/api/ai/create-order', async (req, res) => {
     }
 });
 
+// API: Ambil daftar customer aktif yang memiliki PO produksi
+app.api_customer_po = true; // penanda
+app.get('/api/customer-active-pos', async (req, res) => {
+    if (!req.session.userId) return res.status(401).json({ error: "Unauthorized" });
+    const tId = req.session.tenantId;
+
+    try {
+        // Ambil daftar customer unik beserta PO aktif mereka
+        const sql = `
+            SELECT DISTINCT p.customer, p.id as po_id, p.nama_po, p.tanggal
+            FROM po_utama p
+            JOIN po_detail d ON p.id = d.po_id
+            WHERE p.tenant_id = $1 
+            AND p.status IN ('Produksi', 'DP/Cicil', 'CMT', 'Parsial CMT') 
+            AND (
+                d.qty_internal > 0 
+                OR 
+                (d.qty_internal = 0 AND d.qty_cmt = 0 AND d.jumlah > 0)
+            )
+            ORDER BY p.customer ASC, p.tanggal DESC
+        `;
+        const result = await db.query(sql, [tId]);
+        res.json(result.rows || []);
+    } catch (err) {
+        console.error("🔥 Error API Customer Active POs:", err.message);
+        res.status(500).json([]);
+    }
+});
+
 app.use((req, res, next) => {
     // res.locals membuat variabel 'user' otomatis tersedia di SEMUA file .ejs
     res.locals.user = req.session.userId ? {

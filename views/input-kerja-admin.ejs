@@ -1,7 +1,6 @@
 <!DOCTYPE html>
 <html lang="id">
 <head>
-    
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Input Admin - Tatriz</title>
@@ -10,188 +9,229 @@
         .card { background: white; padding: 20px; border-radius: 15px; box-shadow: 0 4px 10px rgba(0,0,0,0.1); border-top: 5px solid #e67e22; }
         .input-group { margin-bottom: 15px; }
         label { display: block; font-weight: bold; margin-bottom: 5px; font-size: 13px; color: #333; }
-        input, select { width: 100%; padding: 12px; border: 1px solid #ddd; border-radius: 8px; font-size: 16px; }
+        input, select { width: 100%; padding: 12px; border: 1px solid #ddd; border-radius: 8px; font-size: 16px; background: #fff; }
+        select:disabled { background: #e9ecef; cursor: not-allowed; }
         .btn-simpan { background: #e67e22; color: white; border: none; padding: 15px; width: 100%; border-radius: 10px; font-weight: bold; font-size: 16px; cursor: pointer; }
+        .btn-simpan:hover { background: #d35400; }
     </style>
 </head>
 <body>
- <div id="loaderSistem" style="
-    position: fixed;
-    top: 0; left: 0;
-    width: 100%; height: 100%;
-    background: #195e0b; /* Warna hijau gelap khas Tatriz */
-    z-index: 99999; /* Dipastikan paling atas menutupi semua menu */
-    display: flex;
-    flex-direction: column;
-    justify-content: center;
-    align-items: center;
-    transition: opacity 0.3s ease, visibility 0.3s ease;
-">
-    <div class="spinner-tatriz"></div>
-    <p style="color: white; margin-top: 18px; font-weight: bold; font-size: 14px; letter-spacing: 1px; font-family: sans-serif; text-align: center;">
-        MEMUAT SISTEM TATRIZ...
-    </p>
-</div>
+    <div id="loaderSistem" style="
+        position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+        background: #195e0b; z-index: 99999; display: flex;
+        flex-direction: column; justify-content: center; align-items: center;
+        transition: opacity 0.3s ease, visibility 0.3s ease;
+    ">
+        <div class="spinner-tatriz"></div>
+        <p style="color: white; margin-top: 18px; font-weight: bold; font-size: 14px; letter-spacing: 1px; font-family: sans-serif; text-align: center;">
+            MEMUAT SISTEM TATRIZ...
+        </p>
+    </div>
 
-<style>
-    .spinner-tatriz {
-        width: 50px; height: 50px;
-        border: 5px solid rgba(255,255,255,0.2);
-        border-top: 5px solid #59cf77; /* Warna hijau muda aksen */
-        border-radius: 50%;
-        animation: putarLoaderTatriz 1s linear infinite;
-    }
-    @keyframes putarLoaderTatriz {
-        0% { transform: rotate(0deg); }
-        100% { transform: rotate(360deg); }
-    }
-    /* Kelas untuk menghilangkan loader dengan halus */
-    .loader-hilang {
-        opacity: 0 !important;
-        visibility: hidden !important;
-    }
-</style>   
+    <style>
+        .spinner-tatriz {
+            width: 50px; height: 50px;
+            border: 5px solid rgba(255,255,255,0.2);
+            border-top: 5px solid #59cf77;
+            border-radius: 50%;
+            animation: putarLoaderTatriz 1s linear infinite;
+        }
+        @keyframes putarLoaderTatriz {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+        .loader-hilang { opacity: 0 !important; visibility: hidden !important; }
+    </style>   
 
-<div style="margin-bottom: 20px;">
-    <a href="/dashboard" style="text-decoration: none; color: #333; font-weight: bold;">← Kembali</a>
-    <h3 style="margin-top: 10px;">🛠️ Input Hasil Kerja (Mode Admin)</h3>
-</div>
+    <div style="margin-bottom: 20px;">
+        <a href="/dashboard" style="text-decoration: none; color: #333; font-weight: bold;">← Kembali</a>
+        <h3 style="margin-top: 10px;">🛠️ Input Hasil Kerja (Mode Admin)</h3>
+    </div>
 
-<div class="card">
-    <form action="/admin/simpan-kerja" method="POST">
-        <div class="input-group">
-            <label>Pilih Operator</label>
-            <select name="user_id_manual" required>
-                <option value="">-- Siapa yang mengerjakan? --</option>
-                <% daftarOperator.forEach(op => { %>
-                    <option value="<%= op.id %>"><%= op.nama_lengkap %></option>
-                <% }) %>
-            </select>
-        </div>
-
-        <div class="input-group">
-            <label>Tanggal & Shift</label>
-            <div style="display: grid; grid-template-columns: 1.5fr 1fr; gap: 10px;">
-                <input type="date" name="tanggal" required>
-                <select name="shift">
-                    <option value="Pagi">Pagi</option>
-                    <option value="Sore">Sore</option>
-                    <option value="Malam">Malam</option>
+    <div class="card">
+        <form action="/admin/simpan-kerja" method="POST">
+            <div class="input-group">
+                <label>Pilih Operator</label>
+                <select name="user_id_manual" required>
+                    <option value="">-- Siapa yang mengerjakan? --</option>
+                    <% daftarOperator.forEach(op => { %>
+                        <option value="<%= op.id %>"><%= op.nama_lengkap %></option>
+                    <% }) %>
                 </select>
             </div>
-        </div>
 
-        <div class="input-group">
-            <label>Pilih Pesanan (PO)</label>
-            <select name="po_id" onchange="muatDaftarDesain(this.value)" required>
-                <option value="">-- Pilih PO --</option>
-                <% active_pos.forEach(po => { %>
-                    <option value="<%= po.id %>"><%= po.nama_po %></option>
-                <% }) %>
-            </select>
-        </div>
+            <div class="input-group">
+                <label>Tanggal & Shift</label>
+                <div style="display: grid; grid-template-columns: 1.5fr 1fr; gap: 10px;">
+                    <input type="date" name="tanggal" required>
+                    <select name="shift">
+                        <option value="Pagi">Pagi</option>
+                        <option value="Sore">Sore</option>
+                        <option value="Malam">Malam</option>
+                    </select>
+                </div>
+            </div>
 
-        <div class="input-group">
-            <label>Pilih Jenis Bordir</label>
-            <select name="detail_id" id="select_jenis" onchange="pilihOtomatisDesain(this)" required disabled>
-                <option value="">-- Pilih Jenis --</option>
-            </select>
-        </div>
+            <!-- 1. TINGKAT PERTAMA: PILIH CUSTOMER -->
+            <div class="input-group">
+                <label>Pilih Customer</label>
+                <select id="select_customer" onchange="pilihCustomer(this.value)" required>
+                    <option value="">-- Pilih Customer --</option>
+                </select>
+            </div>
 
-        <input type="hidden" name="harga_op" id="input_harga_op">
+            <!-- 2. TINGKAT KEDUA: PILIH PO (BERDASARKAN CUSTOMER) -->
+            <div class="input-group">
+                <label>Pilih Pesanan (PO)</label>
+                <select name="po_id" id="select_po" onchange="muatDaftarDesain(this.value)" required disabled>
+                    <option value="">-- Pilih Customer Terlebih Dahulu --</option>
+                </select>
+            </div>
 
-        <div id="info_bordir" style="display: none; background: #fff5e6; padding: 15px; border-radius: 10px; margin-bottom: 15px;">
-            <small>Nama Desain:</small> <strong id="display_nama_desain"></strong><br>
-            <small>Upah Op:</small> <strong id="display_harga"></strong><br><br>
-            <label>Jumlah Hasil (Pcs)</label>
-            <input type="number" name="jumlah_setor" id="input_setor" required placeholder="0">
-        </div>
+            <!-- 3. TINGKAT KETIGA: PILIH JENIS BORDIR / DETAIL -->
+            <div class="input-group">
+                <label>Pilih Jenis Bordir / Desain</label>
+                <select name="detail_id" id="select_jenis" onchange="pilihOtomatisDesain(this)" required disabled>
+                    <option value="">-- Pilih PO Terlebih Dahulu --</option>
+                </select>
+            </div>
 
-        <div class="input-group">
-            <label>Mesin</label>
-            <select name="mesin_id" required>
-                <% daftarMesin.forEach(m => { %>
-                    <option value="<%= m.id %>"><%= m.nama_mesin %></option>
-                <% }) %>
-            </select>
-        </div>
+            <input type="hidden" name="harga_op" id="input_harga_op">
 
-        <button type="submit" class="btn-simpan">KONFIRMASI SIMPAN (ADMIN)</button>
-    </form>
-</div>
+            <div id="info_bordir" style="display: none; background: #fff5e6; padding: 15px; border-radius: 10px; margin-bottom: 15px;">
+                <small>Nama Desain:</small> <strong id="display_nama_desain"></strong><br>
+                <small>Upah Op:</small> <strong id="display_harga"></strong><br><br>
+                <label>Jumlah Hasil (Pcs)</label>
+                <input type="number" name="jumlah_setor" id="input_setor" required placeholder="0">
+            </div>
 
-<script>
-    let dataSimpanan = []; 
+            <div class="input-group">
+                <label>Mesin</label>
+                <select name="mesin_id" required>
+                    <% daftarMesin.forEach(m => { %>
+                        <option value="<%= m.id %>"><%= m.nama_mesin %></option>
+                    <% }) %>
+                </select>
+            </div>
 
-    // FUNGSI 1: Ambil data PO & isi dropdown JENIS
-    async function muatDaftarDesain(poId) {
-        const selectJenis = document.getElementById('select_jenis');
-        const infoDiv = document.getElementById('info_bordir');
-        
-        infoDiv.style.display = 'none';
-        if(!poId) { 
-            selectJenis.innerHTML = '<option value="">-- Pilih Jenis --</option>';
-            selectJenis.disabled = true; 
-            return; 
+            <button type="submit" class="btn-simpan">KONFIRMASI SIMPAN (ADMIN)</button>
+        </form>
+    </div>
+
+    <script>
+        let semuaDataPO = [];
+        let dataSimpanan = [];
+
+        // Load data customer & PO saat halaman dibuka
+        async function initForm() {
+            try {
+                const res = await fetch('/api/customer-active-pos');
+                semuaDataPO = await res.json();
+
+                // Ambil daftar customer unik
+                const daftarCustomer = [...new Set(semuaDataPO.map(item => item.customer))];
+                
+                let html = '<option value="">-- Pilih Customer --</option>';
+                daftarCustomer.forEach(cust => {
+                    html += `<option value="${cust}">${cust}</option>`;
+                });
+                document.getElementById('select_customer').innerHTML = html;
+            } catch (err) {
+                console.error("Gagal memuat data customer:", err);
+            }
         }
 
-        try {
-            const res = await fetch(`/api/po-details/${poId}`);
-            dataSimpanan = await res.json(); 
-            
-            // --- BAGIAN YANG TADI HILANG ---
-            let html = '<option value="">-- Pilih Jenis Bordir --</option>';
-            
-            dataSimpanan.forEach(d => {
-                const sisaKerja = d.sisa < 0 ? 0 : d.sisa;
-                // Masukkan data ke atribut HTML agar bisa diambil Fungsi 2
-                html += `<option value="${d.id}" 
-                                 data-nama="${d.nama_desain}" 
-                                 data-harga="${d.harga_operator}" 
-                                 data-sisa="${sisaKerja}">
-                            ${d.jenis_bordir} (Sisa: ${sisaKerja})
-                         </option>`;
-            });
-            
-            selectJenis.innerHTML = html;
-            selectJenis.disabled = false;
-            // ------------------------------
-        } catch (err) {
-            console.error("Gagal ambil data:", err);
-            alert("Gagal mengambil rincian desain.");
-        }
-    }
+        // Ketika Customer Dipilih -> Filter PO miliknya saja
+        function pilihCustomer(namaCustomer) {
+            const selectPo = document.getElementById('select_po');
+            const selectJenis = document.getElementById('select_jenis');
+            const infoDiv = document.getElementById('info_bordir');
 
-    // FUNGSI 2: Klik Jenis langsung Muncul Nama & Harga
-    function pilihOtomatisDesain(el) {
-        const infoDiv = document.getElementById('info_bordir');
-        const selected = el.options[el.selectedIndex];
-        
-        if(el.value) {
-            const namaDesain = selected.getAttribute('data-nama');
-            const harga = selected.getAttribute('data-harga');
-            const sisa = selected.getAttribute('data-sisa');
-
-            document.getElementById('display_nama_desain').innerText = namaDesain;
-            document.getElementById('display_harga').innerText = "Rp " + parseInt(harga).toLocaleString('id-ID');
-            document.getElementById('input_harga_op').value = harga;
-            
-            const inputSetor = document.getElementById('input_setor');
-            // 1. Memberikan placeholder sebagai info sisa (opsional)
-            inputSetor.placeholder = "Sisa PO: " + sisa;
-            // 2. MENGHAPUS BATASAN (Cara yang benar)
-            inputSetor.removeAttribute('max'); 
-            // 3. Mengisi nilai otomatis (Default)
-            inputSetor.value = sisa;
-            
-            infoDiv.style.display = 'block';
-        } else {
             infoDiv.style.display = 'none';
+            selectJenis.innerHTML = '<option value="">-- Pilih PO Terlebih Dahulu --</option>';
+            selectJenis.disabled = true;
+
+            if (!namaCustomer) {
+                selectPo.innerHTML = '<option value="">-- Pilih Customer Terlebih Dahulu --</option>';
+                selectPo.disabled = true;
+                return;
+            }
+
+            // Filter PO berdasarkan customer yang dipilih
+            const poMilikCustomer = semuaDataPO.filter(item => item.customer === namaCustomer);
+
+            let html = '<option value="">-- Pilih PO --</option>';
+            poMilikCustomer.forEach(po => {
+                html += `<option value="${po.po_id}">${po.nama_po} (${po.tanggal})</option>`;
+            });
+
+            selectPo.innerHTML = html;
+            selectPo.disabled = false;
         }
-    }
-</script>
-<script>
+
+        // Ketika PO Dipilih -> Ambil Rincian Desain / Item
+        async function muatDaftarDesain(poId) {
+            const selectJenis = document.getElementById('select_jenis');
+            const infoDiv = document.getElementById('info_bordir');
+            
+            infoDiv.style.display = 'none';
+            if(!poId) { 
+                selectJenis.innerHTML = '<option value="">-- Pilih PO Terlebih Dahulu --</option>';
+                selectJenis.disabled = true; 
+                return; 
+            }
+
+            try {
+                const res = await fetch(`/api/po-details/${poId}`);
+                dataSimpanan = await res.json(); 
+                
+                let html = '<option value="">-- Pilih Jenis Bordir --</option>';
+                dataSimpanan.forEach(d => {
+                    const sisaKerja = d.sisa < 0 ? 0 : d.sisa;
+                    html += `<option value="${d.id}" 
+                                     data-nama="${d.nama_desain}" 
+                                     data-harga="${d.harga_operator}" 
+                                     data-sisa="${sisaKerja}">
+                                ${d.jenis_bordir} (Sisa: ${sisaKerja})
+                             </option>`;
+                });
+                
+                selectJenis.innerHTML = html;
+                selectJenis.disabled = false;
+            } catch (err) {
+                console.error("Gagal ambil data:", err);
+                alert("Gagal mengambil rincian desain.");
+            }
+        }
+
+        // Ketika Jenis Desain Dipilih -> Muncul Info & Auto-fill Sisa
+        function pilihOtomatisDesain(el) {
+            const infoDiv = document.getElementById('info_bordir');
+            const selected = el.options[el.selectedIndex];
+            
+            if(el.value) {
+                const namaDesain = selected.getAttribute('data-nama');
+                const harga = selected.getAttribute('data-harga');
+                const sisa = selected.getAttribute('data-sisa');
+
+                document.getElementById('display_nama_desain').innerText = namaDesain;
+                document.getElementById('display_harga').innerText = "Rp " + parseInt(harga).toLocaleString('id-ID');
+                document.getElementById('input_harga_op').value = harga;
+                
+                const inputSetor = document.getElementById('input_setor');
+                inputSetor.placeholder = "Sisa PO: " + sisa;
+                inputSetor.removeAttribute('max'); 
+                inputSetor.value = sisa;
+                
+                infoDiv.style.display = 'block';
+            } else {
+                infoDiv.style.display = 'none';
+            }
+        }
+
+        // Jalankan saat halaman siap
         document.addEventListener('DOMContentLoaded', function() {
+            initForm();
             const loader = document.getElementById('loaderSistem');
             if (loader) {
                 setTimeout(function() {
@@ -199,6 +239,7 @@
                 }, 200);
             }
         });
+
         setTimeout(function() {
             const loader = document.getElementById('loaderSistem');
             if (loader && !loader.classList.contains('loader-hilang')) {
