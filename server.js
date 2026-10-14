@@ -1543,7 +1543,14 @@ app.get('/po-data-v2', isAdmin, async (req, res) => {
 });
 
 // Endpoint untuk mengambil PO berdasarkan Customer (Termasuk yang Lunas khusus untuk arsip/cek)
-app.get('/api/customer-po-history', isInternalOrAdmin, async (req, res) => {
+app.get('/api/customer-po-history', (req, res, next) => {
+    // Gunakan middleware pengecekan login yang sudah ada di server.js Anda, 
+    // atau biarkan lolos jika sudah menggunakan session check standar:
+    if (!req.session.userId) {
+        return res.status(401).json({ error: "Unauthorized" });
+    }
+    next();
+}, async (req, res) => {
     const tId = req.session.tenantId;
     const customerName = req.query.customer;
 
@@ -1552,7 +1559,6 @@ app.get('/api/customer-po-history', isInternalOrAdmin, async (req, res) => {
     }
 
     try {
-        // Query ini meloloskan status 'Lunas' atau 'Clear' TAPI hanya untuk 1 customer spesifik
         const queryStr = `
             SELECT id, nama_po, tanggal, status, total_harga_customer 
             FROM po_utama 
