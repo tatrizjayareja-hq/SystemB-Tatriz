@@ -17,6 +17,7 @@
         .input-group { margin-bottom: 15px; }
         label { display: block; font-weight: bold; margin-bottom: 5px; font-size: 13px; color: #333; }
         input, select { width: 100%; padding: 12px; border: 1px solid #ddd; border-radius: 8px; font-size: 16px; background: #fff; }
+        select:disabled { background: #e9ecef; cursor: not-allowed; }
         
         .btn-setor { background: #0984e3; color: white; border: none; padding: 15px; width: 100%; border-radius: 10px; font-weight: bold; font-size: 16px; cursor: pointer; margin-top: 10px; }
         .info-bordir { background: #f8f9fa; padding: 10px; border-radius: 8px; margin-top: 10px; border-left: 4px solid #0984e3; display: none; }
@@ -28,8 +29,8 @@
     position: fixed;
     top: 0; left: 0;
     width: 100%; height: 100%;
-    background: #195e0b; /* Warna hijau gelap khas Tatriz */
-    z-index: 99999; /* Dipastikan paling atas menutupi semua menu */
+    background: #195e0b;
+    z-index: 99999;
     display: flex;
     flex-direction: column;
     justify-content: center;
@@ -46,7 +47,7 @@
     .spinner-tatriz {
         width: 50px; height: 50px;
         border: 5px solid rgba(255,255,255,0.2);
-        border-top: 5px solid #59cf77; /* Warna hijau muda aksen */
+        border-top: 5px solid #59cf77;
         border-radius: 50%;
         animation: putarLoaderTatriz 1s linear infinite;
     }
@@ -54,7 +55,6 @@
         0% { transform: rotate(0deg); }
         100% { transform: rotate(360deg); }
     }
-    /* Kelas untuk menghilangkan loader dengan halus */
     .loader-hilang {
         opacity: 0 !important;
         visibility: hidden !important;
@@ -71,7 +71,7 @@
         <% if (kurangnya > 0) { %>
             <span>Kurang <span class="target-value">Rp <%= kurangnya.toLocaleString() %></span> lagi untuk bonus!</span>
         <% } else { %>
-            <span style="color: #27ae60; font-weight: bold;">🎉 Target tercapai! Bonus terkunci.</span>
+            <span style="color: #27ae60; font-weight: bold;">🌟 Target tercapai! Bonus terkunci.</span>
         <% } %>
     </div>
 <% } %>
@@ -79,8 +79,8 @@
 <div class="card">
     <form action="/simpan-kerja" method="POST">
         <div class="input-group">
-    <label>Tanggal & Shift</label>
-    <div style="display: grid; grid-template-columns: 2fr 1.5fr; gap: 10px;">
+            <label>Tanggal & Shift</label>
+            <div style="display: grid; grid-template-columns: 2fr 1.5fr; gap: 10px;">
                 <input type="date" name="tanggal" id="tgl_kerja" required>
                 <script>document.getElementById('tgl_kerja').valueAsDate = new Date();</script>
                 <select name="shift">
@@ -104,20 +104,28 @@
                 </div>
             </div>
         </div>
+
+        <!-- 1. TINGKAT PERTAMA: PILIH CUSTOMER -->
         <div class="input-group">
-            <label>Pilih Pesanan (PO)</label>
-            <select name="po_id" id="select_po" onchange="muatDaftarDesain(this.value)" required>
-                <option value="">-- Pilih PO --</option>
-                <% active_pos.forEach(po => { %>
-                    <option value="<%= po.id %>"><%= po.nama_po %></option>
-                <% }) %>
+            <label>Pilih Customer</label>
+            <select id="select_customer" onchange="pilihCustomer(this.value)" required>
+                <option value="">-- Memuat Customer... --</option>
             </select>
         </div>
 
+        <!-- 2. TINGKAT KEDUA: PILIH PO BERDASARKAN CUSTOMER -->
+        <div class="input-group">
+            <label>Pilih Pesanan (PO)</label>
+            <select name="po_id" id="select_po" onchange="muatDaftarDesain(this.value)" required disabled>
+                <option value="">-- Pilih Customer Terlebih Dahulu --</option>
+            </select>
+        </div>
+
+        <!-- 3. TINGKAT KETIGA: PILIH JENIS BORDIR -->
         <div class="input-group">
             <label>Pilih Jenis Bordir</label>
             <select name="detail_id" id="select_jenis" onchange="pilihOtomatisDesain(this)" required disabled>
-                <option value="">-- Pilih Jenis --</option>
+                <option value="">-- Pilih PO Terlebih Dahulu --</option>
             </select>
         </div>
 
@@ -156,7 +164,7 @@
 
 <div style="margin-top: 25px; padding: 0 10px;">
     <a href="/hasil-saya" style="display: block; text-align: center; background: white; color: #0984e3; padding: 12px; border-radius: 10px; text-decoration: none; font-weight: bold; border: 2px solid #0984e3; margin-bottom: 15px;">
-        🔍 LIHAT REKAP HASIL KERJA SAYA
+        📊 LIHAT REKAP HASIL KERJA SAYA
     </a>
     
     <div style="text-align: center;">
@@ -167,65 +175,126 @@
 </div>
 
 <script>
-let dataSimpanan = []; 
+    let semuaDataPO = [];
+    let dataSimpanan = []; 
 
-async function muatDaftarDesain(poId) {
-    const selectJenis = document.getElementById('select_jenis');
-    const infoDiv = document.getElementById('info_bordir');
-    
-    infoDiv.style.display = 'none';
-    if(!poId) { selectJenis.disabled = true; return; }
+    // Load data customer & PO saat halaman dibuka
+    async function initForm() {
+        try {
+            const res = await fetch('/api/customer-active-pos');
+            semuaDataPO = await res.json();
 
-    try {
-        const res = await fetch(`/api/po-details/${poId}`);
-        dataSimpanan = await res.json(); 
-        
-        let html = '<option value="">-- Pilih Jenis Bordir --</option>';
-        dataSimpanan.forEach(d => {
-            html += `<option value="${d.id}" 
-                         data-nama="${d.nama_desain}" 
-                         data-harga="${d.harga_operator}" 
-                         data-sisa="${d.sisa}">${d.jenis_bordir} (Sisa: ${d.sisa})</option>`;
-        });
-        
-        selectJenis.innerHTML = html;
-        selectJenis.disabled = false;
-    } catch (err) {
-        console.error("Gagal ambil data:", err);
+            // Ambil daftar customer unik
+            const daftarCustomer = [...new Set(semuaDataPO.map(item => item.customer))];
+            
+            let html = '<option value="">-- Pilih Customer --</option>';
+            daftarCustomer.forEach(cust => {
+                html += `<option value="${cust}">${cust}</option>`;
+            });
+            document.getElementById('select_customer').innerHTML = html;
+        } catch (err) {
+            console.error("Gagal memuat data customer:", err);
+            document.getElementById('select_customer').innerHTML = '<option value="">-- Gagal Memuat Customer --</option>';
+        }
     }
-}
 
-function pilihOtomatisDesain(el) {
-    const infoDiv = document.getElementById('info_bordir');
-    const selected = el.options[el.selectedIndex];
-    const isInternal = document.body.dataset.isinternal === 'true'; // Kita bisa gunakan flag ini
-    
-    if(el.value) {
-        const namaDesain = selected.getAttribute('data-nama');
-        const harga = selected.getAttribute('data-harga');
-        const sisa = selected.getAttribute('data-sisa');
+    // Ketika Customer Dipilih -> Filter PO miliknya saja
+    function pilihCustomer(namaCustomer) {
+        const selectPo = document.getElementById('select_po');
+        const selectJenis = document.getElementById('select_jenis');
+        const infoDiv = document.getElementById('info_bordir');
 
-        document.getElementById('display_nama_desain').innerText = namaDesain;
-        
-        // Element display_harga mungkin tidak ada di DOM jika bukan internal
-        const displayHargaEl = document.getElementById('display_harga');
-        if (displayHargaEl) {
-            displayHargaEl.innerText = "Rp " + parseInt(harga).toLocaleString('id-ID');
+        infoDiv.style.display = 'none';
+        selectJenis.innerHTML = '<option value="">-- Pilih PO Terlebih Dahulu --</option>';
+        selectJenis.disabled = true;
+
+        if (!namaCustomer) {
+            selectPo.innerHTML = '<option value="">-- Pilih Customer Terlebih Dahulu --</option>';
+            selectPo.disabled = true;
+            return;
         }
 
-        document.getElementById('input_harga_op').value = harga;
-        
-        const inputSetor = document.getElementById('input_setor');
-        inputSetor.placeholder = "Sisa Target: " + sisa; 
-        
-        infoDiv.style.display = 'block';
-    } else {
-        infoDiv.style.display = 'none';
+        // Filter PO berdasarkan customer yang dipilih
+        const poMilikCustomer = semuaDataPO.filter(item => item.customer === namaCustomer);
+
+        let html = '<option value="">-- Pilih PO --</option>';
+        poMilikCustomer.forEach(po => {
+            html += `<option value="${po.po_id}">${po.nama_po} (${po.tanggal})</option>`;
+        });
+
+        selectPo.innerHTML = html;
+        selectPo.disabled = false;
     }
-}
+
+    // Ketika PO Dipilih -> Ambil Rincian Desain / Item
+    async function muatDaftarDesain(poId) {
+        const selectJenis = document.getElementById('select_jenis');
+        const infoDiv = document.getElementById('info_bordir');
+        
+        infoDiv.style.display = 'none';
+        if(!poId) { 
+            selectJenis.innerHTML = '<option value="">-- Pilih PO Terlebih Dahulu --</option>';
+            selectJenis.disabled = true; 
+            return; 
+        }
+
+        try {
+            const res = await fetch(`/api/po-details/${poId}`);
+            dataSimpanan = await res.json(); 
+            
+            let html = '<option value="">-- Pilih Jenis Bordir --</option>';
+            dataSimpanan.forEach(d => {
+                const sisaKerja = d.sisa < 0 ? 0 : d.sisa;
+                html += `<option value="${d.id}" 
+                             data-nama="${d.nama_desain}" 
+                             data-harga="${d.harga_operator}" 
+                             data-sisa="${sisaKerja}">
+                            ${d.jenis_bordir} (Sisa: ${sisaKerja})
+                         </option>`;
+            });
+            
+            selectJenis.innerHTML = html;
+            selectJenis.disabled = false;
+        } catch (err) {
+            console.error("Gagal ambil data:", err);
+            alert("Gagal mengambil rincian desain.");
+        }
+    }
+
+    // Ketika Jenis Desain Dipilih -> Muncul Info & Auto-fill Sisa
+    function pilihOtomatisDesain(el) {
+        const infoDiv = document.getElementById('info_bordir');
+        const selected = el.options[el.selectedIndex];
+        
+        if(el.value) {
+            const namaDesain = selected.getAttribute('data-nama');
+            const harga = selected.getAttribute('data-harga');
+            const sisa = selected.getAttribute('data-sisa');
+
+            document.getElementById('display_nama_desain').innerText = namaDesain;
+            
+            const displayHargaEl = document.getElementById('display_harga');
+            if (displayHargaEl) {
+                displayHargaEl.innerText = "Rp " + parseInt(harga).toLocaleString('id-ID');
+            }
+
+            document.getElementById('input_harga_op').value = harga;
+            
+            const inputSetor = document.getElementById('input_setor');
+            inputSetor.placeholder = "Sisa Target: " + sisa; 
+            inputSetor.value = sisa; // Auto-fill sisa target
+            
+            infoDiv.style.display = 'block';
+        } else {
+            infoDiv.style.display = 'none';
+        }
+    }
 </script>
+
 <script>
     document.addEventListener('DOMContentLoaded', function() {
+        initForm(); // Inisialisasi tarik daftar customer
+        
         const loader = document.getElementById('loaderSistem');
         if (loader) {
             setTimeout(function() {
@@ -233,6 +302,7 @@ function pilihOtomatisDesain(el) {
             }, 200);
         }
     });
+
     setTimeout(function() {
         const loader = document.getElementById('loaderSistem');
         if (loader && !loader.classList.contains('loader-hilang')) {
@@ -240,17 +310,48 @@ function pilihOtomatisDesain(el) {
         }
     }, 4000);
 </script>
+
 <script>
     // ==========================================
-    // 1. FITUR AUTO-SELECT PO (DARI KIOSK)
+    // 1. FITUR AUTO-SELECT PO & CUSTOMER (DARI KIOSK)
     // ==========================================
-    document.addEventListener('DOMContentLoaded', function() {
-        const kioskPoId = "<%= kiosk_po_id %>"; // Nilai dari backend
+    document.addEventListener('DOMContentLoaded', async function() {
+        const urlParams = new URLSearchParams(window.location.search);
+        const kioskPoId = urlParams.get('po_id');
+        const kioskDetailId = urlParams.get('detail_id');
+
         if (kioskPoId && kioskPoId !== 'null') {
-            const selectPO = document.getElementById('select_po');
-            selectPO.value = kioskPoId;
-            // Panggil fungsi muatDaftarDesain agar dropdown Jenis Bordir otomatis terisi
-            muatDaftarDesain(kioskPoId);
+            // Tunggu sebentar sampai initForm selesai mengambil data 'semuaDataPO'
+            const checkDataInterval = setInterval(async () => {
+                if (semuaDataPO.length > 0) {
+                    clearInterval(checkDataInterval);
+
+                    // Cari data PO yang cocok untuk mendeteksi siapa customernya
+                    const foundPO = semuaDataPO.find(item => item.po_id == kioskPoId);
+                    if (foundPO) {
+                        // 1. Set Customer
+                        const selectCust = document.getElementById('select_customer');
+                        selectCust.value = foundPO.customer;
+                        pilihCustomer(foundPO.customer); // Trigger filter PO
+
+                        // 2. Set PO
+                        const selectPO = document.getElementById('select_po');
+                        selectPO.value = kioskPoId;
+                        
+                        // 3. Muat daftar desain
+                        await muatDaftarDesain(kioskPoId);
+                        
+                        // 4. Set Detail ID jika ada
+                        if (kioskDetailId) {
+                            setTimeout(() => {
+                                const selectJenis = document.getElementById('select_jenis');
+                                selectJenis.value = kioskDetailId;
+                                pilihOtomatisDesain(selectJenis);
+                            }, 100);
+                        }
+                    }
+                }
+            }, 100);
         }
     });
 
@@ -261,7 +362,7 @@ function pilihOtomatisDesain(el) {
         const urlParams = new URLSearchParams(window.location.search);
         if (urlParams.get('success') === 'true') {
             Swal.fire({
-                title: 'Kerja Bagus! 🚀',
+                title: 'Kerja Bagus! 🎯',
                 text: 'Data hasil kerja & durasi absen berhasil disimpan.',
                 icon: 'success',
                 showCancelButton: true,
@@ -269,74 +370,43 @@ function pilihOtomatisDesain(el) {
                 cancelButtonColor: '#e74c3c',
                 confirmButtonText: 'Input PO Lain',
                 cancelButtonText: 'Keluar (Logout)',
-                allowOutsideClick: false // Paksa user memilih
+                allowOutsideClick: false
             }).then((result) => {
                 if (result.isConfirmed) {
                     window.history.replaceState({}, document.title, "/operator");
+                    window.location.reload();
                 } else {
-                    // Logout kembali ke Kiosk
                     window.location.href = '<%= user.isKiosk ? "/logout-kiosk" : "/logout" %>';
                 }
             });
         }
     });
 
-   // ==========================================
+    // ==========================================
     // 3. FITUR IDLE TIMEOUT (KHUSUS KEAMANAN KIOSK)
     // ==========================================
-    // Cek apakah session isKioskMode bernilai true dari backend
     const isModeKiosk = '<%= user.isKiosk %>' === 'true';
 
     if (isModeKiosk) {
         let idleTime = 0;
-        const idleLimitSeconds = 60; // Set batas waktu diam: 60 detik
+        const idleLimitSeconds = 60;
 
-        // Reset timer jika ada aktivitas di layar
         function resetIdleTimer() {
             idleTime = 0;
         }
 
-        // Pasang sensor aktivitas
         document.addEventListener('mousemove', resetIdleTimer);
         document.addEventListener('keypress', resetIdleTimer);
-        document.addEventListener('touchstart', resetIdleTimer); // Untuk layar sentuh tablet
+        document.addEventListener('touchstart', resetIdleTimer);
         document.addEventListener('scroll', resetIdleTimer);
 
-        // Jalankan timer setiap detik
         setInterval(function() {
             idleTime++;
             if (idleTime >= idleLimitSeconds) {
-                // Jika menganggur melebihi batas waktu, otomatis cuci bersih sesi kiosk
                 window.location.href = '/logout-kiosk';
             }
-        }, 1000); // 1000 ms = 1 detik
+        }, 1000);
     }
-
-    // ==========================================
-    // 1. FITUR AUTO-SELECT PO (DARI KIOSK)
-    // ==========================================
-    document.addEventListener('DOMContentLoaded', async function() {
-        const urlParams = new URLSearchParams(window.location.search);
-        const kioskPoId = urlParams.get('po_id');
-        const kioskDetailId = urlParams.get('detail_id');
-
-        if (kioskPoId && kioskPoId !== 'null') {
-            const selectPO = document.getElementById('select_po');
-            selectPO.value = kioskPoId;
-            
-            // Muat daftar desain (Fungsi Asli Anda)
-            await muatDaftarDesain(kioskPoId);
-            
-            // Jika ada detail ID dari kiosk, otomatis pilih itemnya
-            if (kioskDetailId) {
-                setTimeout(() => { // Kasih jeda kecil untuk merender DOM option-nya
-                    const selectJenis = document.getElementById('select_jenis');
-                    selectJenis.value = kioskDetailId;
-                    pilihOtomatisDesain(selectJenis); // Trigger pemunculan info_bordir
-                }, 100);
-            }
-        }
-    });
 </script>
 </body>
 </html>
