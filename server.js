@@ -1459,7 +1459,8 @@ app.post('/save-po-v2', isAdmin, async (req, res) => {
 });
 
 // --- RUTE HALAMAN DATA PO V2 (DIOPTIMASI) ---
-app.get('/po-data-v2', isAuthenticated, async (req, res) => {
+// --- RUTE HALAMAN DATA PO V2 (DIOPTIMASI & AMAN) ---
+app.get('/po-data-v2', isAuth, async (req, res) => {
     const tId = req.session.tenantId;
     const searchQuery = req.query.search || '';
     const selectedStatus = req.query.status || 'ALL';
@@ -1501,7 +1502,7 @@ app.get('/po-data-v2', isAuthenticated, async (req, res) => {
 
         let whereString = whereClauses.length > 0 ? `WHERE ${whereClauses.join(' AND ')}` : '';
 
-        // Ambil daftar unik customer (dengan pengecualian tenant juga jika diperlukan)
+        // Ambil daftar unik customer (dengan pengecualian tenant juga)
         let custQuery = `SELECT DISTINCT customer FROM po_utama`;
         let custParams = [];
         if (tId !== 1 && tId !== 100) {
@@ -1511,7 +1512,7 @@ app.get('/po-data-v2', isAuthenticated, async (req, res) => {
         custQuery += ` ORDER BY customer ASC`;
         const listCustomerRes = await db.query(custQuery, custParams);
 
-        // Query utama PO
+        // Query utama PO (Dibatasi LIMIT 200 agar performa tetap ringan)
         const queryStr = `
             SELECT u.*, 
                    (SELECT COUNT(*) FROM po_detail d WHERE d.po_id = u.id) as variasi_jumlah,
