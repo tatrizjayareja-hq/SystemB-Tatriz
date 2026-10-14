@@ -1463,24 +1463,25 @@ app.get('/po-data-v2', isAuthenticated, async (req, res) => {
     const tId = req.session.tenantId;
     const searchQuery = req.query.search || '';
     const selectedStatus = req.query.status || 'ALL';
-    const selectedCustomer = req.query.customer || ''; // Menangkap pilihan customer khusus arsip lunas
+    const selectedCustomer = req.query.customer || '';
 
     try {
-        // AMAN & CEPAT: 
-        // Secara default selalu sembunyikan Lunas dan Clear.
-        // TAPI jika user secara spesifik memilih Customer di dropdown arsip, izinkan tampilkan semua status (termasuk lunas) milik customer tersebut!
         let statusCondition = "u.status NOT IN ('Lunas', 'Clear')";
-        let queryParams = [tId];
-        let paramIndex = 2;
-        let whereClauses = ["u.tenant_id = \$1"];
+        let queryParams = [];
+        let whereClauses = [];
+        let paramIndex = 1;
+
+        // Pengecualian Tenant Utama (Tenant 1 dan 100 bebas akses global)
+        if (tId !== 1 && tId !== 100) {
+            whereClauses.push(`u.tenant_id = $${paramIndex++}`);
+            queryParams.push(tId);
+        }
 
         if (selectedCustomer) {
-            // Jika customer dipilih, longgarkan filter lunas HANYA untuk customer ini
             whereClauses.push(`u.customer = $${paramIndex++}`);
             queryParams.push(selectedCustomer);
-            statusCondition = "1=1"; // Longgar khusus 1 customer ini
+            statusCondition = "1=1"; // Buka arsip lunas khusus customer ini
         } else {
-            // Jika belum pilih customer, pastikan data lunas bersih dari query utama
             if (selectedStatus !== 'ALL' && selectedStatus !== 'Lunas' && selectedStatus !== 'Clear') {
                 whereClauses.push(`u.status = $${paramIndex++}`);
                 queryParams.push(selectedStatus);
@@ -1498,23 +1499,30 @@ app.get('/po-data-v2', isAuthenticated, async (req, res) => {
             paramIndex++;
         }
 
-        // Ambil daftar unik customer untuk opsi dropdown filter arsip
-        const custQuery = `SELECT DISTINCT customer FROM po_utama WHERE tenant_id = $1 ORDER BY customer ASC`;
-        const listCustomerRes = await db.query(custQuery, [tId]);
+        let whereString = whereClauses.length > 0 ? `WHERE ${whereClauses.join(' AND ')}` : '';
 
-        // Query utama PO dengan limit aman performa
+        // Ambil daftar unik customer (dengan pengecualian tenant juga jika diperlukan)
+        let custQuery = `SELECT DISTINCT customer FROM po_utama`;
+        let custParams = [];
+        if (tId !== 1 && tId !== 100) {
+            custQuery += ` WHERE tenant_id = $1`;
+            custParams.push(tId);
+        }
+        custQuery += ` ORDER BY customer ASC`;
+        const listCustomerRes = await db.query(custQuery, custParams);
+
+        // Query utama PO
         const queryStr = `
             SELECT u.*, 
                    (SELECT COUNT(*) FROM po_detail d WHERE d.po_id = u.id) as variasi_jumlah,
                    (SELECT SUM(jumlah) FROM po_detail d WHERE d.po_id = u.id) as qty_tampil
             FROM po_utama u
-            WHERE ${whereClauses.join(' AND ')}
+            ${whereString}
             ORDER BY u.id DESC
             LIMIT 200
         `;
         const result = await db.query(queryStr, queryParams);
         
-        // Ambil details untuk item terkait
         const poIds = result.rows.map(r => r.id);
         let details = [];
         if (poIds.length > 0) {
