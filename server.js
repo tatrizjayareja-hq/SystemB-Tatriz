@@ -1459,91 +1459,102 @@ app.post('/save-po-v2', isAdmin, async (req, res) => {
 });
 
 // --- RUTE HALAMAN DATA PO V2 (DIOPTIMASI) ---
-// --- RUTE HALAMAN DATA PO V2 (DIOPTIMASI & AMAN) ---
-app.get('/po-data-v2', isAuth, async (req, res) => {
+app.get('/po-data-v2', isAdmin, async (req, res) => {
+    if (!req.session.userId) return res.redirect('/');
     const tId = req.session.tenantId;
-    const searchQuery = req.query.search || '';
-    const selectedStatus = req.query.status || 'ALL';
+
+    const isPro = (tId === 1 || req.session.tenantLevel >= 2);
+    const isInternal = (tId === 1 || tId === 100);
     const selectedCustomer = req.query.customer || '';
 
     try {
-        let statusCondition = "u.status NOT IN ('Lunas', 'Clear')";
-        let queryParams = [];
-        let whereClauses = [];
-        let paramIndex = 1;
+        let statusFilter = "u.status NOT IN ('Lunas', 'Clear')";
+        let queryParams = [tId];
+        let whereClauses = ["u.tenant_id = \$1"];
 
-        // Pengecualian Tenant Utama (Tenant 1 dan 100 bebas akses global)
-        if (tId !== 1 && tId !== 100) {
-            whereClauses.push(`u.tenant_id = $${paramIndex++}`);
-            queryParams.push(tId);
-        }
-
+        // Jika user memilih customer dari dropdown, longgarkan filter untuk membuka arsip lunas khusus customer tersebut
         if (selectedCustomer) {
-            whereClauses.push(`u.customer = $${paramIndex++}`);
+            whereClauses.push(`u.customer = $2`);
             queryParams.push(selectedCustomer);
-            statusCondition = "1=1"; // Buka arsip lunas khusus customer ini
-        } else {
-            if (selectedStatus !== 'ALL' && selectedStatus !== 'Lunas' && selectedStatus !== 'Clear') {
-                whereClauses.push(`u.status = $${paramIndex++}`);
-                queryParams.push(selectedStatus);
-            } else if (selectedStatus === 'Lunas' || selectedStatus === 'Clear') {
-                whereClauses.push(`u.status = $${paramIndex++}`);
-                queryParams.push(selectedStatus);
-            } else {
-                whereClauses.push(statusCondition);
-            }
+            statusFilter = "1=1"; 
         }
 
-        if (searchQuery) {
-            whereClauses.push(`(u.nama_po ILIKE $${paramIndex} OR u.customer ILIKE $${paramIndex})`);
-            queryParams.push(`%${searchQuery}%`);
-            paramIndex++;
-        }
+        whereClauses.push(statusFilter);
+        let whereString = `WHERE ${whereClauses.join(' AND ')}`;
 
-        let whereString = whereClauses.length > 0 ? `WHERE ${whereClauses.join(' AND ')}` : '';
+        const sqlOrders = `
+            SELECT 
+                u.*, 
+                (SELECT SUM(jumlah) FROM po_detail WHERE po_id = u.id) as qty_tampil,
+                (SELECT COUNT(*) FROM po_detail WHERE po_id = u.id) as variasi_jumlah,
+                
+                EXISTS (
+                    SELECT 1 FROM po_detail d2
+                    LEFT JOIN hasil_kerja h2 ON d2.id = h2.detail_id
+                    WHERE d2.po_id = u.id
+                    GROUP BY d2.id, d2.jumlah
+                    HAVING SUM(COALESCE(h2.jumlah_setor, 0)) > d2.jumlah
+                ) as is_over,
+                
+                EXISTS (
+                    SELECT 1 FROM po_detail d2
+                    LEFT JOIN hasil_kerja h2 ON d2.id = h2.detail_id
+                    WHERE d2.po_id = u.id
+                    GROUP BY d2.id, d2.jumlah
+                    HAVING SUM(COALESCE(h2.jumlah_setor, 0)) > 0 
+                    AND SUM(COALESCE(h2.jumlah_setor, 0)) < d2.jumlah
+                ) as is_under,
+                
+                EXISTS (
+                    SELECT 1 FROM po_detail d2
+                    LEFT JOIN hasil_kerja h2 ON d2.id = h2.detail_id
+                    WHERE d2.po_id = u.id
+                    GROUP BY d2.id, d2.jumlah
+                    HAVING SUM(COALESCE(h2.jumlah_setor, 0)) = 0
+                ) as is_empty
 
-        // Ambil daftar unik customer (dengan pengecualian tenant juga)
-        let custQuery = `SELECT DISTINCT customer FROM po_utama`;
-        let custParams = [];
-        if (tId !== 1 && tId !== 100) {
-            custQuery += ` WHERE tenant_id = $1`;
-            custParams.push(tId);
-        }
-        custQuery += ` ORDER BY customer ASC`;
-        const listCustomerRes = await db.query(custQuery, custParams);
-
-        // Query utama PO (Dibatasi LIMIT 200 agar performa tetap ringan)
-        const queryStr = `
-            SELECT u.*, 
-                   (SELECT COUNT(*) FROM po_detail d WHERE d.po_id = u.id) as variasi_jumlah,
-                   (SELECT SUM(jumlah) FROM po_detail d WHERE d.po_id = u.id) as qty_tampil
-            FROM po_utama u
+            FROM po_utama u 
             ${whereString}
-            ORDER BY u.id DESC
-            LIMIT 200
+            ORDER BY u.tanggal DESC, u.id DESC
+            LIMIT 300
         `;
-        const result = await db.query(queryStr, queryParams);
-        
-        const poIds = result.rows.map(r => r.id);
-        let details = [];
+        const orders = await db.query(sqlOrders, queryParams);
+
+        const poIds = orders.rows.map(r => r.id);
+        let details = { rows: [] };
         if (poIds.length > 0) {
-            const detailRes = await db.query(`SELECT * FROM po_detail WHERE po_id = ANY($1)`, [poIds]);
-            details = detailRes.rows;
+            const sqlDetails = `
+                SELECT 
+                    d.*, 
+                    (SELECT COALESCE(SUM(h.jumlah_setor), 0) FROM hasil_kerja h WHERE h.detail_id = d.id) as total_produksi,
+                    (SELECT COALESCE(SUM(q.jumlah_qc), 0) FROM hasil_qc q WHERE q.detail_id = d.id) as total_qc
+                FROM po_detail d
+                WHERE d.po_id = ANY($1::int[])
+                ORDER BY d.id ASC
+            `;
+            details = await db.query(sqlDetails, [poIds]);
         }
 
-        res.render('po-data-v2', {
-            orders: result.rows,
-            details: details,
-            listCustomer: listCustomerRes.rows,
-            selectedCustomer,
-            selectedStatus,
-            searchQuery,
-            user: req.session
+        const sqlCust = `SELECT DISTINCT customer FROM po_utama WHERE tenant_id = $1 ORDER BY customer ASC`;
+        const listCustomerRes = await db.query(sqlCust, [tId]);
+
+        const sqlVendors = `SELECT id, nama_vendor FROM vendor_cmt WHERE tenant_id = $1 ORDER BY nama_vendor ASC`;
+        const vendors = await db.query(sqlVendors, [tId]);
+
+        res.render('po-data-v2', { 
+            orders: orders.rows, 
+            details: details.rows,
+            vendors: vendors.rows,
+            listCustomer: listCustomerRes.rows || [],
+            selectedCustomer: selectedCustomer,
+            user: req.session,
+            isPro: isPro,      
+            isInternal: isInternal 
         });
 
     } catch (err) {
         console.error("🔥 Error po-data-v2:", err.message);
-        res.status(500).send("Server Error");
+        res.status(500).send("Gagal memuat data V2.");
     }
 });
 
