@@ -1429,8 +1429,92 @@ app.post('/save-po-v2', isAdmin, async (req, res) => {
     }
 });
 
-// RUTE HALAMAN DATA PO V2
+// --- RUTE HALAMAN DATA PO V2 (DIOPTIMASI) ---
 app.get('/po-data-v2', isAdmin, async (req, res) => {
+    if (!req.session.userId) return res.redirect('/');
+    const tId = req.session.tenantId;
+
+    const isPro = (tId === 1 || req.session.tenantLevel >= 2);
+    const isInternal = (tId === 1 || tId === 100);
+
+    try {
+        // Query Header PO: Default menyembunyikan yang 'Lunas' agar ringan, 
+        // kecuali tabel di-filter atau dicari lewat frontend (atau kita tarik yang non-lunas dulu).
+        // Kalkulasi audit disederhanakan menggunakan LEFT JOIN dan agregat SUM.
+        const sqlOrders = `
+            SELECT 
+                u.*, 
+                (SELECT SUM(jumlah) FROM po_detail WHERE po_id = u.id) as qty_tampil,
+                (SELECT COUNT(*) FROM po_detail WHERE po_id = u.id) as variasi_jumlah,
+                
+                COALESCE(SUM(h.jumlah_setor), 0) as total_setor_po,
+                COALESCE(SUM(d.jumlah), 0) as total_target_po,
+
+                -- Status Audit Cepat (Dihitung dalam 1 kali agregasi)
+                CASE 
+                    WHEN COALESCE(SUM(h.jumlah_setor), 0) > COALESCE(SUM(d.jumlah), 0) THEN 'OVER'
+                    WHEN COALESCE(SUM(h.jumlah_setor), 0) > 0 AND COALESCE(SUM(h.jumlah_setor), 0) < COALESCE(SUM(d.jumlah), 0) THEN 'UNDER'
+                    WHEN COALESCE(SUM(h.jumlah_setor), 0) = 0 THEN 'EMPTY'
+                    ELSE 'COMPLETE'
+                END as status_audit
+
+            FROM po_utama u 
+            LEFT JOIN po_detail d ON u.id = d.po_id
+            LEFT JOIN hasil_kerja h ON d.id = h.detail_id
+            WHERE u.tenant_id = $1 
+            -- Secara default sembunyikan Lunas untuk mempercepat load awal. 
+            -- (Pencarian nama customer/filter status di sisi frontend akan menangani sisanya)
+            AND u.status != 'Lunas'
+            GROUP BY u.id
+            ORDER BY 
+                CASE u.status 
+                    WHEN 'Design' THEN 1
+                    WHEN 'Antri' THEN 2
+                    WHEN 'Produksi' THEN 3
+                    WHEN 'QC' THEN 4
+                    WHEN 'CMT' THEN 5
+                    WHEN 'Clear' THEN 6
+                    WHEN 'DP/Cicil' THEN 7
+                    ELSE 8
+                END ASC,
+                u.tanggal DESC, 
+                u.id DESC
+        `;
+        const orders = await db.query(sqlOrders, [tId]);
+
+        // Query Detail PO (hanya untuk PO yang aktif saja agar tidak berat)
+        const sqlDetails = `
+            SELECT 
+                d.*, 
+                (SELECT COALESCE(SUM(h.jumlah_setor), 0) FROM hasil_kerja h WHERE h.detail_id = d.id) as total_produksi,
+                (SELECT COALESCE(SUM(q.jumlah_qc), 0) FROM hasil_qc q WHERE q.detail_id = d.id) as total_qc
+            FROM po_detail d
+            JOIN po_utama u ON d.po_id = u.id
+            WHERE u.tenant_id = $1 AND u.status != 'Lunas'
+            ORDER BY d.id ASC
+        `;
+        const details = await db.query(sqlDetails, [tId]);
+
+        const sqlVendors = `SELECT id, nama_vendor FROM vendor_cmt WHERE tenant_id = $1 ORDER BY nama_vendor ASC`;
+        const vendors = await db.query(sqlVendors, [tId]);
+
+        res.render('po-data-v2', { 
+            orders: orders.rows, 
+            details: details.rows,
+            vendors: vendors.rows,
+            user: req.session,
+            isPro: isPro,
+            isInternal: isInternal
+        });
+
+    } catch (err) {
+        console.error("🔥 Error po-data-v2:", err.message);
+        res.status(500).send("Gagal memuat data V2.");
+    }
+});
+
+// RUTE HALAMAN DATA PO V2
+app.get('/po-data-v1', isAdmin, async (req, res) => {
     if (!req.session.userId) return res.redirect('/');
     const tId = req.session.tenantId;
 

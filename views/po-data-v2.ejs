@@ -124,11 +124,12 @@
                         <div class="text-end">
                             <span class="badge bg-light text-dark border mb-1"><%= po.qty_tampil || 0 %> Pcs</span><br>
                             
-                            <% if (po.is_over) { %> 
+                            <!-- Bagian Audit Prod di Mobile Card -->
+                            <% if (po.status_audit === 'OVER') { %> 
                                 <span class="blink-warn" style="font-size: 10px;"><i class="bi bi-exclamation-triangle-fill"></i> LEBIH</span>
-                            <% } else if (po.is_under) { %> 
+                            <% } else if (po.status_audit === 'UNDER') { %> 
                                 <span class="text-warning fw-bold" style="font-size: 10px;"><i class="bi bi-exclamation-circle-fill"></i> KURANG</span>
-                            <% } else if (po.is_empty) { %> 
+                            <% } else if (po.status_audit === 'EMPTY') { %> 
                                 <span class="text-secondary fw-bold" style="font-size: 10px;"><i class="bi bi-clock"></i> B. SETOR</span>
                             <% } else { %> 
                                 <span class="text-success fw-bold" style="font-size: 10px;"><i class="bi bi-check-circle-fill"></i> LENGKAP</span> 
@@ -225,11 +226,17 @@
                                 <% if (po.variasi_jumlah > 1) { %><span class="badge badge-variasi ms-1">+<%= po.variasi_jumlah %> Item</span><% } %>
                             </td>
                             <td class="text-center fw-bold"><%= po.qty_tampil || 0 %></td>
+                            <!-- Bagian Audit Prod di Tabel Desktop -->
                             <td class="text-center">
-                                <% if (po.is_over) { %> <span class="blink-warn"><i class="bi bi-exclamation-triangle-fill"></i> LEBIH</span>
-                                <% } else if (po.is_under) { %> <span class="text-warning fw-bold" style="font-size: 11px;"><i class="bi bi-exclamation-circle-fill"></i> KURANG</span>
-                                <% } else if (po.is_empty) { %> <span class="text-secondary fw-bold" style="font-size: 11px;"><i class="bi bi-clock"></i> BELUM SETOR</span>
-                                <% } else { %> <span class="text-success fw-bold"><i class="bi bi-check-circle-fill"></i> LENGKAP</span> <% } %>
+                                <% if (po.status_audit === 'OVER') { %> 
+                                    <span class="blink-warn"><i class="bi bi-exclamation-triangle-fill"></i> LEBIH</span>
+                                <% } else if (po.status_audit === 'UNDER') { %> 
+                                    <span class="text-warning fw-bold" style="font-size: 11px;"><i class="bi bi-exclamation-circle-fill"></i> KURANG</span>
+                                <% } else if (po.status_audit === 'EMPTY') { %> 
+                                    <span class="text-secondary fw-bold" style="font-size: 11px;"><i class="bi bi-clock"></i> B. SETOR</span>
+                                <% } else { %> 
+                                    <span class="text-success fw-bold"><i class="bi bi-check-circle-fill"></i> LENGKAP</span> 
+                                <% } %>
                             </td>
                             <td class="text-end fw-bold text-success"><%= (po.total_harga_customer || 0).toLocaleString('id-ID') %></td>
                             <td onclick="event.stopPropagation()">
