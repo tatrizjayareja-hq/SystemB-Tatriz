@@ -45,20 +45,18 @@
     
     <div class="card shadow-sm border-0 mb-3">
         <div class="card-body py-2">
-            <form action="/po-data-v2" method="GET" class="row g-2 align-items-center" id="filterForm">
+            <div class="row g-2 align-items-center">
                 
-                <!-- Kolom Pencarian -->
+                <!-- Kolom Live Search Otomatis -->
                 <div class="col-12 col-md-4">
-                    <div class="input-group input-group-sm">
-                        <input type="text" name="search" id="liveSearch" class="form-control" 
-                            placeholder="🔍 Cari PO / Customer..." value="<%= typeof searchQuery !== 'undefined' ? searchQuery : '' %>">
-                        <button type="submit" class="btn btn-primary"><i class="bi bi-search"></i></button>
-                    </div>
+                    <input type="text" id="liveSearchInput" class="form-control form-control-sm" 
+                        placeholder="🔍 Ketik untuk mencari PO / Customer..." 
+                        value="<%= typeof searchQuery !== 'undefined' ? searchQuery : '' %>">
                 </div>
                 
                 <!-- Kolom Status -->
                 <div class="col-5 col-md-3">
-                    <select name="status" id="filterStatus" class="form-select form-select-sm" onchange="document.getElementById('filterForm').submit()">
+                    <select id="filterStatusDropdown" class="form-select form-select-sm" onchange="triggerLiveSearch()">
                         <option value="ALL" <%= (typeof statusQuery !== 'undefined' && statusQuery === 'ALL') ? 'selected' : '' %>>- Semua Status -</option>
                         <option value="Design" <%= (typeof statusQuery !== 'undefined' && statusQuery === 'Design') ? 'selected' : '' %>>Design</option>
                         <option value="Antri" <%= (typeof statusQuery !== 'undefined' && statusQuery === 'Antri') ? 'selected' : '' %>>Antri</option>
@@ -74,21 +72,16 @@
                 <!-- Switch Hide Lunas & Tombol PO BARU -->
                 <div class="col-7 col-md-5 d-flex justify-content-between align-items-center pl-2">
                     <div class="form-check form-switch ms-1 mb-0">
-                        <input class="form-check-input mt-1" type="checkbox" name="hideLunas" value="true" id="checkLunas" 
+                        <input class="form-check-input mt-1" type="checkbox" id="checkHideLunas" 
                             <%= (typeof hideLunas !== 'undefined' && hideLunas) ? 'checked' : '' %> 
-                            onchange="document.getElementById('filterForm').submit()">
-                        <label class="form-check-label fw-bold text-muted" style="font-size: 12px;" for="checkLunas">Hide Lunas</label>
+                            onchange="triggerLiveSearch()">
+                        <label class="form-check-label fw-bold text-muted" style="font-size: 12px;" for="checkHideLunas">Hide Lunas</label>
                     </div>
-                    <div class="d-flex gap-1">
-                        <% if ((typeof searchQuery !== 'undefined' && searchQuery) || (typeof statusQuery !== 'undefined' && statusQuery !== 'ALL') || (typeof hideLunas !== 'undefined' && hideLunas)) { %>
-                            <a href="/po-data-v2" class="btn btn-outline-secondary btn-sm fw-bold" title="Reset Filter">Reset</a>
-                        <% } %>
-                        <a href="/po-baru-v2" class="btn btn-success btn-sm fw-bold shadow-sm d-flex align-items-center gap-1">
-                            <i class="bi bi-plus-circle"></i> PO BARU
-                        </a>
-                    </div>
+                    <a href="/po-baru-v2" class="btn btn-success btn-sm fw-bold shadow-sm d-flex align-items-center gap-1">
+                        <i class="bi bi-plus-circle"></i> PO BARU
+                    </a>
                 </div>
-            </form>
+            </div>
         </div>
     </div>
 
@@ -120,168 +113,170 @@
         </label>
     </div>
 
+<div id="areaTabelPO">
+
     <!-- Tampilan Mobile -->
     <div class="d-block d-md-none" id="mobileDataContainer">
-        <% orders.forEach(function(po) { %>
-            <div class="card mb-2 shadow-sm mobile-card filter-item <%= po.is_over ? 'over' : (po.is_under ? 'under' : '') %>" 
-                 data-nama="<%= po.nama_po.toLowerCase() %> <%= po.customer.toLowerCase() %>" 
-                 data-status="<%= po.status %>">
-                
-                <div class="card-body p-3">
-                    <div class="d-flex justify-content-between align-items-start mb-1">
-                        <div class="d-flex align-items-center gap-3">
-                            <input type="checkbox" class="form-check-input mobile-checkbox po-checkbox" value="<%= po.id %>" data-customer="<%= po.customer %>" onchange="updateCounter()">
-                            <small class="text-secondary fw-bold"><%= po.nama_po %></small>
-                        </div>
-                        <div class="text-end">
-                            <span class="badge bg-light text-dark border mb-1"><%= po.qty_tampil || 0 %> Pcs</span><br>
-                            
-                            <% if (po.is_over) { %> 
-                                <span class="blink-warn" style="font-size: 10px;"><i class="bi bi-exclamation-triangle-fill"></i> LEBIH</span>
-                            <% } else if (po.is_under) { %> 
-                                <span class="text-warning fw-bold" style="font-size: 10px;"><i class="bi bi-exclamation-circle-fill"></i> KURANG</span>
-                            <% } else if (po.is_empty) { %> 
-                                <span class="text-secondary fw-bold" style="font-size: 10px;"><i class="bi bi-clock"></i> B. SETOR</span>
-                            <% } else { %> 
-                                <span class="text-success fw-bold" style="font-size: 10px;"><i class="bi bi-check-circle-fill"></i> LENGKAP</span> 
-                            <% } %>
-                        </div>
-                    </div>
+            <% orders.forEach(function(po) { %>
+                <div class="card mb-2 shadow-sm mobile-card filter-item <%= po.is_over ? 'over' : (po.is_under ? 'under' : '') %>" 
+                    data-nama="<%= po.nama_po.toLowerCase() %> <%= po.customer.toLowerCase() %>" 
+                    data-status="<%= po.status %>">
                     
-                    <div class="ps-4 ms-2">
-                        <h6 class="fw-bold text-dark mb-1"><%= po.customer %></h6>
-                        <div class="d-flex justify-content-between align-items-center mt-2">
-                            <span class="badge bg-primary px-3 py-2 badge-status shadow-sm" onclick="ubahStatusMobile('<%= po.id %>', '<%= po.status %>')">
-                                <%= po.status %> <i class="bi bi-pencil-square ms-1"></i>
-                            </span>
-                            <strong class="text-success"><%= (po.total_harga_customer || 0).toLocaleString('id-ID') %></strong>
+                    <div class="card-body p-3">
+                        <div class="d-flex justify-content-between align-items-start mb-1">
+                            <div class="d-flex align-items-center gap-3">
+                                <input type="checkbox" class="form-check-input mobile-checkbox po-checkbox" value="<%= po.id %>" data-customer="<%= po.customer %>" onchange="updateCounter()">
+                                <small class="text-secondary fw-bold"><%= po.nama_po %></small>
+                            </div>
+                            <div class="text-end">
+                                <span class="badge bg-light text-dark border mb-1"><%= po.qty_tampil || 0 %> Pcs</span><br>
+                                
+                                <% if (po.is_over) { %> 
+                                    <span class="blink-warn" style="font-size: 10px;"><i class="bi bi-exclamation-triangle-fill"></i> LEBIH</span>
+                                <% } else if (po.is_under) { %> 
+                                    <span class="text-warning fw-bold" style="font-size: 10px;"><i class="bi bi-exclamation-circle-fill"></i> KURANG</span>
+                                <% } else if (po.is_empty) { %> 
+                                    <span class="text-secondary fw-bold" style="font-size: 10px;"><i class="bi bi-clock"></i> B. SETOR</span>
+                                <% } else { %> 
+                                    <span class="text-success fw-bold" style="font-size: 10px;"><i class="bi bi-check-circle-fill"></i> LENGKAP</span> 
+                                <% } %>
+                            </div>
                         </div>
                         
-                        <div class="mt-2 text-center">
-                            <button class="btn btn-light btn-sm w-100 text-muted border" onclick="toggleDetailMobile('<%= po.id %>')">
-                                <i class="bi bi-chevron-down"></i> Opsi & Detail Pesanan
-                            </button>
-                        </div>
-                    </div>
-                </div>
-
-                <div id="detail-mob-<%= po.id %>" class="mobile-detail-area p-3">
-                    <div class="row g-2 mb-3">
-                        <div class="col-6">
-                            <button onclick="bukaModalEdit('<%= po.id %>')" class="btn btn-outline-warning btn-sm w-100 fw-bold"><i class="bi bi-pencil-square"></i> Edit PO</button>
-                        </div>
-                        <div class="col-6">
-                            <a href="https://wa.me/?text=Halo%20<%= po.customer.replace(' ', '%20') %>,%20Berikut%20kami%20lampirkan%20tagihan%20untuk%20PO%20<%= po.nama_po %>" target="_blank" class="btn btn-success btn-sm w-100 fw-bold"><i class="bi bi-whatsapp"></i> Tagih WA</a>
-                        </div>
-                        <div class="btn-group mt-2">
-                            <a href="/cetak-nota-gabungan?ids=<%= po.id %>&mode=simple" target="_blank" class="btn btn-primary btn-sm">
-                                🖨️ Cetak Nota Simple (A6)
-                            </a>
-                            <a href="/cetak-nota-gabungan?ids=<%= po.id %>&mode=rinci" target="_blank" class="btn btn-secondary btn-sm">
-                                📑 Cetak Nota Rinci (A5 Landscape)
-                            </a>
-                        </div>
-                        <div class="col-12 mt-2">
-                            <button onclick="konfirmasiRepeat('<%= po.id %>', '<%= po.nama_po %>')" class="btn btn-outline-success btn-sm w-100 fw-bold"><i class="bi bi-arrow-repeat"></i> Repeat Order</button>
-                        </div>
-                    </div>
-
-                    <!-- Wadah Dynamic AJAX untuk Detail Mobile -->
-                    <div id="content-mob-<%= po.id %>" class="bg-white p-2 rounded border">
-                        <div class="text-center text-muted small py-2">Klik untuk memuat rincian...</div>
-                    </div>
-                </div>
-            </div>
-        <% }); %>
-    </div>
-
-    <!-- Tampilan Desktop -->
-    <div class="d-none d-md-block card shadow-sm border-0 mb-4">
-        <div class="table-responsive">
-            <table class="table table-hover table-bordered align-middle mb-0" style="font-size: 13px;">
-                <thead class="table-primary text-white text-uppercase text-center">
-                    <tr>
-                        <th style="width: 40px;"><input type="checkbox" class="form-check-input shadow-sm" id="checkAllVisible" onchange="pilihSemuaTampil(this)"></th>
-                        <th style="width: 100px;">Tanggal</th>
-                        <th>Data Pesanan / Customer</th>
-                        <th style="width: 60px;">Qty</th>
-                        <th style="width: 120px;">Audit Prod</th>
-                        <th class="text-end">Total Cust</th>
-                        <th>Status</th>
-                        <th style="width: 100px;">Aksi</th>
-                    </tr>
-                </thead>
-                <tbody id="bodyPO">
-                    <% orders.forEach(function(po) { %>
-                        <tr class="clickable-row filter-item <%= po.is_over ? 'table-danger' : (po.is_under ? 'table-warning' : '') %>" 
-                            data-nama="<%= po.nama_po.toLowerCase() %> <%= po.customer.toLowerCase() %>" 
-                            data-status="<%= po.status %>"
-                            onclick="toggleDetailDesktop('<%= po.id %>')">
+                        <div class="ps-4 ms-2">
+                            <h6 class="fw-bold text-dark mb-1"><%= po.customer %></h6>
+                            <div class="d-flex justify-content-between align-items-center mt-2">
+                                <span class="badge bg-primary px-3 py-2 badge-status shadow-sm" onclick="ubahStatusMobile('<%= po.id %>', '<%= po.status %>')">
+                                    <%= po.status %> <i class="bi bi-pencil-square ms-1"></i>
+                                </span>
+                                <strong class="text-success"><%= (po.total_harga_customer || 0).toLocaleString('id-ID') %></strong>
+                            </div>
                             
-                            <td class="text-center" onclick="event.stopPropagation()">
-                                <input type="checkbox" class="form-check-input po-checkbox" value="<%= po.id %>" data-customer="<%= po.customer %>" onchange="updateCounter()">
-                            </td>
-                            <td class="text-center text-muted"><%= po.tanggal.split('-').reverse().join('/') %></td>
-                            <td>
-                                <strong class="text-dark"><%= po.nama_po %></strong><br>
-                                <small class="text-secondary"><i class="bi bi-person"></i> <%= po.customer %></small>
-                                <% if (po.variasi_jumlah > 1) { %><span class="badge badge-variasi ms-1">+<%= po.variasi_jumlah %> Item</span><% } %>
-                            </td>
-                            <td class="text-center fw-bold"><%= po.qty_tampil || 0 %></td>
-                            <td class="text-center">
-                                <% if (po.is_over) { %> <span class="blink-warn"><i class="bi bi-exclamation-triangle-fill"></i> LEBIH</span>
-                                <% } else if (po.is_under) { %> <span class="text-warning fw-bold" style="font-size: 11px;"><i class="bi bi-exclamation-circle-fill"></i> KURANG</span>
-                                <% } else if (po.is_empty) { %> <span class="text-secondary fw-bold" style="font-size: 11px;"><i class="bi bi-clock"></i> BELUM SETOR</span>
-                                <% } else { %> <span class="text-success fw-bold"><i class="bi bi-check-circle-fill"></i> LENGKAP</span> <% } %>
-                            </td>
-                            <td class="text-end fw-bold text-success"><%= (po.total_harga_customer || 0).toLocaleString('id-ID') %></td>
-                            <td onclick="event.stopPropagation()">
-                                <form action="/update-status/<%= po.id %>" method="POST" class="d-flex gap-1" onsubmit="cekStatusCMT(event, this, '<%= po.id %>', '<%= po.nama_po %>')">
-                                    <select name="status_baru" class="form-select form-select-sm py-0" style="font-size: 11px;">
-                                        <option value="Design" <%= po.status === 'Design' ? 'selected' : '' %>>Design</option>
-                                        <option value="Antri" <%= po.status === 'Antri' ? 'selected' : '' %>>Antri</option>
-                                        <option value="Produksi" <%= po.status === 'Produksi' ? 'selected' : '' %>>Produksi</option>
-                                        <option value="CMT" <%= po.status === 'CMT' ? 'selected' : '' %>>CMT</option>
-                                        <option value="QC" <%= po.status === 'QC' ? 'selected' : '' %>>QC</option>
-                                        <option value="Clear" <%= po.status === 'Clear' ? 'selected' : '' %>>Clear</option>
-                                        <option value="DP/Cicil" <%= po.status === 'DP/Cicil' ? 'selected' : '' %>>DP/Cicil</option>
-                                        <option value="Lunas" <%= po.status === 'Lunas' ? 'selected' : '' %>>Lunas</option>
-                                    </select>
-                                    <button type="submit" class="btn btn-sm btn-primary py-0"><i class="bi bi-save"></i></button>
-                                </form>
-                            </td>
-                            <td class="text-center" onclick="event.stopPropagation()">
-                                <div class="d-flex justify-content-center gap-1">
-                                    <button onclick="bukaModalEdit('<%= po.id %>')" class="btn btn-sm btn-outline-warning py-0 px-2 shadow-sm" title="Edit Data PO"><i class="bi bi-pencil-square"></i></button>
-                                    <div class="action-dropdown">
-                                        <button class="btn btn-sm btn-outline-dark py-0 px-2 shadow-sm" onclick="toggleMenu(event, '<%= po.id %>')">Opsi <i class="bi bi-chevron-down small"></i></button>
-                                        <div id="menu-<%= po.id %>" class="dropdown-content shadow rounded">
-                                            <button onclick="konfirmasiRepeat('<%= po.id %>', '<%= po.nama_po %>')" class="fw-bold text-success"><i class="bi bi-arrow-repeat"></i> Repeat Order</button>                                        
-                                            <hr class="my-1">
-                                            <a href="/cetak-nota-gabungan?ids=<%= po.id %>" target="_blank" class="fw-bold text-dark"><i class="bi bi-printer"></i> Cetak Nota Lengkap</a>
-                                            <a href="/cetak-nota-gabungan?ids=<%= po.id %>&mode=thermal" target="_blank" class="text-secondary"><i class="bi bi-receipt"></i> Cetak Thermal</a>
-                                            <a href="/delete-po/<%= po.id %>" class="text-danger fw-bold" onclick="return confirm('Hapus PO ini?')"><i class="bi bi-trash"></i> Hapus PO</a>
+                            <div class="mt-2 text-center">
+                                <button class="btn btn-light btn-sm w-100 text-muted border" onclick="toggleDetailMobile('<%= po.id %>')">
+                                    <i class="bi bi-chevron-down"></i> Opsi & Detail Pesanan
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div id="detail-mob-<%= po.id %>" class="mobile-detail-area p-3">
+                        <div class="row g-2 mb-3">
+                            <div class="col-6">
+                                <button onclick="bukaModalEdit('<%= po.id %>')" class="btn btn-outline-warning btn-sm w-100 fw-bold"><i class="bi bi-pencil-square"></i> Edit PO</button>
+                            </div>
+                            <div class="col-6">
+                                <a href="https://wa.me/?text=Halo%20<%= po.customer.replace(' ', '%20') %>,%20Berikut%20kami%20lampirkan%20tagihan%20untuk%20PO%20<%= po.nama_po %>" target="_blank" class="btn btn-success btn-sm w-100 fw-bold"><i class="bi bi-whatsapp"></i> Tagih WA</a>
+                            </div>
+                            <div class="btn-group mt-2">
+                                <a href="/cetak-nota-gabungan?ids=<%= po.id %>&mode=simple" target="_blank" class="btn btn-primary btn-sm">
+                                    🖨️ Cetak Nota Simple (A6)
+                                </a>
+                                <a href="/cetak-nota-gabungan?ids=<%= po.id %>&mode=rinci" target="_blank" class="btn btn-secondary btn-sm">
+                                    📑 Cetak Nota Rinci (A5 Landscape)
+                                </a>
+                            </div>
+                            <div class="col-12 mt-2">
+                                <button onclick="konfirmasiRepeat('<%= po.id %>', '<%= po.nama_po %>')" class="btn btn-outline-success btn-sm w-100 fw-bold"><i class="bi bi-arrow-repeat"></i> Repeat Order</button>
+                            </div>
+                        </div>
+
+                        <!-- Wadah Dynamic AJAX untuk Detail Mobile -->
+                        <div id="content-mob-<%= po.id %>" class="bg-white p-2 rounded border">
+                            <div class="text-center text-muted small py-2">Klik untuk memuat rincian...</div>
+                        </div>
+                    </div>
+                </div>
+            <% }); %>
+        </div>
+
+        <!-- Tampilan Desktop -->
+        <div class="d-none d-md-block card shadow-sm border-0 mb-4">
+            <div class="table-responsive">
+                <table class="table table-hover table-bordered align-middle mb-0" style="font-size: 13px;">
+                    <thead class="table-primary text-white text-uppercase text-center">
+                        <tr>
+                            <th style="width: 40px;"><input type="checkbox" class="form-check-input shadow-sm" id="checkAllVisible" onchange="pilihSemuaTampil(this)"></th>
+                            <th style="width: 100px;">Tanggal</th>
+                            <th>Data Pesanan / Customer</th>
+                            <th style="width: 60px;">Qty</th>
+                            <th style="width: 120px;">Audit Prod</th>
+                            <th class="text-end">Total Cust</th>
+                            <th>Status</th>
+                            <th style="width: 100px;">Aksi</th>
+                        </tr>
+                    </thead>
+                    <tbody id="bodyPO">
+                        <% orders.forEach(function(po) { %>
+                            <tr class="clickable-row filter-item <%= po.is_over ? 'table-danger' : (po.is_under ? 'table-warning' : '') %>" 
+                                data-nama="<%= po.nama_po.toLowerCase() %> <%= po.customer.toLowerCase() %>" 
+                                data-status="<%= po.status %>"
+                                onclick="toggleDetailDesktop('<%= po.id %>')">
+                                
+                                <td class="text-center" onclick="event.stopPropagation()">
+                                    <input type="checkbox" class="form-check-input po-checkbox" value="<%= po.id %>" data-customer="<%= po.customer %>" onchange="updateCounter()">
+                                </td>
+                                <td class="text-center text-muted"><%= po.tanggal.split('-').reverse().join('/') %></td>
+                                <td>
+                                    <strong class="text-dark"><%= po.nama_po %></strong><br>
+                                    <small class="text-secondary"><i class="bi bi-person"></i> <%= po.customer %></small>
+                                    <% if (po.variasi_jumlah > 1) { %><span class="badge badge-variasi ms-1">+<%= po.variasi_jumlah %> Item</span><% } %>
+                                </td>
+                                <td class="text-center fw-bold"><%= po.qty_tampil || 0 %></td>
+                                <td class="text-center">
+                                    <% if (po.is_over) { %> <span class="blink-warn"><i class="bi bi-exclamation-triangle-fill"></i> LEBIH</span>
+                                    <% } else if (po.is_under) { %> <span class="text-warning fw-bold" style="font-size: 11px;"><i class="bi bi-exclamation-circle-fill"></i> KURANG</span>
+                                    <% } else if (po.is_empty) { %> <span class="text-secondary fw-bold" style="font-size: 11px;"><i class="bi bi-clock"></i> BELUM SETOR</span>
+                                    <% } else { %> <span class="text-success fw-bold"><i class="bi bi-check-circle-fill"></i> LENGKAP</span> <% } %>
+                                </td>
+                                <td class="text-end fw-bold text-success"><%= (po.total_harga_customer || 0).toLocaleString('id-ID') %></td>
+                                <td onclick="event.stopPropagation()">
+                                    <form action="/update-status/<%= po.id %>" method="POST" class="d-flex gap-1" onsubmit="cekStatusCMT(event, this, '<%= po.id %>', '<%= po.nama_po %>')">
+                                        <select name="status_baru" class="form-select form-select-sm py-0" style="font-size: 11px;">
+                                            <option value="Design" <%= po.status === 'Design' ? 'selected' : '' %>>Design</option>
+                                            <option value="Antri" <%= po.status === 'Antri' ? 'selected' : '' %>>Antri</option>
+                                            <option value="Produksi" <%= po.status === 'Produksi' ? 'selected' : '' %>>Produksi</option>
+                                            <option value="CMT" <%= po.status === 'CMT' ? 'selected' : '' %>>CMT</option>
+                                            <option value="QC" <%= po.status === 'QC' ? 'selected' : '' %>>QC</option>
+                                            <option value="Clear" <%= po.status === 'Clear' ? 'selected' : '' %>>Clear</option>
+                                            <option value="DP/Cicil" <%= po.status === 'DP/Cicil' ? 'selected' : '' %>>DP/Cicil</option>
+                                            <option value="Lunas" <%= po.status === 'Lunas' ? 'selected' : '' %>>Lunas</option>
+                                        </select>
+                                        <button type="submit" class="btn btn-sm btn-primary py-0"><i class="bi bi-save"></i></button>
+                                    </form>
+                                </td>
+                                <td class="text-center" onclick="event.stopPropagation()">
+                                    <div class="d-flex justify-content-center gap-1">
+                                        <button onclick="bukaModalEdit('<%= po.id %>')" class="btn btn-sm btn-outline-warning py-0 px-2 shadow-sm" title="Edit Data PO"><i class="bi bi-pencil-square"></i></button>
+                                        <div class="action-dropdown">
+                                            <button class="btn btn-sm btn-outline-dark py-0 px-2 shadow-sm" onclick="toggleMenu(event, '<%= po.id %>')">Opsi <i class="bi bi-chevron-down small"></i></button>
+                                            <div id="menu-<%= po.id %>" class="dropdown-content shadow rounded">
+                                                <button onclick="konfirmasiRepeat('<%= po.id %>', '<%= po.nama_po %>')" class="fw-bold text-success"><i class="bi bi-arrow-repeat"></i> Repeat Order</button>                                        
+                                                <hr class="my-1">
+                                                <a href="/cetak-nota-gabungan?ids=<%= po.id %>" target="_blank" class="fw-bold text-dark"><i class="bi bi-printer"></i> Cetak Nota Lengkap</a>
+                                                <a href="/cetak-nota-gabungan?ids=<%= po.id %>&mode=thermal" target="_blank" class="text-secondary"><i class="bi bi-receipt"></i> Cetak Thermal</a>
+                                                <a href="/delete-po/<%= po.id %>" class="text-danger fw-bold" onclick="return confirm('Hapus PO ini?')"><i class="bi bi-trash"></i> Hapus PO</a>
+                                            </div>
                                         </div>
                                     </div>
-                                </div>
-                            </td>
-                        </tr>
+                                </td>
+                            </tr>
 
-                        <tr id="detail-desk-<%= po.id %>" class="detail-row">
-                            <td colspan="9" class="p-0">
-                                <!-- Wadah kosong untuk menampung hasil fetch AJAX -->
-                                <div id="content-desk-<%= po.id %>">
-                                    <div class="p-3 text-center text-muted small">Memuat rincian...</div>
-                                </div>
-                            </td>
-                        </tr>
-                    <% }); %>
-                </tbody>
-            </table>
+                            <tr id="detail-desk-<%= po.id %>" class="detail-row">
+                                <td colspan="9" class="p-0">
+                                    <!-- Wadah kosong untuk menampung hasil fetch AJAX -->
+                                    <div id="content-desk-<%= po.id %>">
+                                        <div class="p-3 text-center text-muted small">Memuat rincian...</div>
+                                    </div>
+                                </td>
+                            </tr>
+                        <% }); %>
+                    </tbody>
+                </table>
+            </div>
         </div>
     </div>
 </div>
-
 <!-- ================= MODALS ================= -->
 <div class="modal fade" id="modalQC" tabindex="-1" aria-hidden="true">
     <div class="modal-dialog modal-dialog-centered">
@@ -827,19 +822,44 @@
     };
 </script>
 <script>
-    // Fitur Live Search Otomatis (Server-Side dengan Jeda Ketik)
-    let searchTimeout;
-    const searchInput = document.getElementById('searchInput');
-    
-    if (searchInput) {
-        searchInput.addEventListener('input', function() {
-            clearTimeout(searchTimeout);
-            // Tunggu 500ms (0.5 detik) setelah pengguna berhenti mengetik, baru kirim pencarian ke server
-            searchTimeout = setTimeout(() => {
-                document.getElementById('filterForm').submit();
-            }, 500);
+    let searchTimer;
+
+    // Fungsi utama untuk memicu pencarian live
+    function triggerLiveSearch(page = 1) {
+        const keyword = document.getElementById('liveSearchInput').value;
+        const status = document.getElementById('filterStatusDropdown').value;
+        const hideLunas = document.getElementById('checkHideLunas').checked;
+
+        const params = new URLSearchParams({
+            search: keyword,
+            status: status,
+            hideLunas: hideLunas,
+            page: page,
+            ajax: 'true'
+        });
+
+        fetch(`/po-data-v2?${params.toString()}`)
+            .then(response => response.text())
+            .then(html => {
+                const parser = new DOMParser();
+                const doc = parser.parseFromString(html, 'text/html');
+                const newTabelContent = doc.getElementById('areaTabelPO').innerHTML;
+                document.getElementById('areaTabelPO').innerHTML = newTabelContent;
+            })
+            .catch(err => console.error("Gagal memuat pencarian:", err));
+    }
+
+    // Event listener untuk Live Search (hanya dideklarasikan sekali di sini)
+    const searchInputEl = document.getElementById('liveSearchInput');
+    if (searchInputEl) {
+        searchInputEl.addEventListener('input', function() {
+            clearTimeout(searchTimer);
+            searchTimer = setTimeout(() => {
+                triggerLiveSearch(1);
+            }, 300);
         });
     }
 </script>
+
 
 <%- include('partials/footer') %>
