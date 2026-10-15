@@ -1458,24 +1458,40 @@ app.post('/save-po-v2', isAdmin, async (req, res) => {
     }
 });
 
-// RUTE HALAMAN DATA PO V2 (Model Asli Dipertahankan & Dioptimasi Agar Ringan)
+// RUTE HALAMAN DATA PO V2 (Cepat, Ringan, Tetap Support Cari Data Masa Lalu & Repeat Order)
 app.get('/po-data-v2', isAdmin, async (req, res) => {
     if (!req.session.userId) return res.redirect('/');
     const tId = req.session.tenantId;
 
-    // Variabel hak akses wajib agar sinkron dengan EJS
     const isPro = (tId === 1 || req.session.tenantLevel >= 2);
     const isInternal = (tId === 1 || tId === 100);
+    
+    // Tangkap parameter pencarian jika user mengetik sesuatu untuk mencari data lama
+    const searchQuery = req.query.search || '';
 
     try {
-        // Query Header PO (Ditambahkan LIMIT 300 agar database dan browser tidak berat)
+        let queryParams = [tId];
+        let whereClauses = ["u.tenant_id = \$1"];
+        let paramIndex = 2;
+
+        // Jika user mengetik pencarian (untuk cek harga / repeat order masa lalu), 
+        // berikan ruang pencarian lebih luas ke database melampaui limit harian!
+        let limitClause = "LIMIT 300";
+        if (searchQuery) {
+            whereClauses.push(`(u.nama_po ILIKE $${paramIndex} OR u.customer ILIKE $${paramIndex})`);
+            queryParams.push(`%${searchQuery}%`);
+            paramIndex++;
+            limitClause = "LIMIT 1000"; // Izinkan tarik lebih banyak saat mode pencarian data lama
+        }
+
+        let whereString = `WHERE ${whereClauses.join(' AND ')}`;
+
         const sqlOrders = `
             SELECT 
                 u.*, 
                 (SELECT SUM(jumlah) FROM po_detail WHERE po_id = u.id) as qty_tampil,
                 (SELECT COUNT(*) FROM po_detail WHERE po_id = u.id) as variasi_jumlah,
                 
-                -- 1. Cek jika ada yang LEBIH
                 EXISTS (
                     SELECT 1 FROM po_detail d2
                     LEFT JOIN hasil_kerja h2 ON d2.id = h2.detail_id
@@ -1484,7 +1500,6 @@ app.get('/po-data-v2', isAdmin, async (req, res) => {
                     HAVING SUM(COALESCE(h2.jumlah_setor, 0)) > d2.jumlah
                 ) as is_over,
                 
-                -- 2. Cek jika ada yang KURANG (tapi operator sudah input > 0)
                 EXISTS (
                     SELECT 1 FROM po_detail d2
                     LEFT JOIN hasil_kerja h2 ON d2.id = h2.detail_id
@@ -1494,7 +1509,6 @@ app.get('/po-data-v2', isAdmin, async (req, res) => {
                     AND SUM(COALESCE(h2.jumlah_setor, 0)) < d2.jumlah
                 ) as is_under,
                 
-                -- 3. Cek jika ada item yang BELUM DISETOR sama sekali (0)
                 EXISTS (
                     SELECT 1 FROM po_detail d2
                     LEFT JOIN hasil_kerja h2 ON d2.id = h2.detail_id
@@ -1504,7 +1518,7 @@ app.get('/po-data-v2', isAdmin, async (req, res) => {
                 ) as is_empty
 
             FROM po_utama u 
-            WHERE u.tenant_id = $1 
+            ${whereString}
             ORDER BY 
                 CASE u.status 
                     WHEN 'Design' THEN 1
@@ -1519,11 +1533,10 @@ app.get('/po-data-v2', isAdmin, async (req, res) => {
                 END ASC,
                 u.tanggal DESC, 
                 u.id DESC
-            LIMIT 300
+            ${limitClause}
         `;
-        const orders = await db.query(sqlOrders, [tId]);
+        const orders = await db.query(sqlOrders, queryParams);
 
-        // Query Detail PO (Dibatasi berdasarkan ID PO yang tampil saja agar super cepat)
         const poIds = orders.rows.map(r => r.id);
         let details = { rows: [] };
         if (poIds.length > 0) {
@@ -1539,7 +1552,6 @@ app.get('/po-data-v2', isAdmin, async (req, res) => {
             details = await db.query(sqlDetails, [poIds]);
         }
 
-        // Query Daftar Vendor CMT
         const sqlVendors = `SELECT id, nama_vendor FROM vendor_cmt WHERE tenant_id = $1 ORDER BY nama_vendor ASC`;
         const vendors = await db.query(sqlVendors, [tId]);
 
