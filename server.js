@@ -3048,75 +3048,28 @@ app.post('/update-qc-bulk', isAdmin, async (req, res) => {
     }
 });
 
-// --- API UNTUK DROPDOWN OTOMATIS (Akses untuk semua role yang sudah login) ---
-app.get('/api/po-details/:id', async (req, res) => {
-    if (!req.session.userId) return res.status(401).json({ error: "Unauthorized" });
+// Endpoint API untuk Detail PO (Wajib ada agar AJAX bisa mengambil data)
+app.get('/api/po-details/:poId', isAdmin, async (req, res) => {
+    if (!req.session.userId) return res.status(401).json({ error: 'Unauthorized' });
+    const poId = req.params.poId;
+    const tId = req.session.tenantId;
 
-    const poId = req.params.id;
-    
-    // PERBAIKAN QUERY: Menghitung sisa untuk Operator DAN sisa antrean untuk QC sekaligus
-    const sql = `
-        SELECT 
-            d.id, 
-            d.jenis_bordir, 
-            d.nama_desain, 
-            d.harga_operator, 
-            d.jumlah as target_asli,
-            
-            -- Menentukan target riil untuk operator internal (mengakomodasi data lama)
-            (CASE 
-                WHEN d.qty_internal = 0 AND d.qty_cmt = 0 THEN d.jumlah 
-                ELSE d.qty_internal 
-            END) as target_internal,
-
-            -- 1. Sisa untuk OPERATOR (Target Internal dikurangi yang sudah disetor)
-            ((CASE 
-                WHEN d.qty_internal = 0 AND d.qty_cmt = 0 THEN d.jumlah 
-                ELSE d.qty_internal 
-            END) - COALESCE((SELECT SUM(jumlah_setor) FROM hasil_kerja WHERE detail_id = d.id), 0)) as sisa,
-            
-            -- 2. Total yang SUDAH SETOR dari Operator (Untuk info QC)
-            COALESCE((SELECT SUM(jumlah_setor) FROM hasil_kerja WHERE detail_id = d.id), 0) as total_operator,
-            
-            -- 3. Total yang SUDAH PERIKSA oleh QC
-            COALESCE((SELECT SUM(jumlah_qc) FROM hasil_qc WHERE detail_id = d.id), 0) as total_sudah_qc
-            
-        FROM po_detail d
-        WHERE d.po_id = $1
-        
-        -- 🌟 FILTER BARU: Pastikan hanya part yang masih ada pengerjaan internal yang muncul.
-        -- Jika part tersebut 100% di-CMT-kan (qty_internal = 0, qty_cmt = 1000), part ini tidak akan muncul.
-        AND (
-            d.qty_internal > 0 
-            OR 
-            (d.qty_internal = 0 AND d.qty_cmt = 0 AND d.jumlah > 0)
-        )
-    `;
-    
     try {
-        // PERBAIKAN: Mengubah db.all menjadi db.query jika kamu menggunakan PostgreSQL / Supabase
-        const result = await db.query(sql, [poId]);
-        const rows = result.rows || [];
-
-        // Hitung sisa antrean riil QC di sisi aplikasi Node.js agar tidak merusak kolom database
-        const dataFinal = rows.map(row => {
-            const hitungSisaQC = row.total_operator - row.total_sudah_qc;
-            return {
-                id: row.id,
-                jenis_bordir: row.jenis_bordir,
-                nama_desain: row.nama_desain,
-                harga_operator: row.harga_operator,
-                jumlah: row.jumlah,
-                sisa: row.sisa, // Tetap aman digunakan oleh halaman Operator lama
-                total_operator: row.total_operator, // Dibaca oleh halaman QC baru
-                sisa_qc: hitungSisaQC < 0 ? 0 : hitungSisaQC // Dibaca oleh halaman QC baru
-            };
-        });
-
-        res.json(dataFinal);
+        const sql = `
+            SELECT 
+                d.*, 
+                (SELECT COALESCE(SUM(h.jumlah_setor), 0) FROM hasil_kerja h WHERE h.detail_id = d.id) as total_produksi,
+                (SELECT COALESCE(SUM(q.jumlah_qc), 0) FROM hasil_qc q WHERE q.detail_id = d.id) as total_qc
+            FROM po_detail d
+            JOIN po_utama u ON d.po_id = u.id
+            WHERE d.po_id = $1 AND u.tenant_id = $2
+            ORDER BY d.id ASC
+        `;
+        const result = await db.query(sql, [poId, tId]);
+        res.json(result.rows);
     } catch (err) {
-        console.error("🔥 API Details Error:", err.message);
-        res.status(500).json([]);
+        console.error("🔥 Error api po-details:", err.message);
+        res.status(500).json({ error: 'Gagal memuat detail' });
     }
 });
 

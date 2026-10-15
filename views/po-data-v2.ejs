@@ -819,5 +819,20 @@
         jalankanFilter();
     };
 </script>
+<script>
+    // Fitur Live Search Otomatis (Server-Side dengan Jeda Ketik)
+    let searchTimeout;
+    const searchInput = document.getElementById('searchInput');
+    
+    if (searchInput) {
+        searchInput.addEventListener('input', function() {
+            clearTimeout(searchTimeout);
+            // Tunggu 500ms (0.5 detik) setelah pengguna berhenti mengetik, baru kirim pencarian ke server
+            searchTimeout = setTimeout(() => {
+                document.getElementById('filterForm').submit();
+            }, 500);
+        });
+    }
+</script>
 
 <%- include('partials/footer') %>
