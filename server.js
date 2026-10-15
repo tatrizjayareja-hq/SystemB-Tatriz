@@ -1481,7 +1481,7 @@ app.get('/po-data-v2', isAdmin, async (req, res) => {
             whereClauses.push(`(u.nama_po ILIKE $${paramIndex} OR u.customer ILIKE $${paramIndex})`);
             queryParams.push(`%${searchQuery}%`);
             paramIndex++;
-            limitClause = "LIMIT 1000"; // Izinkan tarik lebih banyak saat mode pencarian data lama
+            limitClause = "LIMIT 2000"; // Izinkan tarik lebih banyak saat mode pencarian data lama
         }
 
         let whereString = `WHERE ${whereClauses.join(' AND ')}`;
