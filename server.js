@@ -1459,7 +1459,7 @@ app.post('/save-po-v2', isAdmin, async (req, res) => {
 });
 
 // RUTE HALAMAN DATA PO V2 (Cepat, Ringan, Tetap Support Cari Data Masa Lalu & Repeat Order)
-app.get('/po-data-v2', isAdmin, async (req, res) => {
+app.get('/po-data-change', isAdmin, async (req, res) => {
     if (!req.session.userId) return res.redirect('/');
     const tId = req.session.tenantId;
 
@@ -1667,7 +1667,7 @@ app.get('/api/customer-po-history', (req, res, next) => {
 });
 
 // RUTE HALAMAN DATA PO V2
-app.get('/po-data-v1', isAdmin, async (req, res) => {
+app.get('/po-data-v2', isAdmin, async (req, res) => {
     if (!req.session.userId) return res.redirect('/');
     const tId = req.session.tenantId;
 
