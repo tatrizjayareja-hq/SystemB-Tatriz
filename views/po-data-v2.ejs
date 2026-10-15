@@ -334,6 +334,7 @@
 </div>
 <!-- ================= END MODALS ================= -->
 <!-- Navigasi Paginasi Modern & Ringkas -->
+<!-- Navigasi Paginasi Modern & Ringkas -->
 <% if (totalPages > 1) { %>
     <nav class="mt-4">
         <ul class="pagination justify-content-center pagination-sm">
@@ -348,32 +349,30 @@
             </li>
 
             <% 
-                // Logika agar angka tidak berjejer banyak (hanya tampilkan sekitar halaman aktif)
-                let range = 2; // Jumlah halaman ke kiri & kanan dari halaman aktif
+                let range = 2; 
                 let startPage = Math.max(1, currentPage - range);
                 let endPage = Math.min(totalPages, currentPage + range);
 
-                // Tambahkan titik-titik (...) jika di awal tertinggal
-                if (startPage > 1) { %>
+                if (startPage > 1) { 
+            %>
                     <li class="page-item"><a class="page-link" href="/po-data-v2?page=1">1</a></li>
                     <% if (startPage > 2) { %>
                         <li class="page-item disabled"><span class="page-link">...</span></li>
                     <% } %>
-                <% } %>
+            <% } %>
 
-                <!-- Loop Halaman Tengah -->
-                <% for(let i = startPage; i <= endPage; i++) { %>
-                    <li class="page-item <%= currentPage === i ? 'active' : '' %>">
-                        <a class="page-link" href="/po-data-v2?page=<%= i %>"><%= i %></a>
-                    </li>
-                <% } %>
+            <!-- Loop Halaman Tengah -->
+            <% for(let i = startPage; i <= endPage; i++) { %>
+                <li class="page-item <%= currentPage === i ? 'active' : '' %>">
+                    <a class="page-link" href="/po-data-v2?page=<%= i %>"><%= i %></a>
+                </li>
+            <% } %>
 
-                // Tambahkan titik-titik (...) jika di akhir masih banyak
-                if (endPage < totalPages) { %>
-                    <% if (endPage < totalPages - 1) { %>
-                        <li class="page-item disabled"><span class="page-link">...</span></li>
-                    <% } %>
-                    <li class="page-item"><a class="page-link" href="/po-data-v2?page=<%= totalPages %>"><%= totalPages %></a></li>
+            <% if (endPage < totalPages) { %>
+                <% if (endPage < totalPages - 1) { %>
+                    <li class="page-item disabled"><span class="page-link">...</span></li>
+                <% } %>
+                <li class="page-item"><a class="page-link" href="/po-data-v2?page=<%= totalPages %>"><%= totalPages %></a></li>
             <% } %>
 
             <!-- Tombol Panah Selanjutnya -->
