@@ -1481,7 +1481,7 @@ app.get('/po-data-v2', isAdmin, async (req, res) => {
             whereClauses.push(`(u.nama_po ILIKE $${paramIndex} OR u.customer ILIKE $${paramIndex})`);
             queryParams.push(`%${searchQuery}%`);
             paramIndex++;
-            limitClause = "LIMIT 2000"; // Izinkan tarik lebih banyak saat mode pencarian data lama
+            limitClause = "LIMIT 1000"; // Izinkan tarik lebih banyak saat mode pencarian data lama
         }
 
         let whereString = `WHERE ${whereClauses.join(' AND ')}`;
@@ -1567,6 +1567,70 @@ app.get('/po-data-v2', isAdmin, async (req, res) => {
     } catch (err) {
         console.error("🔥 Error po-data-v2:", err.message);
         res.status(500).send("Gagal memuat data V2.");
+    }
+});
+
+// --- RUTE HALAMAN KHUSUS ARSIP / RIWAYAT PO MASA JALU ---
+app.get('/po-arsip', isAdmin, async (req, res) => {
+    if (!req.session.userId) return res.redirect('/');
+    const tId = req.session.tenantId;
+
+    const isPro = (tId === 1 || req.session.tenantLevel >= 2);
+    const isInternal = (tId === 1 || tId === 100);
+    
+    const searchQuery = req.query.search || '';
+
+    try {
+        let queryParams = [tId];
+        let whereClauses = ["u.tenant_id = \$1", "u.status IN ('Lunas', 'Clear')"]; // Fokus khusus data arsip/lunas/clear
+        let paramIndex = 2;
+
+        if (searchQuery) {
+            whereClauses.push(`(u.nama_po ILIKE $${paramIndex} OR u.customer ILIKE $${paramIndex})`);
+            queryParams.push(`%${searchQuery}%`);
+            paramIndex++;
+        }
+
+        let whereString = `WHERE ${whereClauses.join(' AND ')}`;
+
+        // Ambil data arsip dengan limit yang wajar atau pagination, didukung pencarian kata kunci
+        const sqlOrders = `
+            SELECT 
+                u.*, 
+                (SELECT SUM(jumlah) FROM po_detail WHERE po_id = u.id) as qty_tampil,
+                (SELECT COUNT(*) FROM po_detail WHERE po_id = u.id) as variasi_jumlah
+            FROM po_utama u 
+            ${whereString}
+            ORDER BY u.tanggal DESC, u.id DESC
+            LIMIT 100
+        `;
+        const orders = await db.query(sqlOrders, queryParams);
+
+        const poIds = orders.rows.map(r => r.id);
+        let details = { rows: [] };
+        if (poIds.length > 0) {
+            const sqlDetails = `
+                SELECT d.*, 
+                       (SELECT COALESCE(SUM(h.jumlah_setor), 0) FROM hasil_kerja h WHERE h.detail_id = d.id) as total_produksi
+                FROM po_detail d
+                WHERE d.po_id = ANY($1::int[])
+                ORDER BY d.id ASC
+            `;
+            details = await db.query(sqlDetails, [poIds]);
+        }
+
+        res.render('po-arsip', { 
+            orders: orders.rows, 
+            details: details.rows,
+            searchQuery: searchQuery,
+            user: req.session,
+            isPro: isPro,      
+            isInternal: isInternal 
+        });
+
+    } catch (err) {
+        console.error("🔥 Error po-arsip:", err.message);
+        res.status(500).send("Gagal memuat halaman arsip.");
     }
 });
 
