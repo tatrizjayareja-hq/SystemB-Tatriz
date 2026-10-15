@@ -1458,40 +1458,34 @@ app.post('/save-po-v2', isAdmin, async (req, res) => {
     }
 });
 
-// RUTE HALAMAN DATA PO V2 (Cepat, Ringan, Tetap Support Cari Data Masa Lalu & Repeat Order)
-app.get('/po-data-change', isAdmin, async (req, res) => {
+// RUTE HALAMAN DATA PO V2
+app.get('/po-data-v2', isAdmin, async (req, res) => {
     if (!req.session.userId) return res.redirect('/');
     const tId = req.session.tenantId;
 
     const isPro = (tId === 1 || req.session.tenantLevel >= 2);
     const isInternal = (tId === 1 || tId === 100);
-    
-    // Tangkap parameter pencarian jika user mengetik sesuatu untuk mencari data lama
-    const searchQuery = req.query.search || '';
+
+    // Konfigurasi Paginasi
+    const page = parseInt(req.query.page) || 1;
+    const limit = 20;
+    const offset = (page - 1) * limit;
 
     try {
-        let queryParams = [tId];
-        let whereClauses = ["u.tenant_id = \$1"];
-        let paramIndex = 2;
+        // Query Total Data untuk Paginasi
+        const countQuery = `SELECT COUNT(*) FROM po_utama WHERE tenant_id = $1`;
+        const countResult = await db.query(countQuery, [tId]);
+        const totalRows = parseInt(countResult.rows[0].count);
+        const totalPages = Math.ceil(totalRows / limit);
 
-        // Jika user mengetik pencarian (untuk cek harga / repeat order masa lalu), 
-        // berikan ruang pencarian lebih luas ke database melampaui limit harian!
-        let limitClause = "LIMIT 300";
-        if (searchQuery) {
-            whereClauses.push(`(u.nama_po ILIKE $${paramIndex} OR u.customer ILIKE $${paramIndex})`);
-            queryParams.push(`%${searchQuery}%`);
-            paramIndex++;
-            limitClause = "LIMIT 1000"; // Izinkan tarik lebih banyak saat mode pencarian data lama
-        }
-
-        let whereString = `WHERE ${whereClauses.join(' AND ')}`;
-
+        // Query Header PO dengan LIMIT dan OFFSET
         const sqlOrders = `
             SELECT 
                 u.*, 
                 (SELECT SUM(jumlah) FROM po_detail WHERE po_id = u.id) as qty_tampil,
                 (SELECT COUNT(*) FROM po_detail WHERE po_id = u.id) as variasi_jumlah,
                 
+                -- 1. Cek jika ada yang LEBIH
                 EXISTS (
                     SELECT 1 FROM po_detail d2
                     LEFT JOIN hasil_kerja h2 ON d2.id = h2.detail_id
@@ -1500,6 +1494,7 @@ app.get('/po-data-change', isAdmin, async (req, res) => {
                     HAVING SUM(COALESCE(h2.jumlah_setor, 0)) > d2.jumlah
                 ) as is_over,
                 
+                -- 2. Cek jika ada yang KURANG
                 EXISTS (
                     SELECT 1 FROM po_detail d2
                     LEFT JOIN hasil_kerja h2 ON d2.id = h2.detail_id
@@ -1509,6 +1504,7 @@ app.get('/po-data-change', isAdmin, async (req, res) => {
                     AND SUM(COALESCE(h2.jumlah_setor, 0)) < d2.jumlah
                 ) as is_under,
                 
+                -- 3. Cek jika ada item yang BELUM DISETOR
                 EXISTS (
                     SELECT 1 FROM po_detail d2
                     LEFT JOIN hasil_kerja h2 ON d2.id = h2.detail_id
@@ -1518,7 +1514,7 @@ app.get('/po-data-change', isAdmin, async (req, res) => {
                 ) as is_empty
 
             FROM po_utama u 
-            ${whereString}
+            WHERE u.tenant_id = $1 
             ORDER BY 
                 CASE u.status 
                     WHEN 'Design' THEN 1
@@ -1533,35 +1529,24 @@ app.get('/po-data-change', isAdmin, async (req, res) => {
                 END ASC,
                 u.tanggal DESC, 
                 u.id DESC
-            ${limitClause}
+            LIMIT $2 OFFSET $3
         `;
-        const orders = await db.query(sqlOrders, queryParams);
+        const orders = await db.query(sqlOrders, [tId, limit, offset]);
 
-        const poIds = orders.rows.map(r => r.id);
-        let details = { rows: [] };
-        if (poIds.length > 0) {
-            const sqlDetails = `
-                SELECT 
-                    d.*, 
-                    (SELECT COALESCE(SUM(h.jumlah_setor), 0) FROM hasil_kerja h WHERE h.detail_id = d.id) as total_produksi,
-                    (SELECT COALESCE(SUM(q.jumlah_qc), 0) FROM hasil_qc q WHERE q.detail_id = d.id) as total_qc
-                FROM po_detail d
-                WHERE d.po_id = ANY($1::int[])
-                ORDER BY d.id ASC
-            `;
-            details = await db.query(sqlDetails, [poIds]);
-        }
+        // Catatan: Variabel 'details' ditiadakan dari sini karena diload via AJAX
 
+        // Query Daftar Vendor CMT
         const sqlVendors = `SELECT id, nama_vendor FROM vendor_cmt WHERE tenant_id = $1 ORDER BY nama_vendor ASC`;
         const vendors = await db.query(sqlVendors, [tId]);
 
         res.render('po-data-v2', { 
             orders: orders.rows, 
-            details: details.rows,
             vendors: vendors.rows,
             user: req.session,
-            isPro: isPro,      
-            isInternal: isInternal 
+            isPro: isPro,
+            isInternal: isInternal,
+            currentPage: page,
+            totalPages: totalPages
         });
 
     } catch (err) {
@@ -1667,7 +1652,7 @@ app.get('/api/customer-po-history', (req, res, next) => {
 });
 
 // RUTE HALAMAN DATA PO V2
-app.get('/po-data-v2', isAdmin, async (req, res) => {
+app.get('/po-data-ori', isAdmin, async (req, res) => {
     if (!req.session.userId) return res.redirect('/');
     const tId = req.session.tenantId;
 

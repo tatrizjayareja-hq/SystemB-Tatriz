@@ -389,10 +389,24 @@
     </div>
 </div>
 <!-- ================= END MODALS ================= -->
-
-<script id="data-details" type="application/json">
-    <%- JSON.stringify(details) %>
-</script>
+ <!-- Navigasi Paginasi -->
+<% if (totalPages > 1) { %>
+    <nav class="mt-4">
+        <ul class="pagination justify-content-center pagination-sm">
+            <li class="page-item <%= currentPage === 1 ? 'disabled' : '' %>">
+                <a class="page-link" href="/po-data-v2?page=<%= currentPage - 1 %>">Sebelumnya</a>
+            </li>
+            <% for(let i = 1; i <= totalPages; i++) { %>
+                <li class="page-item <%= currentPage === i ? 'active' : '' %>">
+                    <a class="page-link" href="/po-data-v2?page=<%= i %>"><%= i %></a>
+                </li>
+            <% } %>
+            <li class="page-item <%= currentPage === totalPages ? 'disabled' : '' %>">
+                <a class="page-link" href="/po-data-v2?page=<%= currentPage + 1 %>">Selanjutnya</a>
+            </li>
+        </ul>
+    </nav>
+<% } %>
 
 <script>
     // --- FUNGSI CMT ---
@@ -549,14 +563,112 @@
         });
     }
 
-    function toggleDetailMobile(id) {
-        const el = document.getElementById('detail-mob-' + id);
-        if(el) el.style.display = (el.style.display === 'block') ? 'none' : 'block';
+    // FUNGSI LAZY LOADING DETAIL DESKTOP
+    async function toggleDetailDesktop(id) {
+        const rowEl = document.getElementById('detail-desk-' + id);
+        if (rowEl.style.display === 'table-row') {
+            rowEl.style.display = 'none';
+            return;
+        }
+
+        rowEl.style.display = 'table-row';
+        const contentDiv = document.getElementById('content-desk-' + id);
+
+        // Jika belum pernah diload, ambil datanya via API
+        if (!contentDiv.dataset.loaded) {
+            contentDiv.innerHTML = `<div class="text-center py-3"><div class="spinner-border spinner-border-sm text-primary"></div> Memuat rincian...</div>`;
+            try {
+                const res = await fetch(`/api/po-details/${id}`);
+                const details = await res.json();
+                contentDiv.innerHTML = renderTabelDetailHTML(id, details);
+                contentDiv.dataset.loaded = "true";
+            } catch (err) {
+                contentDiv.innerHTML = `<div class="alert alert-danger small mb-0">Gagal memuat rincian detail.</div>`;
+            }
+        }
     }
-    
-    function toggleDetailDesktop(id) {
-        const el = document.getElementById('detail-desk-' + id);
-        if(el) el.style.display = (el.style.display === 'table-row') ? 'none' : 'table-row';
+
+    // FUNGSI LAZY LOADING DETAIL MOBILE
+    async function toggleDetailMobile(id) {
+        const el = document.getElementById('detail-mob-' + id);
+        if (el.style.display === 'block') {
+            el.style.display = 'none';
+            return;
+        }
+
+        el.style.display = 'block';
+        const contentArea = document.getElementById('content-mob-' + id);
+
+        if (!contentArea.dataset.loaded) {
+            contentArea.innerHTML = `<div class="text-center py-2"><div class="spinner-border spinner-border-sm text-primary"></div> Memuat rincian...</div>`;
+            try {
+                const res = await fetch(`/api/po-details/${id}`);
+                const details = await res.json();
+                contentArea.innerHTML = renderListMobileHTML(id, details);
+                contentArea.dataset.loaded = "true";
+            } catch (err) {
+                contentArea.innerHTML = `<div class="alert alert-danger small mb-0">Gagal memuat rincian.</div>`;
+            }
+        }
+    }
+
+    // Helper untuk merender HTML Detail Desktop
+    function renderTabelDetailHTML(poId, details) {
+        let rowsHtml = '';
+        details.forEach(sub => {
+            let totalOp = sub.total_produksi || 0;
+            let totalQc = sub.total_qc || 0;
+            let target = sub.jumlah;
+            rowsHtml += `
+                <tr class="text-center">
+                    <td class="text-start ps-2">
+                        <strong class="d-block">${sub.nama_desain}</strong>
+                        <small class="text-muted">${sub.jenis_bordir}</small>
+                    </td>
+                    <td>${target}</td>
+                    <td class="${totalOp < target ? 'text-danger' : 'text-primary'} fw-bold">${totalOp}</td>
+                    <td class="bg-light fw-bold text-success">${totalQc}</td>
+                    <td class="fw-bold">${(sub.harga_customer || 0).toLocaleString('id-ID')}</td>
+                </tr>`;
+        });
+
+        return `
+            <div class="bg-white p-3 border-bottom border-start border-5 border-primary m-2 shadow-sm rounded">
+                <div class="d-flex justify-content-between align-items-center mb-3">
+                    <h6 class="fw-bold text-primary mb-0"><i class="bi bi-speedometer2 me-2"></i>Monitor Progres & Biaya</h6>
+                    <div class="btn-group">
+                        <button class="btn btn-xs btn-success fw-bold px-2" onclick="bukaPanelQC('${poId}', '')"><i class="bi bi-shield-check"></i> UPDATE QC</button>
+                    </div>
+                </div>
+                <table class="table table-sm table-bordered mb-0 align-middle" style="font-size: 11px;">
+                    <thead class="table-dark text-center">
+                        <tr>
+                            <th>Item Bordir</th>
+                            <th style="width: 70px;">Target</th>
+                            <th style="width: 70px;">Setor</th>
+                            <th style="width: 70px;">QC</th>
+                            <th style="width: 95px;">Cust</th>
+                        </tr>
+                    </thead>
+                    <tbody>${rowsHtml}</tbody>
+                </table>
+            </div>`;
+    }
+
+    // Helper untuk merender HTML Detail Mobile
+    function renderListMobileHTML(poId, details) {
+        let html = '<small class="fw-bold text-muted d-block mb-2">Progres Produksi:</small>';
+        details.forEach(sub => {
+            let totalOp = sub.total_produksi || 0;
+            let target = sub.jumlah;
+            html += `
+                <div class="d-flex justify-content-between small border-bottom mb-1 pb-1">
+                    <span>${sub.nama_desain}</span>
+                    <span class="${totalOp < target ? 'text-danger' : 'text-success'} fw-bold">${totalOp} / ${target}</span>
+                </div>`;
+        });
+        html += `<button class="btn btn-sm btn-outline-success w-100 mt-2" onclick="bukaPanelQC('${poId}', '')"><i class="bi bi-shield-check"></i> Update Hasil QC</button>`;
+        return html;
     }
 
     function toggleMenu(event, id) {
