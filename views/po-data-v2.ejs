@@ -44,14 +44,16 @@
 <div class="container-fluid">
     
     <div class="card shadow-sm border-0 mb-3">
-    <div class="card-body py-2">
-            <!-- Ubah menjadi form GET agar otomatis mengirim parameter ke route /po-data-v2 -->
+        <div class="card-body py-2">
             <form action="/po-data-v2" method="GET" class="row g-2 align-items-center" id="filterForm">
                 
                 <!-- Kolom Pencarian -->
                 <div class="col-12 col-md-4">
-                    <input type="text" name="search" id="liveSearch" class="form-control form-control-sm" 
-                        placeholder="🔍 Cari PO / Customer..." value="<%= typeof searchQuery !== 'undefined' ? searchQuery : '' %>">
+                    <div class="input-group input-group-sm">
+                        <input type="text" name="search" id="liveSearch" class="form-control" 
+                            placeholder="🔍 Cari PO / Customer..." value="<%= typeof searchQuery !== 'undefined' ? searchQuery : '' %>">
+                        <button type="submit" class="btn btn-primary"><i class="bi bi-search"></i></button>
+                    </div>
                 </div>
                 
                 <!-- Kolom Status -->
@@ -69,17 +71,22 @@
                     </select>
                 </div>
                 
-                <!-- Tombol Aksi & Reset Filter -->
+                <!-- Switch Hide Lunas & Tombol PO BARU -->
                 <div class="col-7 col-md-5 d-flex justify-content-between align-items-center pl-2">
-                    <div class="d-flex gap-1">
-                        <button type="submit" class="btn btn-primary btn-sm fw-bold">Cari</button>
-                        <% if ((typeof searchQuery !== 'undefined' && searchQuery) || (typeof statusQuery !== 'undefined' && statusQuery !== 'ALL')) { %>
-                            <a href="/po-data-v2" class="btn btn-outline-secondary btn-sm" title="Reset Filter">Reset</a>
-                        <% } %>
+                    <div class="form-check form-switch ms-1 mb-0">
+                        <input class="form-check-input mt-1" type="checkbox" name="hideLunas" value="true" id="checkLunas" 
+                            <%= (typeof hideLunas !== 'undefined' && hideLunas) ? 'checked' : '' %> 
+                            onchange="document.getElementById('filterForm').submit()">
+                        <label class="form-check-label fw-bold text-muted" style="font-size: 12px;" for="checkLunas">Hide Lunas</label>
                     </div>
-                    <a href="/po-baru-v2" class="btn btn-success btn-sm fw-bold shadow-sm d-flex align-items-center gap-1">
-                        <i class="bi bi-plus-circle"></i> PO BARU
-                    </a>
+                    <div class="d-flex gap-1">
+                        <% if ((typeof searchQuery !== 'undefined' && searchQuery) || (typeof statusQuery !== 'undefined' && statusQuery !== 'ALL') || (typeof hideLunas !== 'undefined' && hideLunas)) { %>
+                            <a href="/po-data-v2" class="btn btn-outline-secondary btn-sm fw-bold" title="Reset Filter">Reset</a>
+                        <% } %>
+                        <a href="/po-baru-v2" class="btn btn-success btn-sm fw-bold shadow-sm d-flex align-items-center gap-1">
+                            <i class="bi bi-plus-circle"></i> PO BARU
+                        </a>
+                    </div>
                 </div>
             </form>
         </div>
@@ -338,15 +345,15 @@
     </div>
 </div>
 <!-- ================= END MODALS ================= -->
-<!-- Navigasi Paginasi yang Membawa Parameter Filter -->
+<!-- Navigasi Paginasi -->
 <% if (totalPages > 1) { %>
     <nav class="mt-4">
         <ul class="pagination justify-content-center pagination-sm">
             <% 
-                // Helper string query untuk mempertahankan filter saat pindah halaman
                 let queryParamsStr = '';
                 if (typeof searchQuery !== 'undefined' && searchQuery) queryParamsStr += `&search=${encodeURIComponent(searchQuery)}`;
                 if (typeof statusQuery !== 'undefined' && statusQuery) queryParamsStr += `&status=${encodeURIComponent(statusQuery)}`;
+                if (typeof hideLunas !== 'undefined' && hideLunas) queryParamsStr += `&hideLunas=true`;
             %>
 
             <li class="page-item <%= currentPage === 1 ? 'disabled' : '' %>">

@@ -1466,16 +1466,15 @@ app.get('/po-data-v2', isAdmin, async (req, res) => {
     const isPro = (tId === 1 || req.session.tenantLevel >= 2);
     const isInternal = (tId === 1 || tId === 100);
 
-    // Ambil parameter paginasi & filter dari URL (jika ada)
     const page = parseInt(req.query.page) || 1;
     const limit = 20;
     const offset = (page - 1) * limit;
     
     const searchQuery = req.query.search || '';
     const statusQuery = req.query.status || 'ALL';
+    const hideLunas = req.query.hideLunas === 'true'; // Tangkap status Hide Lunas
 
     try {
-        // Dinamis SQL WHERE untuk Filter
         let whereClauses = `u.tenant_id = $1`;
         let queryParams = [tId];
         let paramIndex = 2;
@@ -1492,13 +1491,16 @@ app.get('/po-data-v2', isAdmin, async (req, res) => {
             paramIndex++;
         }
 
-        // Query Total Data (Disesuaikan dengan Filter untuk Paginasi Akurat)
+        // Jika Hide Lunas dicentang, kecualikan status 'Lunas'
+        if (hideLunas) {
+            whereClauses += ` AND u.status != 'Lunas'`;
+        }
+
         const countQuery = `SELECT COUNT(*) FROM po_utama u WHERE ${whereClauses}`;
         const countResult = await db.query(countQuery, queryParams);
         const totalRows = parseInt(countResult.rows[0].count);
         const totalPages = Math.ceil(totalRows / limit) || 1;
 
-        // Query Header PO dengan Filter, LIMIT, dan OFFSET
         const sqlOrders = `
             SELECT 
                 u.*, 
@@ -1549,7 +1551,6 @@ app.get('/po-data-v2', isAdmin, async (req, res) => {
             LIMIT $${paramIndex} OFFSET $${paramIndex + 1}
         `;
         
-        // Masukkan limit dan offset ke parameter query
         const finalParams = [...queryParams, limit, offset];
         const orders = await db.query(sqlOrders, finalParams);
 
@@ -1564,8 +1565,9 @@ app.get('/po-data-v2', isAdmin, async (req, res) => {
             isInternal: isInternal,
             currentPage: page,
             totalPages: totalPages,
-            searchQuery: searchQuery, // Dikirim balik ke EJS agar input tetap terisi
-            statusQuery: statusQuery  // Dikirim balik ke EJS agar dropdown tetap terpilih
+            searchQuery: searchQuery,
+            statusQuery: statusQuery,
+            hideLunas: hideLunas // Kirim status ke EJS
         });
 
     } catch (err) {
