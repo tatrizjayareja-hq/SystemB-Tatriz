@@ -1458,55 +1458,24 @@ app.post('/save-po-v2', isAdmin, async (req, res) => {
     }
 });
 
-// --- RUTE HALAMAN DATA PO V2 (DIOPTIMASI) ---
+// RUTE HALAMAN DATA PO V2 (Model Asli Dipertahankan & Dioptimasi Agar Ringan)
 app.get('/po-data-v2', isAdmin, async (req, res) => {
     if (!req.session.userId) return res.redirect('/');
     const tId = req.session.tenantId;
 
+    // Variabel hak akses wajib agar sinkron dengan EJS
     const isPro = (tId === 1 || req.session.tenantLevel >= 2);
     const isInternal = (tId === 1 || tId === 100);
 
-    // Tangkap semua parameter filter
-    const searchQuery = req.query.search || '';
-    const selectedStatus = req.query.status || 'ALL';
-    const selectedCustomer = req.query.customer || '';
-
     try {
-        let queryParams = [tId];
-        let whereClauses = ["u.tenant_id = \$1"];
-        let paramIndex = 2;
-
-        // 1. FILTER STATUS & ARSIP LUNAS (Cerdas & Fleksibel)
-        if (selectedCustomer) {
-            // Jika customer dipilih, izinkan melihat semua status (termasuk Lunas/Clear) milik customer tersebut
-            whereClauses.push(`u.customer = $${paramIndex++}`);
-            queryParams.push(selectedCustomer);
-        }
-
-        if (selectedStatus !== 'ALL') {
-            // Jika user memilih status spesifik dari dropdown status
-            whereClauses.push(`u.status = $${paramIndex++}`);
-            queryParams.push(selectedStatus);
-        } else if (!selectedCustomer) {
-            // Default performa: Sembunyikan Lunas & Clear jika tidak pilih customer & tidak pilih status ALL
-            whereClauses.push(`u.status NOT IN ('Lunas', 'Clear')`);
-        }
-
-        // 2. FILTER PENCARIAN KETIK (Live Search / Text Search)
-        if (searchQuery) {
-            whereClauses.push(`(u.nama_po ILIKE $${paramIndex} OR u.customer ILIKE $${paramIndex})`);
-            queryParams.push(`%${searchQuery}%`);
-            paramIndex++;
-        }
-
-        let whereString = `WHERE ${whereClauses.join(' AND ')}`;
-
+        // Query Header PO (Ditambahkan LIMIT 300 agar database dan browser tidak berat)
         const sqlOrders = `
             SELECT 
                 u.*, 
                 (SELECT SUM(jumlah) FROM po_detail WHERE po_id = u.id) as qty_tampil,
                 (SELECT COUNT(*) FROM po_detail WHERE po_id = u.id) as variasi_jumlah,
                 
+                -- 1. Cek jika ada yang LEBIH
                 EXISTS (
                     SELECT 1 FROM po_detail d2
                     LEFT JOIN hasil_kerja h2 ON d2.id = h2.detail_id
@@ -1515,6 +1484,7 @@ app.get('/po-data-v2', isAdmin, async (req, res) => {
                     HAVING SUM(COALESCE(h2.jumlah_setor, 0)) > d2.jumlah
                 ) as is_over,
                 
+                -- 2. Cek jika ada yang KURANG (tapi operator sudah input > 0)
                 EXISTS (
                     SELECT 1 FROM po_detail d2
                     LEFT JOIN hasil_kerja h2 ON d2.id = h2.detail_id
@@ -1524,6 +1494,7 @@ app.get('/po-data-v2', isAdmin, async (req, res) => {
                     AND SUM(COALESCE(h2.jumlah_setor, 0)) < d2.jumlah
                 ) as is_under,
                 
+                -- 3. Cek jika ada item yang BELUM DISETOR sama sekali (0)
                 EXISTS (
                     SELECT 1 FROM po_detail d2
                     LEFT JOIN hasil_kerja h2 ON d2.id = h2.detail_id
@@ -1533,12 +1504,26 @@ app.get('/po-data-v2', isAdmin, async (req, res) => {
                 ) as is_empty
 
             FROM po_utama u 
-            ${whereString}
-            ORDER BY u.tanggal DESC, u.id DESC
+            WHERE u.tenant_id = $1 
+            ORDER BY 
+                CASE u.status 
+                    WHEN 'Design' THEN 1
+                    WHEN 'Antri' THEN 2
+                    WHEN 'Produksi' THEN 3
+                    WHEN 'QC' THEN 4
+                    WHEN 'CMT' THEN 5
+                    WHEN 'Clear' THEN 6
+                    WHEN 'DP/Cicil' THEN 7
+                    WHEN 'Lunas' THEN 8
+                    ELSE 9
+                END ASC,
+                u.tanggal DESC, 
+                u.id DESC
             LIMIT 300
         `;
-        const orders = await db.query(sqlOrders, queryParams);
+        const orders = await db.query(sqlOrders, [tId]);
 
+        // Query Detail PO (Dibatasi berdasarkan ID PO yang tampil saja agar super cepat)
         const poIds = orders.rows.map(r => r.id);
         let details = { rows: [] };
         if (poIds.length > 0) {
@@ -1554,9 +1539,7 @@ app.get('/po-data-v2', isAdmin, async (req, res) => {
             details = await db.query(sqlDetails, [poIds]);
         }
 
-        const sqlCust = `SELECT DISTINCT customer FROM po_utama WHERE tenant_id = $1 ORDER BY customer ASC`;
-        const listCustomerRes = await db.query(sqlCust, [tId]);
-
+        // Query Daftar Vendor CMT
         const sqlVendors = `SELECT id, nama_vendor FROM vendor_cmt WHERE tenant_id = $1 ORDER BY nama_vendor ASC`;
         const vendors = await db.query(sqlVendors, [tId]);
 
@@ -1564,10 +1547,6 @@ app.get('/po-data-v2', isAdmin, async (req, res) => {
             orders: orders.rows, 
             details: details.rows,
             vendors: vendors.rows,
-            listCustomer: listCustomerRes.rows || [],
-            selectedCustomer: selectedCustomer,
-            selectedStatus: selectedStatus,
-            searchQuery: searchQuery,
             user: req.session,
             isPro: isPro,      
             isInternal: isInternal 

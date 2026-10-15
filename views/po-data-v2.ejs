@@ -44,52 +44,41 @@
 <div class="container-fluid">
     
     <div class="card shadow-sm border-0 mb-3">
-        <div class="card-body py-2">
-            <form method="GET" action="/po-data-v2" class="row g-2 align-items-center">
-                <!-- Kolom Pencarian (Tekan Enter atau ketik lalu submit) -->
-                <div class="col-12 col-md-3">
-                    <div class="input-group input-group-sm">
-                        <input type="text" name="search" value="<%= typeof searchQuery !== 'undefined' ? searchQuery : '' %>" class="form-control" placeholder="🔍 Cari PO / Customer...">
-                        <button type="submit" class="btn btn-outline-secondary"><i class="bi bi-search"></i></button>
+            <div class="card-body py-2">
+                <div class="row g-2 align-items-center">
+                    <!-- Kolom Pencarian -->
+                    <div class="col-12 col-md-4">
+                        <input type="text" id="liveSearch" class="form-control form-control-sm" placeholder="🔍 Cari PO / Customer..." onkeyup="jalankanFilter()">
+                    </div>
+                    
+                    <!-- Kolom Status -->
+                    <div class="col-5 col-md-3">
+                        <select id="filterStatus" class="form-select form-select-sm" onchange="jalankanFilter()">
+                            <option value="ALL">- Semua Status -</option>
+                            <option value="Design">Design</option>
+                            <option value="Antri">Antri</option>
+                            <option value="Produksi">Produksi</option>
+                            <option value="CMT">CMT (Luar)</option>
+                            <option value="QC">QC</option>
+                            <option value="Clear">Clear</option>
+                            <option value="DP/Cicil">DP/Cicil</option>
+                            <option value="Lunas">Lunas</option>
+                        </select>
+                    </div>
+                    
+                    <!-- Kolom Switch Hide Lunas & Tombol PO BARU -->
+                    <div class="col-7 col-md-5 d-flex justify-content-between align-items-center pl-2">
+                        <div class="form-check form-switch ms-1 mb-0">
+                            <input class="form-check-input mt-1" type="checkbox" id="checkLunas" onchange="sinkronLunas(this)">
+                            <label class="form-check-label fw-bold text-muted" style="font-size: 12px;" for="checkLunas">Hide Lunas</label>
+                        </div>
+                        <a href="/po-baru-v2" class="btn btn-success btn-sm fw-bold shadow-sm d-flex align-items-center gap-1">
+                            <i class="bi bi-plus-circle"></i> PO BARU
+                        </a>
                     </div>
                 </div>
-                
-                <!-- Kolom Status (Berfungsi Normal Menyaring Status) -->
-                <div class="col-5 col-md-2">
-                    <select name="status" class="form-select form-select-sm" onchange="this.form.submit()">
-                        <option value="ALL" <%= (typeof selectedStatus === 'undefined' || selectedStatus === 'ALL') ? 'selected' : '' %>>- Semua Status -</option>
-                        <option value="Design" <%= typeof selectedStatus !== 'undefined' && selectedStatus === 'Design' ? 'selected' : '' %>>Design</option>
-                        <option value="Antri" <%= typeof selectedStatus !== 'undefined' && selectedStatus === 'Antri' ? 'selected' : '' %>>Antri</option>
-                        <option value="Produksi" <%= typeof selectedStatus !== 'undefined' && selectedStatus === 'Produksi' ? 'selected' : '' %>>Produksi</option>
-                        <option value="CMT" <%= typeof selectedStatus !== 'undefined' && selectedStatus === 'CMT' ? 'selected' : '' %>>CMT (Luar)</option>
-                        <option value="QC" <%= typeof selectedStatus !== 'undefined' && selectedStatus === 'QC' ? 'selected' : '' %>>QC</option>
-                        <option value="Clear" <%= typeof selectedStatus !== 'undefined' && selectedStatus === 'Clear' ? 'selected' : '' %>>Clear</option>
-                        <option value="DP/Cicil" <%= typeof selectedStatus !== 'undefined' && selectedStatus === 'DP/Cicil' ? 'selected' : '' %>>DP/Cicil</option>
-                        <option value="Lunas" <%= typeof selectedStatus !== 'undefined' && selectedStatus === 'Lunas' ? 'selected' : '' %>>Lunas</option>
-                    </select>
-                </div>
-
-                <!-- Filter Customer (Membuka Arsip Lunas) -->
-                <div class="col-7 col-md-4">
-                    <select name="customer" class="form-select form-select-sm border-success" onchange="this.form.submit()">
-                        <option value="">-- Pilih Customer (Arsip Lunas) --</option>
-                        <% if (typeof listCustomer !== 'undefined' && listCustomer.length > 0) { %>
-                            <% listCustomer.forEach(c => { %>
-                                <option value="<%= c.customer %>" <%= (typeof selectedCustomer !== 'undefined' && selectedCustomer === c.customer) ? 'selected' : '' %>><%= c.customer %></option>
-                            <% }) %>
-                        <% } %>
-                    </select>
-                </div>
-                
-                <!-- Tombol PO BARU -->
-                <div class="col-12 col-md-3 text-md-end">
-                    <a href="/po-baru-v2" class="btn btn-success btn-sm fw-bold shadow-sm d-inline-flex align-items-center gap-1">
-                        <i class="bi bi-plus-circle"></i> PO BARU
-                    </a>
-                </div>
-            </form>
+            </div>
         </div>
-    </div>
 
     <div id="bulkActionArea" class="alert alert-info border-info justify-content-between align-items-center shadow-lg position-relative py-2 px-3">
         <div>
@@ -135,11 +124,11 @@
                         <div class="text-end">
                             <span class="badge bg-light text-dark border mb-1"><%= po.qty_tampil || 0 %> Pcs</span><br>
                             
-                            <% if (po.status_audit === 'OVER') { %> 
+                            <% if (po.is_over) { %> 
                                 <span class="blink-warn" style="font-size: 10px;"><i class="bi bi-exclamation-triangle-fill"></i> LEBIH</span>
-                            <% } else if (po.status_audit === 'UNDER') { %> 
+                            <% } else if (po.is_under) { %> 
                                 <span class="text-warning fw-bold" style="font-size: 10px;"><i class="bi bi-exclamation-circle-fill"></i> KURANG</span>
-                            <% } else if (po.status_audit === 'EMPTY') { %> 
+                            <% } else if (po.is_empty) { %> 
                                 <span class="text-secondary fw-bold" style="font-size: 10px;"><i class="bi bi-clock"></i> B. SETOR</span>
                             <% } else { %> 
                                 <span class="text-success fw-bold" style="font-size: 10px;"><i class="bi bi-check-circle-fill"></i> LENGKAP</span> 
@@ -237,15 +226,10 @@
                             </td>
                             <td class="text-center fw-bold"><%= po.qty_tampil || 0 %></td>
                             <td class="text-center">
-                                <% if (po.status_audit === 'OVER') { %> 
-                                    <span class="blink-warn"><i class="bi bi-exclamation-triangle-fill"></i> LEBIH</span>
-                                <% } else if (po.status_audit === 'UNDER') { %> 
-                                    <span class="text-warning fw-bold" style="font-size: 11px;"><i class="bi bi-exclamation-circle-fill"></i> KURANG</span>
-                                <% } else if (po.status_audit === 'EMPTY') { %> 
-                                    <span class="text-secondary fw-bold" style="font-size: 11px;"><i class="bi bi-clock"></i> B. SETOR</span>
-                                <% } else { %> 
-                                    <span class="text-success fw-bold"><i class="bi bi-check-circle-fill"></i> LENGKAP</span> 
-                                <% } %>
+                                <% if (po.is_over) { %> <span class="blink-warn"><i class="bi bi-exclamation-triangle-fill"></i> LEBIH</span>
+                                <% } else if (po.is_under) { %> <span class="text-warning fw-bold" style="font-size: 11px;"><i class="bi bi-exclamation-circle-fill"></i> KURANG</span>
+                                <% } else if (po.is_empty) { %> <span class="text-secondary fw-bold" style="font-size: 11px;"><i class="bi bi-clock"></i> BELUM SETOR</span>
+                                <% } else { %> <span class="text-success fw-bold"><i class="bi bi-check-circle-fill"></i> LENGKAP</span> <% } %>
                             </td>
                             <td class="text-end fw-bold text-success"><%= (po.total_harga_customer || 0).toLocaleString('id-ID') %></td>
                             <td onclick="event.stopPropagation()">
@@ -422,6 +406,7 @@
         }
     }
 
+    // FUNGSI MEMBUAT FORM DISTRIBUSI LOGISTIK SECARA DINAMIS
     async function bukaModalCMT(poId, namaPo) {
         document.getElementById('cmt_nama_po').innerText = namaPo;
         document.getElementById('cmt_po_id').value = poId;
@@ -442,6 +427,7 @@
             const dataPO = await response.json();
             
             let html = '';
+
             dataPO.forEach((item, index) => {
                 html += `
                 <div class="card mb-3 border-0 shadow-sm card-item-cmt">
@@ -518,7 +504,9 @@
 
             if (vendor !== "" && qty > 0) {
                 adaYangDikirim = true;
-                if (qty > maks) valid = false;
+                if (qty > maks) {
+                    valid = false;
+                }
             }
         });
 
@@ -526,13 +514,16 @@
             Swal.fire('Kesalahan Input', 'Ada jumlah pengiriman yang melebihi stok gudang!', 'error');
             return false;
         }
+
         if (!adaYangDikirim) {
             Swal.fire('Form Kosong', 'Harap isi minimal 1 nama vendor dan Qty Kirim untuk memproses.', 'info');
             return false;
         }
+
         return true;
     }
 
+    // --- FUNGSI BAWAAN PO DATA ---
     function ubahStatusMobile(poId, currentStatus) {
         Swal.fire({
             title: 'Update Status PO',
@@ -587,6 +578,33 @@
         new bootstrap.Modal(document.getElementById('modalEditPO')).show();
     }
 
+    function jalankanFilter() {
+        let inputNama = document.getElementById("liveSearch").value.toLowerCase();
+        let inputStatus = document.getElementById("filterStatus").value;
+        let hideLunas = document.getElementById("checkLunas").checked;
+
+        localStorage.setItem('filterNama', inputNama);
+        localStorage.setItem('filterStatus', inputStatus);
+        localStorage.setItem('hideLunas', hideLunas);
+        document.getElementById('checkAllVisible').checked = false;
+
+        let items = document.querySelectorAll(".filter-item");
+        items.forEach(item => {
+            let nama = item.getAttribute('data-nama');
+            let status = item.getAttribute('data-status');
+            let match = nama.includes(inputNama) && (inputStatus === "ALL" || status === inputStatus);
+            
+            if (match && !(hideLunas && status === "Lunas")) {
+                item.style.display = ""; 
+            } else {
+                item.style.display = "none"; 
+                let cb = item.querySelector('.po-checkbox');
+                if (cb) cb.checked = false;
+            }
+        });
+        updateCounter();
+    }
+
     function updateCounter() {
         const chk = document.querySelectorAll('.po-checkbox:checked');
         const bar = document.getElementById('bulkActionArea');
@@ -604,6 +622,13 @@
         let customers = new Set(Array.from(checked).map(cb => cb.getAttribute('data-customer')));
         if (customers.size > 1) return alert("❌ Nota Gabungan hanya untuk 1 Customer yang sama.");
         window.open(`/cetak-nota-gabungan?ids=${ids.join(',')}&mode=${mode}`, '_blank');
+    }
+
+    function sinkronLunas(cb) {
+        if (cb.checked && document.getElementById('filterStatus').value === 'Lunas') {
+            document.getElementById('filterStatus').value = 'ALL';
+        }
+        jalankanFilter();
     }
 
     function bukaPanelQC(poId, namaPo) {
@@ -687,6 +712,16 @@
         });
         updateCounter();
     }
+
+    window.onload = function() {
+        const sn = localStorage.getItem('filterNama');
+        const ss = localStorage.getItem('filterStatus');
+        const shl = localStorage.getItem('hideLunas');
+        if (sn !== null) document.getElementById('liveSearch').value = sn;
+        if (ss !== null) document.getElementById('filterStatus').value = ss;
+        if (shl !== null) document.getElementById('checkLunas').checked = (shl === 'true');
+        jalankanFilter();
+    };
 </script>
 
 <%- include('partials/footer') %>
