@@ -1466,26 +1466,45 @@ app.get('/po-data-v2', isAdmin, async (req, res) => {
     const isPro = (tId === 1 || req.session.tenantLevel >= 2);
     const isInternal = (tId === 1 || tId === 100);
 
-    // Konfigurasi Paginasi
+    // Ambil parameter paginasi & filter dari URL (jika ada)
     const page = parseInt(req.query.page) || 1;
     const limit = 20;
     const offset = (page - 1) * limit;
+    
+    const searchQuery = req.query.search || '';
+    const statusQuery = req.query.status || 'ALL';
 
     try {
-        // Query Total Data untuk Paginasi
-        const countQuery = `SELECT COUNT(*) FROM po_utama WHERE tenant_id = $1`;
-        const countResult = await db.query(countQuery, [tId]);
-        const totalRows = parseInt(countResult.rows[0].count);
-        const totalPages = Math.ceil(totalRows / limit);
+        // Dinamis SQL WHERE untuk Filter
+        let whereClauses = `u.tenant_id = $1`;
+        let queryParams = [tId];
+        let paramIndex = 2;
 
-        // Query Header PO dengan LIMIT dan OFFSET
+        if (searchQuery) {
+            whereClauses += ` AND (LOWER(u.nama_po) LIKE LOWER($${paramIndex}) OR LOWER(u.customer) LIKE LOWER($${paramIndex}))`;
+            queryParams.push(`%${searchQuery}%`);
+            paramIndex++;
+        }
+
+        if (statusQuery !== 'ALL') {
+            whereClauses += ` AND u.status = $${paramIndex}`;
+            queryParams.push(statusQuery);
+            paramIndex++;
+        }
+
+        // Query Total Data (Disesuaikan dengan Filter untuk Paginasi Akurat)
+        const countQuery = `SELECT COUNT(*) FROM po_utama u WHERE ${whereClauses}`;
+        const countResult = await db.query(countQuery, queryParams);
+        const totalRows = parseInt(countResult.rows[0].count);
+        const totalPages = Math.ceil(totalRows / limit) || 1;
+
+        // Query Header PO dengan Filter, LIMIT, dan OFFSET
         const sqlOrders = `
             SELECT 
                 u.*, 
                 (SELECT SUM(jumlah) FROM po_detail WHERE po_id = u.id) as qty_tampil,
                 (SELECT COUNT(*) FROM po_detail WHERE po_id = u.id) as variasi_jumlah,
                 
-                -- 1. Cek jika ada yang LEBIH
                 EXISTS (
                     SELECT 1 FROM po_detail d2
                     LEFT JOIN hasil_kerja h2 ON d2.id = h2.detail_id
@@ -1494,7 +1513,6 @@ app.get('/po-data-v2', isAdmin, async (req, res) => {
                     HAVING SUM(COALESCE(h2.jumlah_setor, 0)) > d2.jumlah
                 ) as is_over,
                 
-                -- 2. Cek jika ada yang KURANG
                 EXISTS (
                     SELECT 1 FROM po_detail d2
                     LEFT JOIN hasil_kerja h2 ON d2.id = h2.detail_id
@@ -1504,7 +1522,6 @@ app.get('/po-data-v2', isAdmin, async (req, res) => {
                     AND SUM(COALESCE(h2.jumlah_setor, 0)) < d2.jumlah
                 ) as is_under,
                 
-                -- 3. Cek jika ada item yang BELUM DISETOR
                 EXISTS (
                     SELECT 1 FROM po_detail d2
                     LEFT JOIN hasil_kerja h2 ON d2.id = h2.detail_id
@@ -1514,7 +1531,7 @@ app.get('/po-data-v2', isAdmin, async (req, res) => {
                 ) as is_empty
 
             FROM po_utama u 
-            WHERE u.tenant_id = $1 
+            WHERE ${whereClauses}
             ORDER BY 
                 CASE u.status 
                     WHEN 'Design' THEN 1
@@ -1529,13 +1546,13 @@ app.get('/po-data-v2', isAdmin, async (req, res) => {
                 END ASC,
                 u.tanggal DESC, 
                 u.id DESC
-            LIMIT $2 OFFSET $3
+            LIMIT $${paramIndex} OFFSET $${paramIndex + 1}
         `;
-        const orders = await db.query(sqlOrders, [tId, limit, offset]);
+        
+        // Masukkan limit dan offset ke parameter query
+        const finalParams = [...queryParams, limit, offset];
+        const orders = await db.query(sqlOrders, finalParams);
 
-        // Catatan: Variabel 'details' ditiadakan dari sini karena diload via AJAX
-
-        // Query Daftar Vendor CMT
         const sqlVendors = `SELECT id, nama_vendor FROM vendor_cmt WHERE tenant_id = $1 ORDER BY nama_vendor ASC`;
         const vendors = await db.query(sqlVendors, [tId]);
 
@@ -1546,7 +1563,9 @@ app.get('/po-data-v2', isAdmin, async (req, res) => {
             isPro: isPro,
             isInternal: isInternal,
             currentPage: page,
-            totalPages: totalPages
+            totalPages: totalPages,
+            searchQuery: searchQuery, // Dikirim balik ke EJS agar input tetap terisi
+            statusQuery: statusQuery  // Dikirim balik ke EJS agar dropdown tetap terpilih
         });
 
     } catch (err) {

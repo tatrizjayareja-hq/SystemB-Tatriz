@@ -44,41 +44,46 @@
 <div class="container-fluid">
     
     <div class="card shadow-sm border-0 mb-3">
-            <div class="card-body py-2">
-                <div class="row g-2 align-items-center">
-                    <!-- Kolom Pencarian -->
-                    <div class="col-12 col-md-4">
-                        <input type="text" id="liveSearch" class="form-control form-control-sm" placeholder="🔍 Cari PO / Customer..." onkeyup="jalankanFilter()">
-                    </div>
-                    
-                    <!-- Kolom Status -->
-                    <div class="col-5 col-md-3">
-                        <select id="filterStatus" class="form-select form-select-sm" onchange="jalankanFilter()">
-                            <option value="ALL">- Semua Status -</option>
-                            <option value="Design">Design</option>
-                            <option value="Antri">Antri</option>
-                            <option value="Produksi">Produksi</option>
-                            <option value="CMT">CMT (Luar)</option>
-                            <option value="QC">QC</option>
-                            <option value="Clear">Clear</option>
-                            <option value="DP/Cicil">DP/Cicil</option>
-                            <option value="Lunas">Lunas</option>
-                        </select>
-                    </div>
-                    
-                    <!-- Kolom Switch Hide Lunas & Tombol PO BARU -->
-                    <div class="col-7 col-md-5 d-flex justify-content-between align-items-center pl-2">
-                        <div class="form-check form-switch ms-1 mb-0">
-                            <input class="form-check-input mt-1" type="checkbox" id="checkLunas" onchange="sinkronLunas(this)">
-                            <label class="form-check-label fw-bold text-muted" style="font-size: 12px;" for="checkLunas">Hide Lunas</label>
-                        </div>
-                        <a href="/po-baru-v2" class="btn btn-success btn-sm fw-bold shadow-sm d-flex align-items-center gap-1">
-                            <i class="bi bi-plus-circle"></i> PO BARU
-                        </a>
-                    </div>
+    <div class="card-body py-2">
+            <!-- Ubah menjadi form GET agar otomatis mengirim parameter ke route /po-data-v2 -->
+            <form action="/po-data-v2" method="GET" class="row g-2 align-items-center" id="filterForm">
+                
+                <!-- Kolom Pencarian -->
+                <div class="col-12 col-md-4">
+                    <input type="text" name="search" id="liveSearch" class="form-control form-control-sm" 
+                        placeholder="🔍 Cari PO / Customer..." value="<%= typeof searchQuery !== 'undefined' ? searchQuery : '' %>">
                 </div>
-            </div>
+                
+                <!-- Kolom Status -->
+                <div class="col-5 col-md-3">
+                    <select name="status" id="filterStatus" class="form-select form-select-sm" onchange="document.getElementById('filterForm').submit()">
+                        <option value="ALL" <%= (typeof statusQuery !== 'undefined' && statusQuery === 'ALL') ? 'selected' : '' %>>- Semua Status -</option>
+                        <option value="Design" <%= (typeof statusQuery !== 'undefined' && statusQuery === 'Design') ? 'selected' : '' %>>Design</option>
+                        <option value="Antri" <%= (typeof statusQuery !== 'undefined' && statusQuery === 'Antri') ? 'selected' : '' %>>Antri</option>
+                        <option value="Produksi" <%= (typeof statusQuery !== 'undefined' && statusQuery === 'Produksi') ? 'selected' : '' %>>Produksi</option>
+                        <option value="CMT" <%= (typeof statusQuery !== 'undefined' && statusQuery === 'CMT') ? 'selected' : '' %>>CMT (Luar)</option>
+                        <option value="QC" <%= (typeof statusQuery !== 'undefined' && statusQuery === 'QC') ? 'selected' : '' %>>QC</option>
+                        <option value="Clear" <%= (typeof statusQuery !== 'undefined' && statusQuery === 'Clear') ? 'selected' : '' %>>Clear</option>
+                        <option value="DP/Cicil" <%= (typeof statusQuery !== 'undefined' && statusQuery === 'DP/Cicil') ? 'selected' : '' %>>DP/Cicil</option>
+                        <option value="Lunas" <%= (typeof statusQuery !== 'undefined' && statusQuery === 'Lunas') ? 'selected' : '' %>>Lunas</option>
+                    </select>
+                </div>
+                
+                <!-- Tombol Aksi & Reset Filter -->
+                <div class="col-7 col-md-5 d-flex justify-content-between align-items-center pl-2">
+                    <div class="d-flex gap-1">
+                        <button type="submit" class="btn btn-primary btn-sm fw-bold">Cari</button>
+                        <% if ((typeof searchQuery !== 'undefined' && searchQuery) || (typeof statusQuery !== 'undefined' && statusQuery !== 'ALL')) { %>
+                            <a href="/po-data-v2" class="btn btn-outline-secondary btn-sm" title="Reset Filter">Reset</a>
+                        <% } %>
+                    </div>
+                    <a href="/po-baru-v2" class="btn btn-success btn-sm fw-bold shadow-sm d-flex align-items-center gap-1">
+                        <i class="bi bi-plus-circle"></i> PO BARU
+                    </a>
+                </div>
+            </form>
         </div>
+    </div>
 
     <div id="bulkActionArea" class="alert alert-info border-info justify-content-between align-items-center shadow-lg position-relative py-2 px-3">
         <div>
@@ -333,19 +338,22 @@
     </div>
 </div>
 <!-- ================= END MODALS ================= -->
-<!-- Navigasi Paginasi Modern & Ringkas -->
-<!-- Navigasi Paginasi Modern & Ringkas -->
+<!-- Navigasi Paginasi yang Membawa Parameter Filter -->
 <% if (totalPages > 1) { %>
     <nav class="mt-4">
         <ul class="pagination justify-content-center pagination-sm">
-            <!-- Tombol Panah Ke Halaman Pertama -->
-            <li class="page-item <%= currentPage === 1 ? 'disabled' : '' %>">
-                <a class="page-link" href="/po-data-v2?page=1" title="Halaman Pertama">«</a>
-            </li>
+            <% 
+                // Helper string query untuk mempertahankan filter saat pindah halaman
+                let queryParamsStr = '';
+                if (typeof searchQuery !== 'undefined' && searchQuery) queryParamsStr += `&search=${encodeURIComponent(searchQuery)}`;
+                if (typeof statusQuery !== 'undefined' && statusQuery) queryParamsStr += `&status=${encodeURIComponent(statusQuery)}`;
+            %>
 
-            <!-- Tombol Panah Sebelumnya -->
             <li class="page-item <%= currentPage === 1 ? 'disabled' : '' %>">
-                <a class="page-link" href="/po-data-v2?page=<%= currentPage - 1 %>">‹</a>
+                <a class="page-link" href="/po-data-v2?page=1<%= queryParamsStr %>">«</a>
+            </li>
+            <li class="page-item <%= currentPage === 1 ? 'disabled' : '' %>">
+                <a class="page-link" href="/po-data-v2?page=<%= currentPage - 1 %><%= queryParamsStr %>">‹</a>
             </li>
 
             <% 
@@ -355,16 +363,15 @@
 
                 if (startPage > 1) { 
             %>
-                    <li class="page-item"><a class="page-link" href="/po-data-v2?page=1">1</a></li>
+                    <li class="page-item"><a class="page-link" href="/po-data-v2?page=1<%= queryParamsStr %>">1</a></li>
                     <% if (startPage > 2) { %>
                         <li class="page-item disabled"><span class="page-link">...</span></li>
                     <% } %>
             <% } %>
 
-            <!-- Loop Halaman Tengah -->
             <% for(let i = startPage; i <= endPage; i++) { %>
                 <li class="page-item <%= currentPage === i ? 'active' : '' %>">
-                    <a class="page-link" href="/po-data-v2?page=<%= i %>"><%= i %></a>
+                    <a class="page-link" href="/po-data-v2?page=<%= i %><%= queryParamsStr %>"><%= i %></a>
                 </li>
             <% } %>
 
@@ -372,17 +379,14 @@
                 <% if (endPage < totalPages - 1) { %>
                     <li class="page-item disabled"><span class="page-link">...</span></li>
                 <% } %>
-                <li class="page-item"><a class="page-link" href="/po-data-v2?page=<%= totalPages %>"><%= totalPages %></a></li>
+                <li class="page-item"><a class="page-link" href="/po-data-v2?page=<%= totalPages %><%= queryParamsStr %>"><%= totalPages %></a></li>
             <% } %>
 
-            <!-- Tombol Panah Selanjutnya -->
             <li class="page-item <%= currentPage === totalPages ? 'disabled' : '' %>">
-                <a class="page-link" href="/po-data-v2?page=<%= currentPage + 1 %>">›</a>
+                <a class="page-link" href="/po-data-v2?page=<%= currentPage + 1 %><%= queryParamsStr %>">›</a>
             </li>
-
-            <!-- Tombol Panah Ke Halaman Terakhir -->
             <li class="page-item <%= currentPage === totalPages ? 'disabled' : '' %>">
-                <a class="page-link" href="/po-data-v2?page=<%= totalPages %>" title="Halaman Terakhir">»</a>
+                <a class="page-link" href="/po-data-v2?page=<%= totalPages %><%= queryParamsStr %>">»</a>
             </li>
         </ul>
     </nav>
