@@ -3050,9 +3050,9 @@ app.post('/update-qc-bulk', isAdmin, async (req, res) => {
     }
 });
 
-// Endpoint API untuk Detail PO 
+// Endpoint API untuk Detail PO (Sudah disesuaikan dengan kolom 'jumlah')
 app.get('/api/po-details/:poId', async (req, res) => {
-    // Sesuaikan pengecekan session user/operator Anda
+    // Pastikan user sudah login (sesuaikan dengan sistem session Anda)
     if (!req.session.userId && !req.session.user) {
         return res.status(401).json({ error: 'Unauthorized' });
     }
@@ -3066,8 +3066,8 @@ app.get('/api/po-details/:poId', async (req, res) => {
                 d.*, 
                 (SELECT COALESCE(SUM(h.jumlah_setor), 0) FROM hasil_kerja h WHERE h.detail_id = d.id) as total_produksi,
                 (SELECT COALESCE(SUM(q.jumlah_qc), 0) FROM hasil_qc q WHERE q.detail_id = d.id) as total_qc,
-                -- PERHITUNGAN SISA TARGET KEMBALI DITAMBAHKAN DISINI --
-                (d.jumlah_target - (SELECT COALESCE(SUM(h.jumlah_setor), 0) FROM hasil_kerja h WHERE h.detail_id = d.id)) as sisa
+                -- Perhitungan sisa menggunakan kolom 'd.jumlah' yang benar sesuai po-data-v2
+                (d.jumlah - (SELECT COALESCE(SUM(h.jumlah_setor), 0) FROM hasil_kerja h WHERE h.detail_id = d.id)) as sisa
             FROM po_detail d
             JOIN po_utama u ON d.po_id = u.id
             WHERE d.po_id = $1 AND u.tenant_id = $2
