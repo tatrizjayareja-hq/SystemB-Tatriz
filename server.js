@@ -3050,18 +3050,24 @@ app.post('/update-qc-bulk', isAdmin, async (req, res) => {
     }
 });
 
-// Endpoint API untuk Detail PO (Wajib ada agar AJAX bisa mengambil data)
-app.get('/api/po-details/:poId', isAdmin, async (req, res) => {
-    if (!req.session.userId) return res.status(401).json({ error: 'Unauthorized' });
+// Endpoint API untuk Detail PO 
+app.get('/api/po-details/:poId', async (req, res) => {
+    // Sesuaikan pengecekan session user/operator Anda
+    if (!req.session.userId && !req.session.user) {
+        return res.status(401).json({ error: 'Unauthorized' });
+    }
+
     const poId = req.params.poId;
-    const tId = req.session.tenantId;
+    const tId = req.session.tenantId || (req.session.user ? req.session.user.tenant_id : null);
 
     try {
         const sql = `
             SELECT 
                 d.*, 
                 (SELECT COALESCE(SUM(h.jumlah_setor), 0) FROM hasil_kerja h WHERE h.detail_id = d.id) as total_produksi,
-                (SELECT COALESCE(SUM(q.jumlah_qc), 0) FROM hasil_qc q WHERE q.detail_id = d.id) as total_qc
+                (SELECT COALESCE(SUM(q.jumlah_qc), 0) FROM hasil_qc q WHERE q.detail_id = d.id) as total_qc,
+                -- PERHITUNGAN SISA TARGET KEMBALI DITAMBAHKAN DISINI --
+                (d.jumlah_target - (SELECT COALESCE(SUM(h.jumlah_setor), 0) FROM hasil_kerja h WHERE h.detail_id = d.id)) as sisa
             FROM po_detail d
             JOIN po_utama u ON d.po_id = u.id
             WHERE d.po_id = $1 AND u.tenant_id = $2
