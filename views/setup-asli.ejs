@@ -1,0 +1,352 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Sistem Setup - Tatriz System</title>
+    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.1/font/bootstrap-icons.css">
+    <style>
+        :root {
+            --primary: #2ecc71; --primary-dark: #27ae60; --dark: #2c3e50;
+            --light: #f4f7f6; --danger: #e74c3c; --warning: #f39c12; --blue: #3498db;
+        }
+        body { font-family: 'Segoe UI', sans-serif; background: var(--light); margin: 0; padding: 20px; }
+        .setup-container { max-width: 850px; margin: auto; }
+        .card { background: white; padding: 25px; border-radius: 12px; box-shadow: 0 4px 15px rgba(0,0,0,0.05); margin-bottom: 25px; border: 1px solid #e1e4e8; position: relative; }
+        .section-title { font-size: 18px; font-weight: 800; color: var(--dark); margin-bottom: 20px; display: flex; align-items: center; gap: 10px; border-bottom: 2px solid var(--primary); padding-bottom: 8px; }
+        .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
+        .form-group { margin-bottom: 15px; }
+        label { display: block; margin-bottom: 5px; font-weight: 700; color: #555; font-size: 11px; text-transform: uppercase; letter-spacing: 0.5px; }
+        input, textarea, select { width: 100%; padding: 12px; border: 1px solid #ddd; border-radius: 8px; box-sizing: border-box; font-size: 15px; transition: 0.3s; }
+        input:focus { border-color: var(--primary); outline: none; box-shadow: 0 0 0 3px rgba(46, 204, 113, 0.1); }
+        .btn { width: 100%; padding: 14px; border: none; color: white; font-weight: bold; border-radius: 8px; cursor: pointer; text-transform: uppercase; transition: 0.3s; }
+        .btn-save { background: var(--dark); font-size: 16px; margin-top: 20px; border: 2px solid var(--dark); }
+        .btn-save:hover { background: #1a252f; }
+        
+        /* Proteksi Akun Standar */
+        .pro-locked-field { background: #f8f9fa !important; color: #95a5a6 !important; cursor: not-allowed !important; border-style: dashed !important; }
+        .badge-pro { background: var(--warning); color: white; font-size: 9px; padding: 2px 6px; border-radius: 4px; vertical-align: middle; }
+        
+        table { width: 100%; border-collapse: collapse; margin-top: 15px; }
+        th { background: #f8f9fa; padding: 12px; text-align: left; font-size: 11px; border-bottom: 2px solid #eee; color: #7f8c8d; }
+        td { padding: 12px; border-bottom: 1px solid #eee; font-size: 14px; }
+        .input-locked { background: #eee !important; cursor: not-allowed; color: #7f8c8d; font-weight: bold; }
+
+        /* Loader Cepat (Pengganti Layar Hijau) */
+        #quickLoader {
+            position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(255, 255, 255, 0.6); backdrop-filter: blur(3px); -webkit-backdrop-filter: blur(3px);
+            z-index: 99999; display: flex; justify-content: center; align-items: center;
+            opacity: 0; visibility: hidden; transition: opacity 0.2s ease-in-out;
+        }
+        #quickLoader.show { opacity: 1; visibility: visible; }
+        
+        /* Animasi Spinner Sederhana (Tanpa Bootstrap) */
+        .spinner-simple {
+            width: 40px; height: 40px; border: 4px solid rgba(46, 204, 113, 0.3);
+            border-top: 4px solid var(--primary-dark); border-radius: 50%;
+            animation: spin 1s linear infinite;
+        }
+        @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+    </style>
+</head>
+<body>
+
+<div id="quickLoader">
+    <div class="spinner-simple"></div>
+</div>
+
+<% 
+    const isInternal = (user.tenantId === 1 || user.tenantId === 100); 
+    const isPro = (user.tenantLevel >= 2 || isInternal);
+%>
+
+<div class="setup-container">
+    <div style="margin-bottom: 20px; display: flex; justify-content: space-between; align-items: center;">
+        <a href="/dashboard" class="nav-link-load" style="text-decoration: none; color: var(--dark); font-weight: bold;"><i class="bi bi-arrow-left"></i> Dashboard</a>
+        <% if (isPro) { %>
+    <span class="badge-pro" style="font-size: 12px; padding: 5px 10px; background: var(--primary);">
+            LISENSI: AKUN PRO
+        </span>
+    <% } else { %>
+        <span class="badge-pro" style="font-size: 12px; padding: 5px 10px; background: var(--warning);">
+            LISENSI: AKUN STANDAR
+        </span>
+    <% } %>
+    </div>
+
+    <form action="/save-settings-all" method="POST" enctype="multipart/form-data" onsubmit="tampilkanLoader()">
+        
+        <div class="card">
+            <div class="section-title"><i class="bi bi-building"></i> Profil & Identitas Perusahaan</div>
+            <div class="grid-2">
+                <div class="form-group">
+                    <label>Nama Aplikasi</label>
+                    <input type="text" value="Tatriz SystemB" readonly class="input-locked">
+                </div>
+                <div class="form-group">
+                    <label>Nama Perusahaan / Toko</label>
+                    <input type="text" name="nama_perusahaan" value="<%= config.nama_perusahaan %>" required>
+                </div>
+                <div class="form-group">
+                    <label>Nomor WA Admin (Untuk Tagihan)</label>
+                    <div style="display: flex; align-items: center; border: 1px solid #ddd; border-radius: 8px; overflow: hidden; background: #f8f9fa;">
+                        <span style="padding: 12px; font-weight: bold; color: #555; border-right: 1px solid #ddd;">+62</span>
+                        <input type="text" name="no_hp" value="<%= config.no_hp ? config.no_hp.toString().replace(/^62/, '') : '' %>" required oninput="formatNomorWA(this)" style="border: none; border-radius: 0; flex: 1;">
+                    </div>
+                    <small style="font-size: 9px; color: #e74c3c; margin-top: 5px; display: block;">*Wajib diisi. Nomor ini akan menerima WA pengingat masa aktif sistem.</small>
+                </div>
+                <div class="form-group">
+                    <label>Alamat Workshop</label>
+                    <textarea name="alamat" rows="1"><%= config.alamat %></textarea>
+                </div>
+            </div>
+            <div class="form-group">
+                <label>Logo Perusahaan / Nota</label>
+                <div style="display: flex; align-items: center; gap: 15px; background: #fdfdfd; padding: 10px; border-radius: 8px; border: 1px solid #eee;">
+                    <img src="<%= config.logo_path || '/uploads/default.png' %>" 
+                         style="width: 60px; height: 60px; border-radius: 8px; object-fit: cover; border: 2px solid #ddd; background: white;">
+                    <input type="file" name="logo" accept="image/*">
+                </div>
+            </div>
+        </div>
+        
+        <!-- KODE BARU: Kartu Informasi Pembayaran / Rekening -->
+        <div class="card">
+            <div class="section-title"><i class="bi bi-bank"></i> Informasi Pembayaran (Tampil di Nota)</div>
+            <div class="grid-2">
+                <div class="form-group">
+                    <label>Nama Bank / E-Wallet</label>
+                    <input type="text" name="bank_nama" value="<%= config.bank_nama || '' %>" placeholder="Contoh: BCA / DANA">
+                </div>
+                <div class="form-group">
+                    <label>Nomor Rekening</label>
+                    <input type="text" name="bank_rekening" value="<%= config.bank_rekening || '' %>" placeholder="Contoh: 1234567890">
+                </div>
+                <div class="form-group" style="grid-column: 1 / -1;">
+                    <label>Atas Nama (Pemilik Rekening)</label>
+                    <input type="text" name="bank_atas_nama" value="<%= config.bank_atas_nama || '' %>" placeholder="Contoh: PT Tatriz System / Budi Santoso">
+                </div>
+            </div>
+        </div>
+        <!-- AKHIR KODE BARU -->
+
+        <div class="card">
+            <div class="section-title"><i class="bi bi-cash-coin"></i> Kebijakan Finansial & Gaji</div>
+            <div class="grid-2">
+                
+                <div class="form-group">
+                    <label>Saldo Dikunci (Uang Aman) <span class="badge-pro">PRO</span></label>
+                    <% if (isPro) { %>
+                        <input type="number" name="nominal_buffer" value="<%= config.nominal_buffer || 0 %>">
+                    <% } else { %>
+                        <input type="number" name="nominal_buffer" value="<%= config.nominal_buffer || 0 %>" 
+                               readonly class="pro-locked-field" 
+                               onclick="ajakUpgrade('Saldo Aman')">
+                    <% } %>
+                    <small style="font-size: 9px; color: #95a5a6;">Uang yang tidak boleh ditarik dari kas.</small>
+                </div>
+
+                <div class="form-group">
+                    <label>Beban Tetap Bulanan <span class="badge-pro">PRO</span></label>
+                    <% if (isPro) { %>
+                        <input type="number" name="beban_tetap" value="<%= config.beban_tetap || 0 %>">
+                    <% } else { %>
+                        <input type="number" name="beban_tetap" value="<%= config.beban_tetap || 0 %>" 
+                               readonly class="pro-locked-field" 
+                               onclick="ajakUpgrade('Beban Tetap')">
+                    <% } %>
+                    <small style="font-size: 9px; color: #95a5a6;">Contoh: Biaya Kontrakan + Listrik.</small>
+                </div>
+
+                <div class="form-group">
+                    <label>Jam Kerja Reguler (Per Hari)</label>
+                    <input type="number" name="jam_kerja_reguler" value="<%= config.jam_kerja_reguler || 8 %>">
+                </div>
+
+                <div class="form-group">
+                    <label>Pembagi Lembur (GP / X)</label>
+                    <input type="number" name="pembagi_lembur" value="<%= config.pembagi_lembur || 4 %>">
+                </div>
+            </div>
+
+            <% if (isInternal) { %>
+                <hr style="margin: 15px 0; border: 0; border-top: 1px dashed #eee;">
+                <div class="grid-2">
+                    <div class="form-group">
+                        <label>Target Bonus Harian</label>
+                        <input type="number" name="target_bonus" value="<%= config.target_bonus %>">
+                    </div>
+                    <div class="form-group">
+                        <label>Bonus Dasar</label>
+                        <input type="number" name="nominal_bonus_dasar" value="<%= config.nominal_bonus_dasar %>">
+                    </div>
+                    <div class="form-group">
+                        <label>Kelipatan Omzet Bonus</label>
+                        <input type="number" name="kelipatan_bonus" value="<%= config.kelipatan_bonus || 100000 %>">
+                    </div>
+                    <div class="form-group">
+                        <label>Nominal per Lipatan</label>
+                        <input type="number" name="nominal_bonus_lipat" value="<%= config.nominal_bonus_lipat || 5000 %>">
+                    </div>
+                </div>
+            <% } else { %>
+                <input type="hidden" name="target_bonus" value="<%= config.target_bonus || 0 %>">
+                <input type="hidden" name="nominal_bonus_dasar" value="<%= config.nominal_bonus_dasar || 0 %>">
+                <input type="hidden" name="kelipatan_bonus" value="<%= config.kelipatan_bonus || 0 %>">
+                <input type="hidden" name="nominal_bonus_lipat" value="<%= config.nominal_bonus_lipat || 0 %>">
+            <% } %>
+        </div>
+
+        <div class="card" style="border-left: 5px solid var(--blue);">
+            <div class="section-title" style="border-bottom-color: var(--blue);"><i class="bi bi-cpu"></i> Manajemen Mesin Produksi</div>
+            
+            <% if (!isPro && machines.length >= 1) { %>
+                <div onclick="ajakUpgrade('Multi Mesin')" style="background: #fff9db; padding: 12px; border-radius: 8px; border: 1px solid #fab005; margin-bottom: 15px; font-size: 13px; cursor: pointer;">
+                    <i class="bi bi-lock-fill"></i> Akun Standar terbatas 1 Mesin aktif. <b>Upgrade PRO</b> untuk menambah unit mesin (Portable/Cabang).
+                </div>
+            <% } else { %>
+                <div class="form-group" style="background: #f0f8ff; padding: 15px; border-radius: 8px; border: 1px dashed var(--blue);">
+                    <label style="color: var(--blue);"><i class="bi bi-plus-circle-fill"></i> Tambah Mesin Baru</label>
+                    <div style="display: flex; gap: 10px;">
+                        <input type="text" name="nama_mesin_baru" placeholder="Contoh: Mesin 02 - Portable" style="flex: 1; border-color: #b9d7f1;">
+                        <button type="submit" class="btn" style="width: auto; background: var(--blue); padding: 0 20px;">
+                            TAMBAH
+                        </button>
+                    </div>
+                    <small style="color: #555; font-size: 10px; margin-top: 5px; display: block;">
+                        *Ketik nama mesin lalu klik tombol tambah di atas.
+                    </small>
+                </div>
+            <% } %>
+
+            <table>
+                <thead>
+                    <tr>
+                        <th style="width: 50px;">ID</th>
+                        <th>Nama Mesin Aktif</th>
+                        <th style="text-align: center; width: 150px;">Aksi</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <% machines.forEach(m => { %>
+                    <tr>
+                        <td style="color: #95a5a6;">#<%= m.id %></td>
+                        <td><strong><%= m.nama_mesin %></strong></td>
+                        <td style="text-align: center;">
+                            <% if (isPro) { %>
+                                <div style="display: flex; gap: 5px; justify-content: center;">
+                                    <button type="button" onclick="editMesin('<%= m.id %>', '<%= m.nama_mesin %>')" 
+                                            style="background: var(--blue); color: white; border: none; padding: 6px 12px; border-radius: 6px; cursor: pointer; font-size: 11px;">
+                                        <i class="bi bi-pencil"></i>
+                                    </button>
+                                    <button type="button" onclick="konfirmasiHapusMesin('<%= m.id %>')" 
+                                            style="background: var(--danger); color: white; border: none; padding: 6px 12px; border-radius: 6px; cursor: pointer; font-size: 11px;">
+                                        <i class="bi bi-trash"></i>
+                                    </button>
+                                </div>
+                            <% } else { %>
+                                <i class="bi bi-lock-fill text-muted" onclick="ajakUpgrade('Manajemen Mesin')"></i>
+                            <% } %>
+                        </td>
+                    </tr>
+                    <% }) %>
+                </tbody>
+            </table>
+        </div>
+
+        <button type="submit" class="btn btn-save shadow"><i class="bi bi-cloud-check-fill"></i> SIMPAN SEMUA PERUBAHAN SETUP</button>
+    </form>
+</div>
+
+<script>
+    // Skrip Loader Transparan
+    function tampilkanLoader() {
+        const loader = document.getElementById('quickLoader');
+        if (loader) loader.classList.add('show');
+    }
+
+    document.addEventListener('DOMContentLoaded', () => {
+        const loader = document.getElementById('quickLoader');
+        if (loader) loader.classList.remove('show');
+
+        const links = document.querySelectorAll('.nav-link-load');
+        links.forEach(link => {
+            link.addEventListener('click', function() {
+                tampilkanLoader();
+            });
+        });
+    });
+
+    function ajakUpgrade(fitur) {
+        Swal.fire({
+            title: 'Fitur PRO!',
+            text: 'Pengaturan ' + fitur + ' hanya tersedia di paket PRO untuk optimasi bisnis Anda.',
+            icon: 'lock',
+            showCancelButton: true,
+            confirmButtonColor: '#2ecc71',
+            confirmButtonText: 'Hubungi Developer',
+            cancelButtonText: 'Nanti Dulu'
+        }).then((result) => {
+            if (result.isConfirmed) {
+                window.open('https://wa.me/+6281315290003?text=Halo%20Admin%20Tatriz,%20saya%20tertarik%20upgrade%20PRO%20terkait%20fitur%20' + fitur, '_blank');
+            }
+        });
+    }
+
+    function editMesin(id, namaLama) {
+        Swal.fire({
+            title: 'Edit Nama Mesin',
+            input: 'text',
+            inputValue: namaLama,
+            showCancelButton: true,
+            confirmButtonText: 'Simpan',
+        }).then((result) => {
+            if (result.isConfirmed && result.value) {
+                tampilkanLoader();
+                const form = document.createElement('form');
+                form.method = 'POST'; form.action = '/save-mesin';
+                const i1 = document.createElement('input'); i1.type='hidden'; i1.name='mesin_id'; i1.value=id;
+                const i2 = document.createElement('input'); i2.type='hidden'; i2.name='nama_mesin'; i2.value=result.value;
+                form.appendChild(i1); form.appendChild(i2);
+                document.body.appendChild(form); form.submit();
+            }
+        });
+    }
+
+    function konfirmasiHapusMesin(id) {
+        Swal.fire({
+            title: 'Hapus mesin?',
+            icon: 'warning',
+            showCancelButton: true,
+            confirmButtonColor: '#e74c3c',
+            confirmButtonText: 'Ya, Hapus!'
+        }).then((result) => {
+            if (result.isConfirmed) { 
+                tampilkanLoader();
+                window.location.href = '/delete-mesin/' + id; 
+            }
+        });
+    }
+
+    // --- Fungsi Format Nomor WA ---
+function formatNomorWA(input) {
+    // Hapus semua karakter selain angka (mencegah user mengetik spasi atau huruf)
+    let nomor = input.value.replace(/\D/g, '');
+    
+    // Jika user mengetik angka 0 di awal, langsung hapus
+    if (nomor.startsWith('0')) {
+        nomor = nomor.substring(1);
+    }
+    // Jika user mengetik 62 di awal, langsung potong
+    if (nomor.startsWith('62')) {
+        nomor = nomor.substring(2);
+    }
+    
+    // Kembalikan nilai yang sudah bersih ke dalam kolom input
+    input.value = nomor;
+}
+</script>
+</body>
+</html>
