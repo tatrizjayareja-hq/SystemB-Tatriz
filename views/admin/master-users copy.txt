@@ -1,0 +1,200 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Master User - Developer Tatriz</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+    <style>
+        .level-standard { background-color: #f1f2f6; color: #2d3436; border: 1px solid #ddd; }
+        .level-pro { background-color: #f1c40f; color: #000; border: 1px solid #d4ac0d; }
+        body { font-family: 'Segoe UI', sans-serif; padding: 20px; background: #f4f7f6; }
+        .container { max-width: 1200px; margin: 0 auto; }
+        table { width: 100%; border-collapse: collapse; background: white; border-radius: 12px; overflow: hidden; box-shadow: 0 4px 15px rgba(0,0,0,0.05); margin-bottom: 20px;}
+        th, td { padding: 12px; text-align: left; border-bottom: 1px solid #edf2f7; font-size: 13px; }
+        th { background: #195e0b; color: white; text-transform: uppercase; }
+        .badge { padding: 4px 8px; border-radius: 4px; font-size: 10px; font-weight: bold; }
+        .btn-action { text-decoration: none; font-size: 10px; padding: 5px 10px; border-radius: 4px; border: 1px solid #ddd; color: #333; transition: 0.2s; }
+        .btn-action:hover { background: #eee; }
+        .log-section { background: #2d3436; color: #dfe6e9; border-radius: 12px; padding: 15px; margin-top: 30px; }
+        .log-table { width: 100%; color: #fff; font-size: 11px; }
+        .log-table th { background: #3d4446; color: #aaa; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h2>🛠️ Master Management <span style="font-size: 14px; color: #666;">(Dev Mode)</span></h2>
+        
+        <table>
+            <thead>
+                <tr>
+                    <th>ID</th>
+                    <th>Perusahaan</th>
+                    <th>User</th>
+                    <th>Level</th>
+                    <th style="text-align: center;">Kontrol Sakti</th>
+                </tr>
+            </thead>
+            <tbody>
+    <% users.forEach(function(u) { %>
+        <tr>
+            <td>#<%= u.tenant_id %></td>
+            <td><strong><%= u.nama_perusahaan || 'Pusat' %></strong></td>
+            <td><%= u.nama_lengkap %><br><small>@<%= u.username %></small></td>
+            
+            <td>
+                <div style="display: flex; flex-direction: column; gap: 4px;">
+                    <span class="badge <%= u.level >= 2 ? 'level-pro' : 'level-standard' %>">
+                        <%= u.level >= 2 ? 'PRO' : 'STD' %> (Lvl <%= u.level %>)
+                    </span>
+                    
+                    <% if (u.tenant_id !== 1) { %>
+                        <a href="/update-level/<%= u.tenant_id %>/<%= u.level == 1 ? 2 : 1 %>" 
+                           style="font-size: 9px; color: #3498db; text-decoration: none; font-weight: bold;">
+                           [ <%= u.level == 1 ? '🔼 Ke Pro' : '🔽 Ke Std' %> ]
+                        </a>
+
+                        <% if (u.is_active !== false) { %>
+                            <a href="/toggle-tenant-status/<%= u.tenant_id %>/false" class="text-danger" style="font-size: 9px; text-decoration: none;" onclick="return confirm('Bekukan akses toko?')">
+                                <i class="fas fa-ban"></i> Suspend
+                            </a>
+                        <% } else { %>
+                            <a href="/toggle-tenant-status/<%= u.tenant_id %>/true" class="text-success" style="font-size: 9px; text-decoration: none;">
+                                <i class="fas fa-check-circle"></i> Aktifkan
+                            </a>
+                        <% } %>
+                    <% } else { %>
+                        <span style="font-size: 9px; color: #195e0b; font-weight: bold;">SISTEM PUSAT</span>
+                    <% } %>
+                </div>
+            </td>
+
+            <td style="text-align: center;">
+                <div style="display: flex; gap: 5px; justify-content: center; align-items: center;">
+                    <button onclick="pemicuReset('<%= u.id %>', '<%= u.username %>')" class="btn-action" title="Reset Password">
+                        <i class="fas fa-key"></i> Pass
+                    </button>
+                    <button onclick="pemicuResetKode('<%= u.tenant_id %>')" class="btn-action" title="Ganti Kode Registrasi">
+                        <i class="fas fa-lock"></i> Kode
+                    </button>
+                    
+                    <% if (u.tenant_id !== 1) { %>
+                        <a href="/delete-user-global/<%= u.id %>" class="btn-action" style="color: #e67e22;" onclick="return confirm('Hapus akun user saja?')">
+                            <i class="fas fa-user-minus"></i>
+                        </a>
+                        <a href="/delete-tenant-complete/<%= u.tenant_id %>" class="btn-action" style="color: red;" onclick="return confirm('PERINGATAN! Hapus TOTAL semua data perusahaan ini?')">
+                            <i class="fas fa-trash"></i>
+                        </a>
+                    <% } %>
+                </div>
+            </td>
+        </tr>
+    <% }); %>
+</tbody>
+        </table>
+
+        <div class="log-section">
+            <h6><i class="fas fa-history"></i> Log Aktivitas Developer</h6>
+            <table class="log-table">
+                <thead>
+                    <tr>
+                        <th>Waktu</th>
+                        <th>Aksi</th>
+                        <th>Target</th>
+                        <th>Keterangan</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <% devLogs.forEach(log => { %>
+                        <tr>
+                            <td><%= new Date(log.created_at).toLocaleString('id-ID') %></td>
+                            <td><%= log.aksi %></td>
+                            <td><%= log.target_info %></td>
+                            <td><%= log.keterangan %></td>
+                        </tr>
+                    <% }) %>
+                </tbody>
+            </table>
+        </div>
+
+        <a href="/dashboard" style="display:block; margin-top:20px; color:#195e0b; text-decoration:none;">← Dashboard</a>
+    </div>
+
+    <script>
+        function pemicuReset(userId, username) {
+            Swal.fire({
+                title: 'Reset Password',
+                text: `Masukkan password baru untuk user: ${username}`,
+                input: 'text',
+                inputPlaceholder: 'Password baru...',
+                showCancelButton: true,
+                confirmButtonColor: '#195e0b',
+                confirmButtonText: 'Simpan & Hash'
+            }).then(async (result) => {
+                if (result.isConfirmed && result.value) {
+                    // Munculkan animasi loading bawaan SweetAlert
+                    Swal.showLoading();
+                    
+                    try {
+                        // Mengirim data via POST secara diam-diam (di belakang layar)
+                        const response = await fetch('/developer/reset-pass', {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({ userId: userId, newPassword: result.value })
+                        });
+                        
+                        const data = await response.json();
+                        
+                        if (data.success) {
+                            Swal.fire('Berhasil!', data.message, 'success').then(() => {
+                                window.location.reload(); // Refresh halaman agar data terbaru terlihat
+                            });
+                        } else {
+                            Swal.fire('Gagal!', data.message, 'error');
+                        }
+                    } catch (error) {
+                        Swal.fire('Error!', 'Koneksi ke server gagal.', 'error');
+                    }
+                }
+            });
+        }
+
+        function pemicuResetKode(tId) {
+            Swal.fire({
+                title: 'Ganti Kode Aktivasi',
+                text: 'Hanya tenant ini yang akan menggunakan kode baru ini.',
+                input: 'text',
+                inputPlaceholder: 'Kode baru...',
+                showCancelButton: true,
+                confirmButtonColor: '#f39c12',
+                confirmButtonText: 'Simpan Kode'
+            }).then(async (result) => {
+                if (result.isConfirmed && result.value) {
+                    Swal.showLoading();
+                    
+                    try {
+                        const response = await fetch('/developer/reset-kode', {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({ tenantId: tId, newCode: result.value })
+                        });
+                        
+                        const data = await response.json();
+                        
+                        if (data.success) {
+                            Swal.fire('Berhasil!', data.message, 'success').then(() => {
+                                window.location.reload();
+                            });
+                        } else {
+                            Swal.fire('Gagal!', data.message, 'error');
+                        }
+                    } catch (error) {
+                        Swal.fire('Error!', 'Koneksi ke server gagal.', 'error');
+                    }
+                }
+            });
+        }
+    </script>
+</body>
+</html>

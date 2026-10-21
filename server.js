@@ -403,8 +403,11 @@ app.post('/login', async (req, res) => {
         const settings = statusRes.rows[0];
 
         if (settings && settings.is_active === false) {
-            console.log("Log: Akses ditangguhkan (Suspended)");
-            return res.redirect('/?error=suspended');
+            // Cek apakah ini user baru pending atau suspend karena pembayaran
+            // Kalau tenant baru (< 7 hari) dan belum pernah aktif, anggap pending
+            const isNewPending = settings.created_at && (new Date() - new Date(settings.created_at)) < 7*24*60*60*1000;
+            const reason = isNewPending ? 'pending' : 'payment';
+            return res.redirect(`/?error=suspended&reason=${reason}&u=${loggedInUser.username}`);
         }
 
         // 4. SIMPAN SESSION NORMAL
@@ -942,6 +945,78 @@ app.post('/register-tenant', async (req, res) => {
         if (db) await db.query("ROLLBACK");
         console.error("🔥 Register Error:", err.message);
         res.send("<script>alert('Gagal mendaftar: " + err.message + "'); window.history.back();</script>");
+    }
+});
+
+// 1. Tampilkan halaman daftar baru (link khusus orang awam)
+// URL: /daftar-baru
+app.get('/daftar-baru', (req, res) => {
+    res.render('daftar-baru'); // file daftar-baru.ejs yang tadi
+});
+
+// 2. Proses daftar baru - SIMPAN SEBAGAI PENDING (is_active = false)
+// Ini akan langsung muncul di /master-users kamu sebagai "Terblokir / Belum Aktif"
+app.post('/daftar-baru', async (req, res) => {
+    const { nama_toko, username, password, no_hp, alamat } = req.body;
+
+    try {
+        if (!nama_toko || !username || !password || !no_hp) {
+            return res.json({ success: false, message: 'Data wajib belum lengkap' });
+        }
+
+        // Cek username sudah ada
+        const checkUser = await db.query("SELECT username FROM users WHERE username = $1", [username]);
+        if (checkUser.rows.length > 0) {
+            return res.json({ success: false, message: 'Username sudah dipakai, coba yang lain' });
+        }
+
+        // Ambil max tenant_id seperti kode register lamamu
+        const row = await db.query("SELECT MAX(tenant_id) as maxid FROM settings");
+        let currentMax = parseInt(row.rows[0]?.maxid || 0);
+        let newTenantId = (currentMax < 100) ? 100 : currentMax + 1;
+
+        await db.query("BEGIN");
+
+        // --- SESUAI SISTEM KAMU: is_active = false (pending) ---
+        // Level tetap 1 seperti pendaftaran normal, cuma is_active yang false
+        // Jadi di /master-users akan kelihatan dan bisa di-toggle jadi true
+        await db.query(
+            `INSERT INTO settings 
+            (tenant_id, nama_perusahaan, level, nama_aplikasi, no_hp, alamat, is_active, registration_secret) 
+            VALUES ($1, $2, 1, $3, $4, $5, false, 'PENDING-ACTIVATION')`,
+            [newTenantId, nama_toko, 'Tatriz SystemB', no_hp, alamat]
+        );
+
+        const hashedPassword = await bcrypt.hash(password, 10);
+
+        await db.query(
+            "INSERT INTO users (tenant_id, username, password, role, nama_lengkap) VALUES ($1, $2, $3, 'admin', $4)",
+            [newTenantId, username, hashedPassword, 'Owner ' + nama_toko]
+        );
+
+        await db.query(
+            "INSERT INTO mesin (tenant_id, nama_mesin) VALUES ($1, $2)",
+            [newTenantId, 'Mesin Utama']
+        );
+
+        // Log untuk developer (optional, pakai sistem dev_logs kamu)
+        if (req.session && req.session.userId) {
+            // Jika ada admin yang daftarkan, log
+        } else {
+            // Daftar mandiri - log sebagai system
+            await db.query(`INSERT INTO dev_logs (admin_id, aksi, target_info, keterangan) VALUES ($1, $2, $3, $4)`, 
+                [1, 'REGISTER-PENDING', `Tenant #${newTenantId}`, `Pendaftaran baru: ${nama_toko} (${username}) menunggu aktivasi`]
+            );
+        }
+
+        await db.query("COMMIT");
+
+        res.json({ success: true, tenant_id: newTenantId, nama_toko: nama_toko });
+
+    } catch (err) {
+        if (db) await db.query("ROLLBACK");
+        console.error("🔥 Daftar Baru Error:", err.message);
+        res.json({ success: false, message: 'Gagal mendaftar: ' + err.message });
     }
 });
 
@@ -5270,8 +5345,6 @@ app.get('/toggle-tenant-status/:tId/:status', isAdmin, async (req, res) => {
         res.status(500).send("Gagal mengubah status toko.");
     }
 });
-
-
 
 
 // Jalan otomatis setiap jam 08:00 pagi

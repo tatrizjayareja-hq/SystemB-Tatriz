@@ -6,7 +6,6 @@
     <title>Login - Tatriz SystemB (Edisi Safir)</title>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
     <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
-
     <link rel="manifest" href="/manifest.json">
     <meta name="theme-color" content="#0f52ba">
     <script>
@@ -20,303 +19,59 @@
     </script>
     <style>
         :root {
-            /* Warna Biru Safir & Tetesan Air */
             --biru-safir: #0f52ba;
             --biru-gelap: #082d66;
             --biru-muda: #4e8df5;
-            --putih-bg: #f0f4f8; /* Putih kebiruan agar terasa sejuk */
+            --putih-bg: #f0f4f8;
             --putih-utama: #ffffff;
             --teks-abu: #636e72;
         }
-
         body, html {
-            margin: 0;
-            padding: 0;
-            min-height: 100vh;
+            margin: 0; padding: 0; min-height: 100vh;
             font-family: 'Segoe UI', Roboto, sans-serif;
             background-color: var(--putih-bg);
-            
-            /* KODE PEMBENTUK GAMBAR/BENTUK (Gelombang Air & Riak Tetesan) */
             background-image: 
-                /* 1. Riak tetesan air (Ripples) di kiri atas */
                 radial-gradient(circle at 15% 25%, transparent 0%, transparent 15%, rgba(15, 82, 186, 0.05) 15.5%, rgba(15, 82, 186, 0.05) 16%, transparent 16.5%),
                 radial-gradient(circle at 15% 25%, transparent 0%, transparent 8%, rgba(15, 82, 186, 0.08) 8.5%, rgba(15, 82, 186, 0.08) 9%, transparent 9.5%),
-                
-                /* 2. Riak tetesan air (Ripples) di kanan bawah */
                 radial-gradient(circle at 85% 70%, transparent 0%, transparent 20%, rgba(15, 82, 186, 0.04) 20.5%, rgba(15, 82, 186, 0.04) 21%, transparent 21.5%),
                 radial-gradient(circle at 85% 70%, transparent 0%, transparent 12%, rgba(15, 82, 186, 0.06) 12.5%, rgba(15, 82, 186, 0.06) 13%, transparent 13.5%),
-
-                /* 3. Gelombang air biru safir dari arah bawah */
                 radial-gradient(150% 80% at 50% 120%, var(--biru-safir) 0%, var(--biru-gelap) 40%, transparent 40.5%);
-            
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            /* Pastikan background tidak berulang */
-            background-repeat: no-repeat;
-            background-size: cover;
+            display: flex; justify-content: center; align-items: center;
+            background-repeat: no-repeat; background-size: cover;
         }
-
-        /* --- CONTAINER UTAMA --- */
-        .login-container {
-            width: 450px;
-            max-width: 90%;
-            margin: 20px auto;
-            position: relative;
-            z-index: 10; 
-        }
-
+        .login-container { width: 450px; max-width: 90%; margin: 20px auto; position: relative; z-index: 10; }
         .login-card {
-            background: white;
-            border-radius: 20px;
-            overflow: hidden;
-            /* Bayangan disesuaikan dengan tone biru */
+            background: white; border-radius: 20px; overflow: hidden;
             box-shadow: 0 15px 35px rgba(0,0,0,0.1), 0 5px 15px rgba(15, 82, 186, 0.15);
-            display: flex;
-            flex-direction: column;
-            border: 1px solid rgba(15, 82, 186, 0.1);
+            display: flex; flex-direction: column; border: 1px solid rgba(15, 82, 186, 0.1);
         }
-
-        /* --- BAGIAN ATAS: BRANDING --- */
-        .card-header {
-            background: white;
-            padding: 40px 30px 20px;
-            text-align: center;
-            position: relative;
-        }
-
-        .card-header::before {
-            content: '';
-            position: absolute;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 6px;
-            /* Gradasi garis tepi biru */
-            background: linear-gradient(135deg, var(--biru-safir) 50%, var(--biru-muda) 50%);
-        }
-
-        .card-header img {
-            width: 120px;
-            height: auto;
-            margin-bottom: 15px;
-        }
-
-        .card-header h1 {
-            color: var(--biru-gelap);
-            margin: 0;
-            font-size: 26px;
-            font-weight: 900;
-            text-transform: uppercase;
-            letter-spacing: 1px;
-        }
-
-        .card-header .tagline {
-            color: var(--teks-abu);
-            font-size: 14px;
-            margin-top: 8px;
-            line-height: 1.4;
-        }
-
-        /* --- BAGIAN BAWAH: FORM --- */
-        .card-body {
-            /* Tone diturunkan menjadi biru sangat pucat ke arah putih */
-            background: linear-gradient(135deg, #ffffff 0%, #f4f8fc 100%);
-            color: #333;
-            padding: 40px 35px;
-            position: relative;
-            border-top: 1px dashed rgba(15, 82, 186, 0.2);
-        }
-
-        .card-body h2 {
-            margin: 0 0 5px 0;
-            font-size: 22px;
-            text-align: center;
-            color: var(--biru-safir);
-            text-transform: uppercase;
-            letter-spacing: 2px;
-            font-weight: 800;
-        }
-
-        .card-body p {
-            font-size: 13px;
-            margin-bottom: 25px;
-            text-align: center;
-            color: var(--teks-abu);
-        }
-
-        .form-group {
-            margin-bottom: 18px;
-        }
-
-        .form-group label {
-            display: block;
-            font-size: 11px;
-            margin-bottom: 8px;
-            text-transform: uppercase;
-            letter-spacing: 1px;
-            color: var(--biru-gelap);
-            font-weight: bold;
-        }
-
-        .input-wrapper {
-            position: relative;
-        }
-
-        .input-wrapper i {
-            position: absolute;
-            left: 15px;
-            top: 50%;
-            transform: translateY(-50%);
-            color: var(--biru-safir);
-            opacity: 0.8;
-        }
-
-        .input-wrapper input {
-            width: 100%;
-            padding: 14px 15px 14px 45px;
-            background: var(--putih-utama);
-            border: 1px solid rgba(15, 82, 186, 0.3);
-            border-radius: 10px;
-            color: #333;
-            box-sizing: border-box;
-            outline: none;
-            transition: 0.3s;
-            font-size: 16px;
-        }
-
-        .input-wrapper input::placeholder {
-            color: #aaa;
-        }
-
-        .input-wrapper input:focus {
-            border-color: var(--biru-safir);
-            box-shadow: 0 0 8px rgba(15, 82, 186, 0.2);
-            background: #fff;
-        }
-
-        /* Tombol Utama Biru Safir */
-        .btn-login {
-            width: 100%;
-            padding: 15px;
-            background: linear-gradient(135deg, var(--biru-safir) 0%, var(--biru-gelap) 100%);
-            color: var(--putih-utama);
-            border: none;
-            border-radius: 10px;
-            font-weight: 900;
-            font-size: 15px;
-            cursor: pointer;
-            transition: 0.3s;
-            margin-top: 10px;
-            text-transform: uppercase;
-            letter-spacing: 1px;
-            box-shadow: 0 5px 15px rgba(15, 82, 186, 0.3);
-        }
-
-        .btn-login:hover {
-            background: linear-gradient(135deg, var(--biru-gelap) 0%, var(--biru-safir) 100%);
-            transform: translateY(-3px);
-            box-shadow: 0 8px 20px rgba(15, 82, 186, 0.4);
-        }
-
-        /* --- FOOTER / LINK --- */
-        .card-footer {
-            padding: 20px;
-            text-align: center;
-            background: var(--putih-bg);
-            font-size: 13px;
-            border-top: 1px solid #eaeaea;
-        }
-
-        .card-footer a {
-            color: var(--biru-safir);
-            text-decoration: none;
-            font-weight: 900;
-            text-transform: uppercase;
-        }
-
-        /* Info Sistem Baru */
-        .setup-info {
-            margin-top: 15px;
-            padding: 10px;
-            background: rgba(15, 82, 186, 0.05); 
-            border: 1px solid rgba(15, 82, 186, 0.2);
-            border-radius: 8px;
-            font-size: 12px;
-            color: var(--biru-gelap);
-            text-align: center;
-        }
-
-        /* Responsive Mobile */
-        @media (max-width: 480px) {
-            .login-container { width: 95%; }
-            .card-header { padding: 30px 20px 15px; }
-            .card-body { padding: 30px 20px; }
-            body, html {
-                /* Sesuaikan tinggi gelombang air untuk mobile */
-                background-image: 
-                    radial-gradient(circle at 15% 25%, transparent 0%, transparent 15%, rgba(15, 82, 186, 0.05) 15.5%, rgba(15, 82, 186, 0.05) 16%, transparent 16.5%),
-                    radial-gradient(circle at 85% 70%, transparent 0%, transparent 20%, rgba(15, 82, 186, 0.04) 20.5%, rgba(15, 82, 186, 0.04) 21%, transparent 21.5%),
-                    radial-gradient(150% 80% at 50% 105%, var(--biru-safir) 0%, var(--biru-gelap) 30%, transparent 30.5%);
-            }
-        }
-
-        .forgot-password-link {
-            text-align: right;
-            margin-bottom: 15px;
-            margin-top: -5px;
-        }
-        
-        .forgot-password-link a {
-            color: var(--teks-abu);
-            font-size: 11px;
-            text-decoration: none;
-            transition: 0.2s;
-        }
-
-        .forgot-password-link a:hover {
-            color: var(--biru-safir);
-            text-decoration: underline;
-        }
+        .card-header { background: white; padding: 40px 30px 20px; text-align: center; position: relative; }
+        .card-header::before { content: ''; position: absolute; top: 0; left: 0; width: 100%; height: 6px; background: linear-gradient(135deg, var(--biru-safir) 50%, var(--biru-muda) 50%); }
+        .card-header img { width: 120px; height: auto; margin-bottom: 15px; }
+        .card-header h1 { color: var(--biru-gelap); margin: 0; font-size: 26px; font-weight: 900; text-transform: uppercase; letter-spacing: 1px; }
+        .card-header .tagline { color: var(--teks-abu); font-size: 14px; margin-top: 8px; line-height: 1.4; }
+        .card-body { background: linear-gradient(135deg, #ffffff 0%, #f4f8fc 100%); color: #333; padding: 40px 35px; position: relative; border-top: 1px dashed rgba(15, 82, 186, 0.2); }
+        .card-body h2 { margin: 0 0 5px 0; font-size: 22px; text-align: center; color: var(--biru-safir); text-transform: uppercase; letter-spacing: 2px; font-weight: 800; }
+        .card-body p { font-size: 13px; margin-bottom: 25px; text-align: center; color: var(--teks-abu); }
+        .form-group { margin-bottom: 18px; }
+        .form-group label { display: block; font-size: 11px; margin-bottom: 8px; text-transform: uppercase; letter-spacing: 1px; color: var(--biru-gelap); font-weight: bold; }
+        .input-wrapper { position: relative; }
+        .input-wrapper i { position: absolute; left: 15px; top: 50%; transform: translateY(-50%); color: var(--biru-safir); opacity: 0.8; }
+        .input-wrapper input { width: 100%; padding: 14px 15px 14px 45px; background: var(--putih-utama); border: 1px solid rgba(15, 82, 186, 0.3); border-radius: 10px; color: #333; box-sizing: border-box; outline: none; }
+        .btn-login { width: 100%; padding: 14px; background: var(--biru-safir); color: white; border: none; border-radius: 10px; font-weight: bold; font-size: 15px; cursor: pointer; margin-top: 15px; transition: 0.3s; text-transform: uppercase; letter-spacing: 1px; }
+        .btn-login:hover { background: var(--biru-gelap); }
+        .forgot-password-link { text-align: right; margin-top: 8px; }
+        .forgot-password-link a { font-size: 12px; color: var(--biru-safir); text-decoration: none; font-weight: 600; }
+        .card-footer { background: #f8f9fa; padding: 18px; text-align: center; font-size: 13px; color: #555; border-top: 1px solid #eee; }
+        .card-footer a { color: var(--biru-safir); font-weight: 800; text-decoration: none; }
+        .card-footer a:hover { text-decoration: underline; }
+        .setup-info { background: rgba(15,82,186,0.08); border: 1px dashed var(--biru-safir); padding: 12px; border-radius: 8px; margin-top: 20px; font-size: 12px; text-align: center; }
+        #loaderSistem { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(255,255,255,0.9); z-index: 9999; display: flex; justify-content: center; align-items: center; transition: 0.3s; }
+        .loader-hilang { opacity: 0 !important; visibility: hidden !important; }
     </style>
 </head>
 <body>
-
-    <div id="loaderSistem" style="
-    position: fixed;
-    top: 0; left: 0;
-    width: 100%; height: 100%;
-    background: #f0f4f8; 
-    z-index: 9999;
-    display: flex;
-    flex-direction: column;
-    justify-content: center;
-    align-items: center;
-    transition: opacity 0.4s ease, visibility 0.4s ease;
-">
-    <div style="
-        width: 60px; height: 60px;
-        border: 5px solid rgba(15, 82, 186, 0.2);
-        border-top: 5px solid #0f52ba; /* Warna Safir */
-        border-radius: 50%;
-        animation: putarLoader 1s linear infinite;
-        box-shadow: 0 0 15px rgba(15, 82, 186, 0.3);
-    "></div>
-    <p style="color: #0f52ba; margin-top: 20px; font-weight: bold; font-size: 14px; letter-spacing: 2px;">
-        MEMUAT SISTEM...
-    </p>
-</div>
-
-<style>
-    @keyframes putarLoader {
-        0% { transform: rotate(0deg); }
-        100% { transform: rotate(360deg); }
-    }
-    .loader-hilang {
-        opacity: 0 !important;
-        visibility: hidden !important;
-    }
-</style>
+<div id="loaderSistem"><div style="width:40px; height:40px; border:4px solid rgba(15,82,186,0.2); border-top:4px solid var(--biru-safir); border-radius:50%; animation:spin 1s linear infinite;"></div></div>
 
     <div class="login-container">
         <div class="login-card">
@@ -365,24 +120,92 @@
                 <% if (isNew) { %>
                 <div class="setup-info">
                     <i class="fas fa-cog"></i> Sistem baru siap dikonfigurasi. 
-                    <a href="/register" style="color: var(--biru-safir); text-decoration: underline; font-weight: bold;">Klik Setup Awal</a>
+                    <a href="/daftar-baru" style="color: var(--biru-safir); text-decoration: underline; font-weight: bold;">Klik Daftar Baru</a>
                 </div>
                 <% } %>
             </div>
 
             <div class="card-footer">
-                Belum bergabung? <a href="/register">Daftar Perusahaan</a>
+                Belum punya akun? <a href="/daftar-baru"><i class="bi bi-rocket"></i> Daftar Perusahaan Baru</a><br>
+                <small style="font-size:11px; color:#888; margin-top:5px; display:block;">Daftar dulu, admin akan aktifkan via WA</small>
             </div>
         </div>
     </div>
 
     <script>
+        // === NOTIFIKASI ERROR DARI URL ?error= ===
+        document.addEventListener('DOMContentLoaded', function(){
+            const params = new URLSearchParams(window.location.search);
+            const error = params.get('error');
+            const reason = params.get('reason'); // tambahan: payment / pending
+
+            if(error === 'suspended'){
+                // Bedakan 2 kriteria
+                if(reason === 'payment' || !reason){
+                    Swal.fire({
+                        title: 'Akun Ditangguhkan',
+                        html: `
+                            <div style="text-align:left; font-size:14px; line-height:1.6;">
+                                <p>Akun Anda saat ini <b>nonaktif</b> karena:</p>
+                                <ul style="margin:10px 0; padding-left:20px;">
+                                    <li>Tagihan bulanan belum dibayar (lewat jatuh tempo)</li>
+                                    <li>Atau masa aktif habis</li>
+                                </ul>
+                                <p style="background:#fff3cd; padding:10px; border-radius:8px; border:1px dashed #f39c12; font-size:12px;">
+                                    Silakan hubungi Admin untuk perpanjangan. Setelah dibayar, akun akan diaktifkan lagi otomatis.
+                                </p>
+                            </div>
+                        `,
+                        icon: 'warning',
+                        confirmButtonColor: '#0f52ba',
+                        confirmButtonText: 'Hubungi Admin via WA',
+                        showCancelButton: true,
+                        cancelButtonText: 'Tutup'
+                    }).then((result)=>{
+                        if(result.isConfirmed){
+                            const pesan = `Halo Admin Tatriz, akun saya ter-suspend karena tagihan. Username: *${params.get('u') || ''}* Mohon info pembayaran.`;
+                            window.open(`https://api.whatsapp.com/send/?phone=6281315290003&text=${encodeURIComponent(pesan)}`, '_blank');
+                        }
+                    });
+                } else if(reason === 'pending'){
+                    Swal.fire({
+                        title: 'Menunggu Aktivasi',
+                        html: `
+                            <div style="text-align:left; font-size:14px; line-height:1.6;">
+                                <p>Akun Anda <b>sudah terdaftar</b>, tapi masih <b>menunggu aktivasi</b> dari admin.</p>
+                                <p style="background:#d1ecf1; padding:10px; border-radius:8px; border:1px dashed #0f52ba; font-size:12px;">
+                                    <b>Flow baru:</b><br>
+                                    1. Anda daftar di /daftar-baru<br>
+                                    2. Data masuk sebagai pending di Master Users<br>
+                                    3. Admin klik Aktifkan<br>
+                                    4. Baru bisa login
+                                </p>
+                                <p>Kalau sudah daftar, silakan WA admin biar segera diaktifkan.</p>
+                            </div>
+                        `,
+                        icon: 'info',
+                        confirmButtonColor: '#0f52ba',
+                        confirmButtonText: 'WA Admin untuk Aktivasi',
+                        showCancelButton: true,
+                        cancelButtonText: 'Tutup'
+                    }).then((result)=>{
+                        if(result.isConfirmed){
+                            const pesan = `Halo Admin Tatriz, saya baru daftar di /daftar-baru. Username: *${params.get('u') || ''}* Mohon diaktifkan.`;
+                            window.open(`https://api.whatsapp.com/send/?phone=6281315290003&text=${encodeURIComponent(pesan)}`, '_blank');
+                        }
+                    });
+                }
+            } else if(error === 'invalid_credentials'){
+                Swal.fire({ title: 'Login Gagal', text: 'Username atau password salah', icon: 'error', confirmButtonColor: '#0f52ba' });
+            } else if(error === 'locked'){
+                Swal.fire({ title: 'Terkunci', text: 'Akun terkunci 15 menit karena 5x salah password', icon: 'warning', confirmButtonColor: '#0f52ba' });
+            }
+        });
+
         function pemicuLupaPassword() {
         Swal.fire({
             title: 'Lupa Password?',
-            html: `
-                <p style="font-size: 14px;">Masukkan <b>Username</b> atau <b>Nama Toko</b> Anda agar kami bisa mencarinya.</p>
-            `,
+            html: `<p style="font-size: 14px;">Masukkan <b>Username</b> atau <b>Nama Toko</b> Anda agar kami bisa mencarinya.</p>`,
             input: 'text',
             inputPlaceholder: 'Ketik username / nama toko...',
             showCancelButton: true,
@@ -393,7 +216,6 @@
             if (result.isConfirmed && result.value) {
                 const pesan = `Halo Developer Tatriz, saya lupa password login untuk akun saya (Username/Toko: *${result.value}*). Mohon bantuannya untuk reset password sementara.`;
                 const noWA = '6281315290003';
-                
                 window.open(`https://api.whatsapp.com/send/?phone=${noWA}&text=${encodeURIComponent(pesan)}`, '_blank');
             }
         });
@@ -401,66 +223,33 @@
    let pemicuInstal;
 const areaInstal = document.getElementById('areaInstalPWA');
 const btnInstal = document.getElementById('btnInstalPWA');
-
 const isAppInstalled = window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone;
-
-if (!isAppInstalled) {
-    areaInstal.style.display = 'block';
-}
-
-window.addEventListener('beforeinstallprompt', (e) => {
-    e.preventDefault();
-    pemicuInstal = e;
-    areaInstal.style.display = 'block';
-});
-
+if (!isAppInstalled) { areaInstal.style.display = 'block'; }
+window.addEventListener('beforeinstallprompt', (e) => { e.preventDefault(); pemicuInstal = e; areaInstal.style.display = 'block'; });
 btnInstal.addEventListener('click', async () => {
     if (pemicuInstal) {
         pemicuInstal.prompt();
-        
         const { outcome } = await pemicuInstal.userChoice;
-        console.log(`Pilihan user: ${outcome}`);
-        
-        if (outcome === 'accepted') {
-            console.log('User menginstal PWA');
-        }
+        if (outcome === 'accepted') { console.log('User menginstal PWA'); }
         pemicuInstal = null; 
     } else {
         Swal.fire({
             title: 'Cara Instal Aplikasi',
-            html: `
-                <div style="text-align: left; font-size: 14px;">
-                    <b>Untuk Desktop (Chrome/Edge):</b><br>
-                    Klik ikon <i class="fas fa-download"></i> atau komputer kecil di pojok kanan atas kolom alamat URL browser Anda.<br><br>
-                    <b>Untuk iPhone/iOS (Safari):</b><br>
-                    Klik tombol <b>Bagikan (Share)</b> <i class="fas fa-share-square"></i> lalu pilih <b>"Tambahkan ke Layar Utama" (Add to Home Screen)</b>.
-                </div>
-            `,
-            icon: 'info',
-            confirmButtonColor: '#0f52ba' 
+            html: `<div style="text-align: left; font-size: 14px;"><b>Untuk Desktop (Chrome/Edge):</b><br>Klik ikon <i class="fas fa-download"></i> di pojok kanan atas URL.<br><br><b>Untuk iPhone/iOS (Safari):</b><br>Klik <b>Bagikan</b> <i class="fas fa-share-square"></i> lalu pilih <b>"Tambahkan ke Layar Utama"</b>.</div>`,
+            icon: 'info', confirmButtonColor: '#0f52ba' 
         });
     }
 });
-
-window.addEventListener('appinstalled', () => {
-    console.log('PWA berhasil terpasang di sistem.');
-    areaInstal.style.display = 'none'; 
-});
+window.addEventListener('appinstalled', () => { areaInstal.style.display = 'none'; });
     </script>
     <script>
         document.addEventListener('DOMContentLoaded', function() {
             const loader = document.getElementById('loaderSistem');
-            if (loader) {
-                setTimeout(function() {
-                    loader.classList.add('loader-hilang');
-                }, 200);
-            }
+            if (loader) { setTimeout(function() { loader.classList.add('loader-hilang'); }, 200); }
         });
         setTimeout(function() {
             const loader = document.getElementById('loaderSistem');
-            if (loader && !loader.classList.contains('loader-hilang')) {
-                loader.classList.add('loader-hilang');
-            }
+            if (loader && !loader.classList.contains('loader-hilang')) { loader.classList.add('loader-hilang'); }
         }, 4000);
     </script>
 </body>
