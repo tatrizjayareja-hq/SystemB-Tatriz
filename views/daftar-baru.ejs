@@ -30,10 +30,12 @@
         .progress { display:flex; gap:8px; margin-bottom:25px; }
         .progress div { flex:1; height:6px; background:#e0e0e0; border-radius:10px; }
         .progress div.active { background: var(--hijau); }
-        .keunggulan { display:grid; grid-template-columns:1fr 1fr 1fr; gap:15px; margin:20px 0; }
-        .keunggulan div { background:#f8faff; padding:15px; border-radius:12px; text-align:center; border:1px solid #e3e8f0; }
-        .keunggulan i { font-size:24px; color:var(--biru-safir); }
-        .keunggulan p { font-size:12px; font-weight:700; margin:8px 0 0; color:var(--biru-gelap); }
+        .keunggulan { display:grid; grid-template-columns:1fr 1fr; gap:12px; margin:20px 0; }
+        .keunggulan div { background:#f8faff; padding:14px 10px; border-radius:12px; text-align:center; border:1px solid #e3e8f0; display:flex; flex-direction:column; align-items:center; justify-content:center; min-height:95px; }
+        .keunggulan i { font-size:26px; color:var(--biru-safir); margin-bottom:4px; }
+        .keunggulan p { font-size:11px; font-weight:700; margin:6px 0 0; color:var(--biru-gelap); line-height:1.3; }
+        @media (min-width:600px){ .keunggulan { grid-template-columns:1fr 1fr; } }
+        @media (max-width:400px){ .keunggulan { grid-template-columns:1fr 1fr; gap:10px; } }
         .input-error { border-color:#e74c3c !important; }
         small { font-size:11px; color:#e74c3c; margin-top:5px; display:block; }
     </style>
@@ -52,12 +54,13 @@
     <div class="card active" id="step1">
         <span class="step-badge">LANGKAH 1 DARI 4</span>
         <h2>Bordir Laku, Tapi Uangnya Kemana? 🤔</h2>
-        <p class="sub">Tatriz SystemB udah dipakai 5 bulan di 2 cabang. Biar nggak rugi kayak dulu lagi, catatnya harus beres.</p>
+        <p class="sub">Tatriz SystemB udah dipakai 5 bulan di 2 cabang. Biar nggak rugi kayak dulu lagi, catatnya harus beres. Operator bisa dibuatkan akun dan punya halaman sendiri untuk input data kerjaannya..!!</p>
         
         <div class="keunggulan">
             <div><i class="bi bi-search"></i><p>Tagihan Lama<br>Panggil Nama</p></div>
-            <div><i class="bi bi-exclamation-triangle"></i><p>Kalau Kurang<br>Langsung Ketahuan</p></div>
+            <div><i class="bi bi-exclamation-triangle"></i><p>Kalau Kurang / Lebih<br>Langsung Ketahuan</p></div>
             <div><i class="bi bi-receipt"></i><p>Centang Jadi<br>Nota WA</p></div>
+            <div><i class="bi bi-phone"></i><p>Operator Absen / Input<br>di HP Sendiri</p></div>
         </div>
 
         <p class="sub" style="background:#fff3cd; padding:12px; border-radius:8px; border:1px dashed #f39c12; color:#7a5a00;">
@@ -109,7 +112,7 @@
                 <span>+62</span>
                 <input type="text" id="no_hp" placeholder="8131529xxxx" oninput="formatWA(this)" required>
             </div>
-            <small style="color:#636e72; font-size:10px;">*Tulis tanpa 0 di depan. Contoh: 81315290003. Nomor ini yang dapat WA pengingat.</small>
+            <small style="color:#636e72; font-size:10px;">*Tulis tanpa 0 di depan. Contoh: 812345678. Nomor ini yang dapat WA pengingat dan akan tampil di nota kamu.</small>
             <small id="err-wa" style="display:none;">Wajib isi nomor WA</small>
         </div>
         <div style="margin-bottom:20px;">
