@@ -10,7 +10,7 @@
         :root { --primary: #2ecc71; --dark: #2c3e50; --light: #f4f7f6; --danger: #e74c3c; --warning: #f39c12; --blue: #3498db; --biru-safir: #0f52ba; --batik: #8c6239; --emas: #d4af37; }
         body { font-family: 'Segoe UI', sans-serif; background: var(--light); margin: 0; padding: 20px; }
         .setup-container { max-width: 850px; margin: auto; }
-        .card { background: white; padding: 26px; border-radius: 16px; box-shadow: 0 4px 20px rgba(0,0,0,0.06); margin-bottom: 20px; border: 1px solid #e1e4e8; display:none; }
+        .card { background: white; padding: 26px; border-radius: 16px; box-shadow: 0 4px 20px rgba(0,0,0,0.06); margin-bottom: 20px; border: 1px solid #e1e4e8; display:none; position:relative; }
         .card.active { display:block; animation: fadeUp .35s ease; }
         @keyframes fadeUp { from { opacity:0; transform: translateY(18px);} to { opacity:1; transform: translateY(0);} }
         .section-title { font-size: 17px; font-weight: 800; color: var(--dark); margin-bottom: 6px; display: flex; align-items: center; gap: 10px; }
@@ -31,16 +31,18 @@
         .btn-primary { background: var(--biru-safir); }
         .btn-save { background: var(--dark); }
         .btn-outline { background:white; color:var(--biru-safir); border:2px solid var(--biru-safir); }
-        .detail-box { border-radius:10px; padding:14px; margin:12px 0; font-size:12px; line-height:1.7; }
+        .detail-box { border-radius:10px; padding:13px; margin:12px 0; font-size:12px; line-height:1.6; }
         .detail-box.red { background:#fdf0f0; border:1px solid #f5c6cb; color:#6b2a2a; }
         .detail-box.yellow { background:#fff8e6; border:1px solid #fde68a; color:#6b4a00; }
-        .detail-box.green { background:#e8f8f5; border:1px solid #a7f3d0; color:#1a5a4a; }
         .detail-box.blue { background:#eef5ff; border:1px solid #bfdbfe; color:#1e3a8a; }
+        .detail-box.green { background:#e8f8f5; border:1px solid #a7f3d0; color:#1a5a4a; }
         .preview-nota-real { border: 2px solid var(--batik); outline: 2px solid var(--emas); outline-offset: -5px; background: #fffdf9; padding: 10px; border-radius: 6px; margin:12px 0; font-family: 'Georgia', serif; }
         .preview-nota-real .header-real { display:flex; align-items:center; border-bottom:2px solid var(--batik); background: linear-gradient(to right, rgba(212,175,55,0.1), rgba(140,98,57,0.05)); padding:8px; border-radius:4px; }
         .preview-nota-real .bank-box { background:#f7f1e5; border:1px dashed var(--batik); padding:6px; border-radius:4px; font-size:9px; }
-        .badge-pro { background: var(--warning); color: white; font-size: 9px; padding: 2px 6px; border-radius: 4px; }
+        /* PROTEKSI AKUN STANDAR - DARI ASLI */
         .pro-locked-field { background: #f8f9fa !important; color: #95a5a6 !important; cursor: not-allowed !important; border-style: dashed !important; }
+        .badge-pro { background: var(--warning); color: white; font-size: 9px; padding: 2px 6px; border-radius: 4px; vertical-align: middle; }
+        .locked-card { border-left: 4px solid var(--warning) !important; background: #fffdf5; }
         .input-locked { background: #eee !important; cursor: not-allowed; color: #7f8c8d; font-weight: bold; }
         table { width: 100%; border-collapse: collapse; margin-top: 10px; }
         th { background: #f8f9fa; padding: 10px; text-align: left; font-size: 11px; border-bottom: 2px solid #eee; color: #7f8c8d; }
@@ -57,102 +59,108 @@
 <% const isInternal = (user.tenantId === 1 || user.tenantId === 100); const isPro = (user.tenantLevel >= 2 || isInternal); %>
 <div class="setup-container">
     <div style="margin-bottom:14px; display:flex; justify-content:space-between; align-items:center;">
-        <a href="/dashboard" style="text-decoration:none; color:var(--dark); font-weight:bold;"><i class="bi bi-arrow-left"></i> Dashboard</a>
-        <% if (isPro) { %><span class="badge-pro" style="background:var(--primary); padding:5px 10px; font-size:11px;">PRO</span><% } else { %><span class="badge-pro" style="padding:5px 10px; font-size:11px;">STANDAR</span><% } %>
+        <a href="/dashboard" class="nav-link-load" style="text-decoration:none; color:var(--dark); font-weight:bold;"><i class="bi bi-arrow-left"></i> Dashboard</a>
+        <% if (isPro) { %><span class="badge-pro" style="font-size:12px; padding:5px 10px; background:var(--primary);">LISENSI: AKUN PRO</span><% } else { %><span class="badge-pro" style="font-size:12px; padding:5px 10px; background:var(--warning);">LISENSI: AKUN STANDAR</span><% } %>
     </div>
+
     <div class="progress-wizard"><div id="p1" class="current"></div><div id="p2"></div><div id="p3"></div><div id="p4"></div><div id="p5"></div><div id="p6"></div></div>
 
     <form action="/save-settings-all" method="POST" enctype="multipart/form-data" onsubmit="tampilkanLoader()">
 
+        <!-- STEP 1: NAMA -->
         <div class="card active" id="step1">
             <span class="step-badge">LANGKAH 1 DARI 6 - NAMA TOKO</span>
-            <div class="section-title"><i class="bi bi-building"></i> Nama Toko Bordir</div>
-            <p class="section-sub">Muncul di header nota batik & laporan.</p>
+            <div class="section-title"><i class="bi bi-building"></i> Profil & Identitas Perusahaan</div>
+            <p class="section-sub">Nama ini muncul di header nota batik & laporan. Semua level bisa isi.</p>
             <div class="grid-2">
                 <div class="form-group"><label>Nama Aplikasi</label><input type="text" value="Tatriz SystemB" readonly class="input-locked"></div>
-                <div class="form-group"><label>Nama Perusahaan *</label><input type="text" name="nama_perusahaan" id="nama_perusahaan" value="<%= config.nama_perusahaan %>" required oninput="updateAllPreview()" placeholder="Bordir Berkah Klaten"></div>
+                <div class="form-group"><label>Nama Perusahaan / Toko *</label><input type="text" name="nama_perusahaan" value="<%= config.nama_perusahaan %>" required oninput="updateAllPreview()" placeholder="Bordir Berkah Klaten"></div>
             </div>
             <button type="button" class="btn btn-primary" onclick="nextStep(2)">LANJUT</button>
         </div>
 
+        <!-- STEP 2: KONTAK -->
         <div class="card" id="step2">
             <span class="step-badge">LANGKAH 2 DARI 6 - KONTAK</span>
-            <div class="section-title"><i class="bi bi-telephone"></i> WA & Alamat</div>
-            <div class="form-group"><label>Nomor WA Admin *</label><div style="display:flex; border:1px solid #ddd; border-radius:8px; overflow:hidden; background:#f8f9fa;"><span style="padding:11px; font-weight:bold; border-right:1px solid #ddd;">+62</span><input type="text" name="no_hp" value="<%= config.no_hp ? config.no_hp.toString().replace(/^62/, '') : '' %>" required oninput="formatNomorWA(this)" style="border:none; flex:1;"></div></div>
-            <div class="form-group"><label>Alamat Workshop</label><textarea name="alamat" id="alamat" rows="2" oninput="updateAllPreview()"><%= config.alamat %></textarea></div>
+            <div class="section-title"><i class="bi bi-telephone"></i> Kontak & Alamat</div>
+            <p class="section-sub">WA untuk pengingat masa aktif. Semua level bisa isi.</p>
+            <div class="form-group"><label>Nomor WA Admin (Untuk Tagihan) *</label><div style="display:flex; border:1px solid #ddd; border-radius:8px; overflow:hidden; background:#f8f9fa;"><span style="padding:11px; font-weight:bold; border-right:1px solid #ddd;">+62</span><input type="text" name="no_hp" value="<%= config.no_hp ? config.no_hp.toString().replace(/^62/, '') : '' %>" required oninput="formatNomorWA(this)" style="border:none; flex:1;" placeholder="8131529xxxx"></div><small style="font-size:9px; color:#e74c3c;">*Wajib. Nomor ini akan menerima WA pengingat masa aktif.</small></div>
+            <div class="form-group"><label>Alamat Workshop</label><textarea name="alamat" rows="1"><%= config.alamat %></textarea></div>
             <div style="display:flex; gap:10px;"><button type="button" class="btn btn-outline" style="flex:1;" onclick="nextStep(1)">Kembali</button><button type="button" class="btn btn-primary" style="flex:2;" onclick="nextStep(3)">LANJUT LOGO</button></div>
         </div>
 
+        <!-- STEP 3: LOGO + REKENING (GABUNG KARENA UNTUK NOTA) -->
         <div class="card" id="step3">
-            <span class="step-badge">LANGKAH 3 DARI 6 - LOGO</span>
-            <div class="section-title"><i class="bi bi-image"></i> Logo Nota Batik</div>
-            <p class="section-sub">Logo muncul di header nota batik asli + watermark tengah.</p>
-            <div class="form-group"><label>Logo</label><div style="display:flex; gap:12px; background:#fdfdfd; padding:12px; border-radius:8px; border:1px solid #eee; align-items:center;"><div style="width:60px; height:60px; background:#fff; border:1px solid #ddd; border-radius:8px; display:flex; align-items:center; justify-content:center; overflow:hidden;"><% if (config.logo_path) { %><img src="<%= config.logo_path %>" id="logoPreview" style="width:100%; height:100%; object-fit:contain;"><% } else { %><i class="bi bi-image" id="logoIcon"></i><img id="logoPreview" style="display:none; width:100%; height:100%; object-fit:contain;"><% } %></div><div style="flex:1;"><input type="file" name="logo" accept="image/*" onchange="previewLogo(event)"><small style="font-size:10px;">JPG/PNG max 2MB.</small></div></div></div>
-            <div class="preview-nota-real"><div class="header-real"><img id="logoPreviewReal" src="<%= config.logo_path || '' %>" style="width:42px; height:42px; object-fit:contain; margin-right:10px; background:white; border-radius:4px; <%= config.logo_path ? '' : 'display:none;' %>"><i id="logoIconReal" class="bi bi-image" style="font-size:24px; margin-right:10px; color:var(--batik); <%= config.logo_path ? 'display:none;' : '' %>"></i><div><div style="font-size:12px; font-weight:800; color:#4a2c11; text-transform:uppercase;" id="preview-nama-real"><%= config.nama_perusahaan || 'NAMA TOKOMU' %></div><div style="font-size:8px; color:#5a4a3e;" id="preview-alamat-real"><%= config.alamat || 'Alamat' %></div></div></div><div style="height:6px; background: repeating-linear-gradient(45deg, #8c6239, #8c6239 6px, #d4af37 6px, #d4af37 12px); margin:6px 0; border-radius:2px;"></div><div style="font-size:8px; color:#666;">Preview header nota batik asli.</div></div>
-            <div style="display:flex; gap:10px;"><button type="button" class="btn btn-outline" style="flex:1;" onclick="nextStep(2)">Kembali</button><button type="button" class="btn btn-primary" style="flex:2;" onclick="nextStep(4)">REKENING</button></div>
-        </div>
+            <span class="step-badge">LANGKAH 3 DARI 6 - LOGO & REKENING (NOTA)</span>
+            <div class="section-title"><i class="bi bi-image"></i> Logo & Rekening Untuk Nota Batik</div>
+            <p class="section-sub">Logo & rekening muncul di nota batik asli. Semua level bisa isi logo & rekening.</p>
+            
+            <div class="form-group"><label>Logo Perusahaan / Nota</label><div style="display:flex; gap:12px; background:#fdfdfd; padding:12px; border-radius:8px; border:1px solid #eee; align-items:center;"><div style="width:60px; height:60px; background:#fff; border:1px solid #ddd; border-radius:8px; display:flex; align-items:center; justify-content:center; overflow:hidden;"><% if (config.logo_path) { %><img src="<%= config.logo_path %>" id="logoPreview" style="width:100%; height:100%; object-fit:contain;"><% } else { %><i class="bi bi-image" id="logoIcon"></i><img id="logoPreview" style="display:none; width:100%; height:100%; object-fit:contain;"><% } %></div><div style="flex:1;"><input type="file" name="logo" accept="image/*" onchange="previewLogo(event)"><small style="font-size:10px;">Logo muncul di header nota & watermark tengah nota.</small></div></div></div>
 
-        <div class="card" id="step4">
-            <span class="step-badge">LANGKAH 4 DARI 6 - REKENING</span>
-            <div class="section-title"><i class="bi bi-bank"></i> Rekening Untuk Nota</div>
-            <p class="section-sub">Otomatis tercetak di kotak <b>Info Transfer Pembayaran</b> di nota batik.</p>
-            <div class="preview-nota-real"><div class="bank-box"><span id="preview-bank"><%= config.bank_nama || 'BCA' %></span>: <strong id="preview-rek"><%= config.bank_rekening || '1234567890' %></strong><br>a/n <span id="preview-an"><%= config.bank_atas_nama || 'Budi' %></span></div><div style="font-size:8px; color:#666; margin-top:4px;">Ini bagian footer nota asli (baris 358-364).</div></div>
-            <div class="grid-2">
-                <div class="form-group"><label>Nama Bank / E-Wallet</label><input type="text" name="bank_nama" id="bank_nama" value="<%= config.bank_nama || '' %>" placeholder="BCA / BRI / DANA" oninput="updateAllPreview()"></div>
-                <div class="form-group"><label>Nomor Rekening</label><input type="text" name="bank_rekening" id="bank_rekening" value="<%= config.bank_rekening || '' %>" placeholder="1234567890" oninput="updateAllPreview()"></div>
-                <div class="form-group" style="grid-column: 1 / -1;"><label>Atas Nama</label><input type="text" name="bank_atas_nama" id="bank_atas_nama" value="<%= config.bank_atas_nama || '' %>" placeholder="Budi Santoso" oninput="updateAllPreview()"></div>
+            <div class="preview-nota-real">
+                <div class="header-real"><img id="logoPreviewReal" src="<%= config.logo_path || '' %>" style="width:42px; height:42px; object-fit:contain; margin-right:10px; background:white; border-radius:4px; <%= config.logo_path ? '' : 'display:none;' %>"><i id="logoIconReal" class="bi bi-image" style="font-size:24px; margin-right:10px; color:var(--batik); <%= config.logo_path ? 'display:none;' : '' %>"></i><div><div style="font-size:12px; font-weight:800; color:#4a2c11; text-transform:uppercase;" id="preview-nama-real"><%= config.nama_perusahaan || 'NAMA TOKO' %></div><div style="font-size:8px; color:#5a4a3e;" id="preview-alamat-real"><%= config.alamat || 'Alamat' %></div></div><div style="margin-left:auto; text-align:right; font-size:10px; color:var(--batik); font-weight:bold;">NOTA</div></div>
+                <div style="height:6px; background: repeating-linear-gradient(45deg, #8c6239 6px, #d4af37 6px); margin:6px 0; border-radius:2px;"></div>
+                <div class="bank-box"><span id="preview-bank"><%= config.bank_nama || 'BCA' %></span>: <strong id="preview-rek"><%= config.bank_rekening || '1234567890' %></strong><br>a/n <span id="preview-an"><%= config.bank_atas_nama || 'Pemilik' %></span></div>
+                <div style="font-size:8px; color:#888; margin-top:4px;">Preview ini 1:1 sama print-nota-gabungan_asli.txt</div>
             </div>
-            <div style="display:flex; gap:10px;"><button type="button" class="btn btn-outline" style="flex:1;" onclick="nextStep(3)">Kembali</button><button type="button" class="btn btn-primary" style="flex:2;" onclick="nextStep(5)">FINANSIAL</button></div>
+
+            <div class="grid-2" style="margin-top:12px;">
+                <div class="form-group"><label>Nama Bank / E-Wallet</label><input type="text" name="bank_nama" id="bank_nama" value="<%= config.bank_nama || '' %>" placeholder="BCA / DANA" oninput="updateAllPreview()"></div>
+                <div class="form-group"><label>Nomor Rekening</label><input type="text" name="bank_rekening" id="bank_rekening" value="<%= config.bank_rekening || '' %>" placeholder="1234567890" oninput="updateAllPreview()"></div>
+                <div class="form-group" style="grid-column:1/-1;"><label>Atas Nama</label><input type="text" name="bank_atas_nama" id="bank_atas_nama" value="<%= config.bank_atas_nama || '' %>" placeholder="Budi Santoso" oninput="updateAllPreview()"></div>
+            </div>
+
+            <div style="display:flex; gap:10px;"><button type="button" class="btn btn-outline" style="flex:1;" onclick="nextStep(2)">Kembali</button><button type="button" class="btn btn-primary" style="flex:2;" onclick="nextStep(4)">LANJUT FINANSIAL</button></div>
         </div>
 
-        <div class="card" id="step5">
-            <span class="step-badge">LANGKAH 5 DARI 6 - KEUANGAN (KUNCI PROFIT)</span>
-            <div class="section-title"><i class="bi bi-cash-coin"></i> Uang Aman & Beban Tetap</div>
-            <p class="section-sub">Ini yang menentukan <b>kapan perusahaan dianggap PROFIT & owner boleh ambil untung</b>.</p>
+        <!-- STEP 4: FINANSIAL - ADA PEMBEDA PRO -->
+        <div class="card" id="step4">
+            <span class="step-badge">LANGKAH 4 DARI 6 - FINANSIAL (KUNCI PROFIT) <% if (!isPro) { %><span class="badge-pro">PRO ONLY</span><% } %></span>
+            <div class="section-title"><i class="bi bi-cash-coin"></i> Uang Aman & Beban Tetap <% if (!isPro) { %><span style="font-size:11px; color:var(--warning);"><i class="bi bi-lock-fill"></i> Terkunci untuk Standar</span><% } %></div>
+            <p class="section-sub"><% if (isPro) { %>Kamu akun PRO, bisa atur ambang batas profit owner.<% } else { %>Kamu akun <b>Standar Level 1</b> — 2 field ini <b>terkunci</b>. Hanya bisa dilihat, tidak bisa diubah. Upgrade PRO untuk ubah.<% } %></p>
 
             <div class="grid-2">
                 <div class="form-group">
                     <label>Saldo Dikunci (Uang Aman) <span class="badge-pro">PRO</span></label>
-                    <% if (isPro) { %><input type="number" name="nominal_buffer" value="<%= config.nominal_buffer || 0 %>"><% } else { %><input type="number" value="<%= config.nominal_buffer || 0 %>" readonly class="pro-locked-field" onclick="ajakUpgrade('Saldo Aman')"><input type="hidden" name="nominal_buffer" value="<%= config.nominal_buffer || 0 %>"><% } %>
-                    <div class="detail-box red">
-                        <i class="bi bi-lock-fill"></i> <b>Apa itu Saldo Dikunci?</b><br>
-                        Uang kas yang <b>Wajib ada & tidak boleh diambil</b> untuk jaga-jaga. Misal buat beli benang mendadak, servis mesin, atau talangan order.<br>
-                        <b>Contoh:</b> Kamu set Rp 2.000.000. Artinya kas harus selalu sisa minimal Rp 2jt. Kalau kas tinggal Rp 2,5jt, yang bisa dipakai cuma Rp 500rb.
+                    <% if (isPro) { %>
+                        <input type="number" name="nominal_buffer" value="<%= config.nominal_buffer || 0 %>">
+                    <% } else { %>
+                        <input type="number" value="<%= config.nominal_buffer || 0 %>" readonly class="pro-locked-field" onclick="ajakUpgrade('Saldo Aman')">
+                        <input type="hidden" name="nominal_buffer" value="<%= config.nominal_buffer || 0 %>">
+                    <% } %>
+                    <div class="detail-box red" style="margin-top:8px;">
+                        <i class="bi bi-lock-fill"></i> <b>Saldo Dikunci?</b> Uang kas wajib sisa minimal. Misal set Rp 2jt → kas harus selalu sisa Rp 2jt. Untuk jaga-jaga beli benang mendadak / servis mesin.
                     </div>
                 </div>
-
                 <div class="form-group">
                     <label>Beban Tetap Bulanan <span class="badge-pro">PRO</span></label>
-                    <% if (isPro) { %><input type="number" name="beban_tetap" value="<%= config.beban_tetap || 0 %>"><% } else { %><input type="number" value="<%= config.beban_tetap || 0 %>" readonly class="pro-locked-field" onclick="ajakUpgrade('Beban Tetap')"><input type="hidden" name="beban_tetap" value="<%= config.beban_tetap || 0 %>"><% } %>
-                    <div class="detail-box yellow">
-                        <i class="bi bi-receipt"></i> <b>Apa itu Beban Tetap? (Definisi Tatriz)</b><br>
-                        Ini <b>cicilan / beban owner yang ditanggung perusahaan</b> tiap bulan, <b>bukan</b> cuma listrik.<br>
-                        <b>Contoh nyata:</b><br>
-                        • Cicilan mesin bordir owner Rp 1.500.000<br>
-                        • Sewa mesin tambahan Rp 800.000<br>
-                        • Kontrakan workshop Rp 1.000.000<br>
-                        <b>Total Beban Tetap = Rp 3.300.000</b><br><br>
-                        Ini harus dibayar perusahaan tiap bulan, walau tidak ada orderan sekalipun.
+                    <% if (isPro) { %>
+                        <input type="number" name="beban_tetap" value="<%= config.beban_tetap || 0 %>">
+                    <% } else { %>
+                        <input type="number" value="<%= config.beban_tetap || 0 %>" readonly class="pro-locked-field" onclick="ajakUpgrade('Beban Tetap')">
+                        <input type="hidden" name="beban_tetap" value="<%= config.beban_tetap || 0 %>">
+                    <% } %>
+                    <div class="detail-box yellow" style="margin-top:8px;">
+                        <i class="bi bi-receipt"></i> <b>Beban Tetap? (Definisi Tatriz)</b><br>
+                        Cicilan owner yang ditanggung perusahaan tiap bulan:<br>
+                        • Cicilan mesin bordir owner<br>
+                        • Sewa mesin tambahan<br>
+                        • Kontrakan workshop<br>
+                        Wajib dibayar walau tidak ada orderan.
                     </div>
                 </div>
             </div>
 
             <div class="detail-box blue">
-                <i class="bi bi-calculator-fill"></i> <b>RUMUS PROFIT TATRIZ - Kapan Owner Boleh Ambil Untung?</b><br><br>
-                Sistem akan hitung: <b>Saldo Kunci + Beban Tetap = Ambang Batas Profit</b><br>
+                <i class="bi bi-calculator-fill"></i> <b>RUMUS: Kapan Owner Boleh Ambil Profit?</b><br>
                 <div class="formula-box">
-                    Contoh setting kamu:<br>
-                    Saldo Dikunci = Rp 2.000.000<br>
-                    Beban Tetap = Rp 3.300.000 (cicilan mesin + sewa + kontrakan)<br>
-                    ----------------------------------- +<br>
-                    Ambang Batas = Rp 5.300.000<br><br>
-                    Jika Kas Bulan Ini = Rp 6.000.000<br>
-                    → Profit yang boleh diambil owner = Rp 700.000<br><br>
-                    Jika Kas Bulan Ini = Rp 4.000.000<br>
-                    → <span style="color:#fca5a5;">Perusahaan BELUM PROFIT. Owner BELUM boleh ambil untung.</span><br>
-                    → Uang masih untuk nutup cicilan & jaga saldo aman.
+                    Saldo Dikunci + Beban Tetap = Ambang Batas<br>
+                    Contoh: 2.000.000 + 3.300.000 = 5.300.000<br><br>
+                    Kas bulan ini 6jt → Profit boleh ambil 700rb<br>
+                    Kas bulan ini 4jt → <span style="color:#fca5a5;">BELUM PROFIT. Owner belum boleh ambil untung.</span>
                 </div>
-                <b>Jadi:</b> Kalau 2 angka ini belum tercapai, di dashboard akan tertulis perusahaan belum profit bulan itu. Owner sabar dulu, jangan ambil profit. Uang buat bayar cicilan mesin & jaga kas aman.
+                Kalau belum tercapai, dashboard tulis "Belum Profit". Uang masih untuk cicilan & saldo aman.
+                <% if (!isPro) { %><br><br><b style="color:var(--warning);"><i class="bi bi-lock"></i> Akun Standar tidak bisa ubah angka ini. Klik field untuk upgrade PRO.</b><% } %>
             </div>
 
             <div class="grid-2" style="margin-top:12px;">
@@ -175,15 +183,82 @@
                 <input type="hidden" name="nominal_bonus_lipat" value="<%= config.nominal_bonus_lipat || 0 %>">
             <% } %>
 
-            <div style="display:flex; gap:10px; margin-top:10px;"><button type="button" class="btn btn-outline" style="flex:1;" onclick="nextStep(4)">Kembali</button><button type="button" class="btn btn-primary" style="flex:2;" onclick="nextStep(6)">LANJUT MESIN</button></div>
+            <div style="display:flex; gap:10px; margin-top:10px;"><button type="button" class="btn btn-outline" style="flex:1;" onclick="nextStep(3)">Kembali</button><button type="button" class="btn btn-primary" style="flex:2;" onclick="nextStep(5)">LANJUT MESIN</button></div>
         </div>
 
-        <div class="card" id="step6">
-            <span class="step-badge green">LANGKAH 6 DARI 6 - MESIN</span>
-            <div class="section-title"><i class="bi bi-cpu"></i> Mesin Bordir</div>
-            <table><thead><tr><th>ID</th><th>Nama Mesin</th><th style="text-align:center;">Aksi</th></tr></thead><tbody><% machines.forEach(m => { %><tr><td>#<%= m.id %></td><td><strong><%= m.nama_mesin %></strong></td><td style="text-align:center;"><% if (isPro) { %><div style="display:flex; gap:5px; justify-content:center;"><button type="button" onclick="editMesin('<%= m.id %>','<%= m.nama_mesin %>')" style="background:var(--blue); color:white; border:none; padding:6px 12px; border-radius:6px;"><i class="bi bi-pencil"></i></button><button type="button" onclick="konfirmasiHapusMesin('<%= m.id %>')" style="background:var(--danger); color:white; border:none; padding:6px 12px; border-radius:6px;"><i class="bi bi-trash"></i></button></div><% } else { %><i class="bi bi-lock-fill"></i><% } %></td></tr><% }) %></tbody></table>
-            <% if (isPro) { %><div class="form-group" style="margin-top:12px; background:#f0f8ff; padding:12px; border-radius:8px; border:1px dashed var(--blue);"><label style="color:var(--blue);">Tambah Mesin Baru</label><div style="display:flex; gap:8px;"><input type="text" id="nama_mesin_baru" placeholder="Mesin 02"><button type="button" class="btn" style="width:auto; background:var(--blue); padding:0 18px;" onclick="tambahMesin()">TAMBAH</button></div></div><% } %>
-            <div style="display:flex; gap:10px; margin-top:15px;"><button type="button" class="btn btn-outline" style="flex:1;" onclick="nextStep(5)">Kembali</button><button type="submit" class="btn btn-save" style="flex:2;"><i class="bi bi-cloud-check-fill"></i> SIMPAN SEMUA</button></div>
+        <!-- STEP 5: MESIN - ADA PEMBEDA PRO SESUAI ASLI -->
+        <div class="card" id="step5" style="border-left:5px solid var(--blue);">
+            <span class="step-badge">LANGKAH 5 DARI 6 - MESIN <% if (!isPro) { %><span class="badge-pro">PRO ONLY</span><% } %></span>
+            <div class="section-title" style="border-bottom-color: var(--blue);"><i class="bi bi-cpu"></i> Manajemen Mesin Produksi</div>
+            <p class="section-sub"><% if (isPro) { %>Akun PRO bisa tambah mesin tanpa batas.<% } else { %>Akun Standar terbatas 1 Mesin aktif. Upgrade PRO untuk tambah mesin Portable/Cabang.<% } %></p>
+
+            <% if (!isPro && machines.length >= 1) { %>
+                <div onclick="ajakUpgrade('Multi Mesin')" style="background: #fff9db; padding: 12px; border-radius: 8px; border: 1px solid #fab005; margin-bottom: 15px; font-size: 13px; cursor: pointer;">
+                    <i class="bi bi-lock-fill"></i> Akun Standar terbatas 1 Mesin aktif. <b>Upgrade PRO</b> untuk menambah unit mesin (Portable/Cabang).
+                </div>
+            <% } else { %>
+                <div class="form-group" style="background: #f0f8ff; padding: 15px; border-radius: 8px; border: 1px dashed var(--blue);">
+                    <label style="color: var(--blue);"><i class="bi bi-plus-circle-fill"></i> Tambah Mesin Baru</label>
+                    <div style="display: flex; gap: 10px;">
+                        <input type="text" name="nama_mesin_baru" id="nama_mesin_baru" placeholder="Contoh: Mesin 02 - Portable" style="flex: 1; border-color: #b9d7f1;">
+                        <button type="button" class="btn" style="width: auto; background: var(--blue); padding: 0 20px;" onclick="tambahMesin()">TAMBAH</button>
+                    </div>
+                    <small style="color: #555; font-size: 10px; margin-top: 5px; display: block;">*Ketik nama mesin lalu klik tambah.</small>
+                </div>
+            <% } %>
+
+            <table>
+                <thead><tr><th style="width:50px;">ID</th><th>Nama Mesin Aktif</th><th style="text-align:center; width:150px;">Aksi</th></tr></thead>
+                <tbody>
+                    <% machines.forEach(m => { %>
+                    <tr>
+                        <td style="color: #95a5a6;">#<%= m.id %></td>
+                        <td><strong><%= m.nama_mesin %></strong> <% if (!isPro) { %><span class="badge-pro" style="margin-left:6px;"><i class="bi bi-lock"></i> Standar</span><% } %></td>
+                        <td style="text-align: center;">
+                            <% if (isPro) { %>
+                                <div style="display: flex; gap: 5px; justify-content: center;">
+                                    <button type="button" onclick="editMesin('<%= m.id %>', '<%= m.nama_mesin %>')" style="background: var(--blue); color: white; border: none; padding: 6px 12px; border-radius: 6px; cursor: pointer; font-size: 11px;"><i class="bi bi-pencil"></i></button>
+                                    <button type="button" onclick="konfirmasiHapusMesin('<%= m.id %>')" style="background: var(--danger); color: white; border: none; padding: 6px 12px; border-radius: 6px; cursor: pointer; font-size: 11px;"><i class="bi bi-trash"></i></button>
+                                </div>
+                            <% } else { %>
+                                <i class="bi bi-lock-fill text-muted" onclick="ajakUpgrade('Manajemen Mesin')" style="cursor:pointer; padding:6px 12px; background:#fff3cd; border-radius:6px; border:1px dashed #fab005;" title="Upgrade PRO untuk edit/hapus mesin"></i>
+                                <small style="display:block; font-size:9px; color:#fab005; margin-top:3px;">Terkunci</small>
+                            <% } %>
+                        </td>
+                    </tr>
+                    <% }) %>
+                </tbody>
+            </table>
+
+            <% if (!isPro) { %>
+                <div class="detail-box yellow" style="margin-top:12px;">
+                    <i class="bi bi-info-circle"></i> <b>Akun Standar Level 1:</b><br>
+                    • Hanya boleh 1 mesin aktif<br>
+                    • Tidak bisa edit/hapus nama mesin (klik gembok untuk upgrade)<br>
+                    • Tidak bisa tambah mesin Portable/Cabang<br>
+                    • Untuk buka kunci, hubungi admin upgrade PRO.
+                </div>
+            <% } %>
+
+            <div style="display:flex; gap:10px; margin-top:15px;"><button type="button" class="btn btn-outline" style="flex:1;" onclick="nextStep(4)">Kembali</button><button type="button" class="btn btn-primary" style="flex:2;" onclick="nextStep(6)">RINGKASAN</button></div>
+        </div>
+
+        <!-- STEP 6: RINGKASAN SIMPAN -->
+        <div class="card" id="step6" style="text-align:center;">
+            <span class="step-badge green">LANGKAH 6 DARI 6 - SELESAI</span>
+            <div style="width:70px; height:70px; background:#e8f8f5; border-radius:50%; display:flex; align-items:center; justify-content:center; margin:15px auto;"><i class="bi bi-check-circle-fill" style="font-size:40px; color:var(--primary);"></i></div>
+            <div class="section-title" style="justify-content:center;">Siap Simpan?</div>
+            <p class="section-sub">Cek lagi, kalau sudah benar klik simpan. Perubahan akan langsung muncul di nota batik & dashboard.</p>
+            <div style="background:#f8f9fa; padding:12px; border-radius:8px; text-align:left; font-size:12px; border:1px dashed var(--primary); line-height:1.8;">
+                <b>Ringkasan yang akan disimpan:</b><br>
+                Toko: <span id="sum-nama"><%= config.nama_perusahaan %></span><br>
+                WA: +62<span id="sum-wa"><%= config.no_hp ? config.no_hp.toString().replace(/^62/, '') : '' %></span><br>
+                Rekening: <span id="sum-bank"><%= config.bank_nama || '-' %> - <%= config.bank_rekening || '-' %></span><br>
+                Saldo Dikunci: Rp <%= (config.nominal_buffer || 0).toLocaleString('id-ID') %> <% if (!isPro) { %><span class="badge-pro">Terkunci</span><% } %><br>
+                Beban Tetap: Rp <%= (config.beban_tetap || 0).toLocaleString('id-ID') %> <% if (!isPro) { %><span class="badge-pro">Terkunci</span><% } %><br>
+                Mesin Aktif: <%= machines.length %> unit <% if (!isPro) { %>(Maks 1 untuk Standar)<% } %>
+            </div>
+            <div style="display:flex; gap:10px; margin-top:15px;"><button type="button" class="btn btn-outline" style="flex:1;" onclick="nextStep(5)">Kembali Edit</button><button type="submit" class="btn btn-save" style="flex:2;"><i class="bi bi-cloud-check-fill"></i> SIMPAN SEMUA PERUBAHAN</button></div>
         </div>
 
     </form>
@@ -192,13 +267,13 @@
 <script>
 function nextStep(n){ document.querySelectorAll('.card').forEach(c=>c.classList.remove('active')); document.getElementById('step'+n).classList.add('active'); document.querySelectorAll('.progress-wizard div').forEach((p,i)=>{ p.classList.remove('current'); p.classList.toggle('active', i < n-1); if(i===n-1) p.classList.add('current'); }); window.scrollTo({top:0, behavior:'smooth'}); }
 function tampilkanLoader(){ document.getElementById('quickLoader').classList.add('show'); }
-function updateAllPreview(){ const nama=document.getElementById('nama_perusahaan')?.value || 'NAMA TOKOMU'; const alamat=document.getElementById('alamat')?.value || ''; const bank=document.getElementById('bank_nama')?.value || 'BCA'; const rek=document.getElementById('bank_rekening')?.value || '1234567890'; const an=document.getElementById('bank_atas_nama')?.value || 'Budi'; document.getElementById('preview-nama-real') && (document.getElementById('preview-nama-real').innerText=nama); document.getElementById('preview-alamat-real') && (document.getElementById('preview-alamat-real').innerText=alamat); document.getElementById('preview-bank') && (document.getElementById('preview-bank').innerText=bank); document.getElementById('preview-rek') && (document.getElementById('preview-rek').innerText=rek); document.getElementById('preview-an') && (document.getElementById('preview-an').innerText=an); }
+function updateAllPreview(){ const nama=document.getElementById('nama_perusahaan')?.value || document.querySelector('[name="nama_perusahaan"]')?.value || 'NAMA TOKO'; const alamat=document.getElementById('alamat')?.value || ''; const bank=document.getElementById('bank_nama')?.value || 'BCA'; const rek=document.getElementById('bank_rekening')?.value || '1234567890'; const an=document.getElementById('bank_atas_nama')?.value || 'Pemilik'; document.getElementById('preview-nama-real') && (document.getElementById('preview-nama-real').innerText=nama); document.getElementById('preview-alamat-real') && (document.getElementById('preview-alamat-real').innerText=alamat); document.getElementById('preview-bank') && (document.getElementById('preview-bank').innerText=bank); document.getElementById('preview-rek') && (document.getElementById('preview-rek').innerText=rek); document.getElementById('preview-an') && (document.getElementById('preview-an').innerText=an); const sumNama=document.getElementById('sum-nama'); if(sumNama) sumNama.innerText=nama; const sumBank=document.getElementById('sum-bank'); if(sumBank) sumBank.innerText=bank+' - '+rek; }
 function previewLogo(e){ const file=e.target.files[0]; if(!file) return; const r=new FileReader(); r.onload=function(ev){ const p=document.getElementById('logoPreview'); if(p){ p.src=ev.target.result; p.style.display='block'; } const ic=document.getElementById('logoIcon'); if(ic) ic.style.display='none'; const pr=document.getElementById('logoPreviewReal'); if(pr){ pr.src=ev.target.result; pr.style.display='block'; } const icr=document.getElementById('logoIconReal'); if(icr) icr.style.display='none'; }; r.readAsDataURL(file); }
-function formatNomorWA(i){ let n=i.value.replace(/\D/g,''); if(n.startsWith('0')) n=n.substring(1); if(n.startsWith('62')) n=n.substring(2); i.value=n; }
+function formatNomorWA(i){ let n=i.value.replace(/\D/g,''); if(n.startsWith('0')) n=n.substring(1); if(n.startsWith('62')) n=n.substring(2); i.value=n; const sumWa=document.getElementById('sum-wa'); if(sumWa) sumWa.innerText=n; }
 function tambahMesin(){ const nama=document.getElementById('nama_mesin_baru').value.trim(); if(!nama){ Swal.fire('Isi dulu','Nama mesin kosong','warning'); return; } tampilkanLoader(); const form=document.createElement('form'); form.method='POST'; form.action='/save-settings-all'; form.enctype='multipart/form-data'; ['nama_perusahaan','no_hp','alamat','bank_nama','bank_rekening','bank_atas_nama','nominal_buffer','beban_tetap','jam_kerja_reguler','pembagi_lembur'].forEach(name=>{ const el=document.querySelector(`[name="${name}"]`); if(el){ const h=document.createElement('input'); h.type='hidden'; h.name=name; h.value=el.value; form.appendChild(h); } }); const m=document.createElement('input'); m.type='hidden'; m.name='nama_mesin_baru'; m.value=nama; form.appendChild(m); document.body.appendChild(form); form.submit(); }
-function ajakUpgrade(f){ Swal.fire({ title:'Fitur PRO!', text:f+' hanya di PRO', icon:'lock', showCancelButton:true, confirmButtonColor:'#2ecc71', confirmButtonText:'Hubungi Developer' }).then(r=>{ if(r.isConfirmed) window.open('https://wa.me/+6281315290003?text=Upgrade PRO '+f, '_blank'); }); }
-function editMesin(id,nama){ Swal.fire({ title:'Edit Mesin', input:'text', inputValue:nama, showCancelButton:true }).then(r=>{ if(r.isConfirmed && r.value){ tampilkanLoader(); const form=document.createElement('form'); form.method='POST'; form.action='/save-mesin'; const i1=document.createElement('input'); i1.type='hidden'; i1.name='mesin_id'; i1.value=id; const i2=document.createElement('input'); i2.type='hidden'; i2.name='nama_mesin'; i2.value=r.value; form.appendChild(i1); form.appendChild(i2); document.body.appendChild(form); form.submit(); } }); }
-function konfirmasiHapusMesin(id){ Swal.fire({ title:'Hapus mesin?', icon:'warning', showCancelButton:true, confirmButtonColor:'#e74c3c', confirmButtonText:'Ya' }).then(r=>{ if(r.isConfirmed){ tampilkanLoader(); window.location.href='/delete-mesin/'+id; } }); }
+function ajakUpgrade(f){ Swal.fire({ title:'Fitur PRO!', text:'Pengaturan '+f+' hanya tersedia di paket PRO untuk optimasi bisnis Anda.', icon:'lock', showCancelButton:true, confirmButtonColor:'#2ecc71', confirmButtonText:'Hubungi Developer', cancelButtonText:'Nanti Dulu' }).then(r=>{ if(r.isConfirmed) window.open('https://wa.me/+6281315290003?text=Halo%20Admin%20Tatriz,%20saya%20tertarik%20upgrade%20PRO%20terkait%20fitur%20'+f, '_blank'); }); }
+function editMesin(id,nama){ Swal.fire({ title:'Edit Nama Mesin', input:'text', inputValue:nama, showCancelButton:true, confirmButtonText:'Simpan' }).then(r=>{ if(r.isConfirmed && r.value){ tampilkanLoader(); const form=document.createElement('form'); form.method='POST'; form.action='/save-mesin'; const i1=document.createElement('input'); i1.type='hidden'; i1.name='mesin_id'; i1.value=id; const i2=document.createElement('input'); i2.type='hidden'; i2.name='nama_mesin'; i2.value=r.value; form.appendChild(i1); form.appendChild(i2); document.body.appendChild(form); form.submit(); } }); }
+function konfirmasiHapusMesin(id){ Swal.fire({ title:'Hapus mesin?', icon:'warning', showCancelButton:true, confirmButtonColor:'#e74c3c', confirmButtonText:'Ya, Hapus!' }).then(r=>{ if(r.isConfirmed){ tampilkanLoader(); window.location.href='/delete-mesin/'+id; } }); }
 document.addEventListener('DOMContentLoaded', ()=>{ document.getElementById('quickLoader').classList.remove('show'); updateAllPreview(); });
 </script>
 </body>
