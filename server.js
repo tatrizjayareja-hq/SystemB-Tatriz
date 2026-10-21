@@ -280,13 +280,13 @@ app.get('/', async (req, res) => {
         const result = await db.query("SELECT COUNT(*) as jml FROM settings");
         const isNewSystem = (result.rows[0].jml === '0');
 
-        res.render('login', { 
+        res.render('landing', { 
             isNew: isNewSystem,
             version: APP_VERSION // <--- TAMBAHKAN BARIS INI
         });
     } catch (err) {
         console.error(err);
-        res.render('login', { isNew: false, version: APP_VERSION });
+        res.render('landing', { isNew: false, version: APP_VERSION });
     }
 });
 

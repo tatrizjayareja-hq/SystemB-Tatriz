@@ -1,0 +1,462 @@
+<%- include('partials/header') %>
+
+<!-- Deklarasi Variabel Akses Level -->
+<% const isPro = (user.tenantId === 1 || user.tenantId === 100 || user.tenantLevel >= 2); %>
+
+<!-- Library Chart.js untuk Grafik -->
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+<style>
+    body { background-color: #f4f7f9; padding-bottom: 80px; font-family: 'Segoe UI', sans-serif; }
+    
+    /* --- WALLET CARD (Kartu Saldo Premium) --- */
+    .wallet-card {
+        background: linear-gradient(135deg, #0a463c 0%, #117a65 100%);
+        color: white;
+        border-radius: 20px;
+        padding: 25px;
+        position: relative;
+        overflow: hidden;
+        box-shadow: 0 10px 20px rgba(10, 70, 60, 0.2);
+    }
+    .wallet-card::after {
+        content: ''; position: absolute; top: -50%; right: -20%;
+        width: 200px; height: 200px; background: rgba(255,255,255,0.1);
+        border-radius: 50%;
+    }
+    .wallet-card-kritis {
+        background: linear-gradient(135deg, #c0392b 0%, #e74c3c 100%);
+        box-shadow: 0 10px 20px rgba(231, 76, 60, 0.2);
+    }
+
+    /* --- MENU GRID (App Drawer Style) --- */
+    .menu-grid {
+        display: grid;
+        grid-template-columns: repeat(4, 1fr);
+        gap: 15px;
+    }
+    @media (max-width: 768px) {
+        .menu-grid { grid-template-columns: repeat(3, 1fr); gap: 10px; }
+    }
+    @media (max-width: 480px) {
+        .menu-grid { grid-template-columns: repeat(2, 1fr); }
+    }
+    
+    .app-icon-btn {
+        background: white;
+        border-radius: 16px;
+        padding: 15px 10px;
+        text-align: center;
+        text-decoration: none;
+        color: #2c3e50;
+        box-shadow: 0 4px 10px rgba(0,0,0,0.03);
+        transition: all 0.2s ease-in-out;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        position: relative;
+        border: 1px solid #f1f2f6;
+    }
+    .app-icon-btn:hover {
+        transform: translateY(-5px);
+        box-shadow: 0 8px 15px rgba(0,0,0,0.08);
+        color: #2ecc71;
+    }
+    .app-icon-btn i {
+        font-size: 28px;
+        margin-bottom: 8px;
+        color: #0a463c;
+    }
+    .app-icon-btn span {
+        font-size: 11px;
+        font-weight: 700;
+        line-height: 1.2;
+    }
+    .app-icon-btn.locked { opacity: 0.7; }
+    .app-icon-btn.locked i { color: #95a5a6; }
+    .locked-badge {
+        position: absolute; top: 8px; right: 8px;
+        background: #f39c12; color: white;
+        font-size: 9px; padding: 2px 6px; border-radius: 10px; font-weight: bold;
+    }
+    .pro-badge {
+        position: absolute; top: 8px; right: 8px;
+        background: linear-gradient(135deg, #FFD700 0%, #DAA520 100%); color: #000;
+        font-size: 8px; padding: 2px 5px; border-radius: 6px; font-weight: 900;
+    }
+
+    /* --- CHART PANELS --- */
+    .chart-panel {
+        background: white; border-radius: 16px; padding: 20px;
+        box-shadow: 0 4px 10px rgba(0,0,0,0.03); border: 1px solid #f1f2f6;
+    }
+    .chart-container { position: relative; height: 250px; width: 100%; }
+</style>
+
+<div class="container-fluid mx-auto" style="max-width: 1000px; padding: 15px;">
+
+    <!-- ALERT MASALAH PRODUKSI -->
+    <% if (typeof jumlahMasalah !== 'undefined' && jumlahMasalah > 0) { %>
+        <a href="/daftar-produksi" class="d-flex align-items-center gap-3 p-3 mb-4 rounded-4 text-decoration-none shadow-sm" style="background: #fff5f5; border: 1px solid #ff4757;">
+            <i class="bi bi-exclamation-triangle-fill text-danger fs-2"></i>
+            <div>
+                <strong class="text-danger" style="font-size: 14px;">ADA MASALAH PRODUKSI</strong><br>
+                <span class="text-muted" style="font-size: 12px;"><%= jumlahMasalah %> rincian melebihi target. Cek sekarang!</span>
+            </div>
+            <i class="bi bi-chevron-right text-danger ms-auto"></i>
+        </a>
+    <% } %>
+
+    <div class="row g-4 mb-4">
+        <!-- KIRI: WALLET CARD -->
+        <div class="col-12 col-lg-5">
+            <div class="wallet-card <%= !uangKunci.statusAman ? 'wallet-card-kritis' : '' %> h-100 d-flex flex-column justify-content-between">
+                <div class="d-flex justify-content-between align-items-start mb-4">
+                    <div>
+                        <small class="fw-bold text-white-50" style="font-size: 11px; letter-spacing: 1px;">SALDO KAS (LACI)</small>
+                        <h2 class="fw-bold mb-0 mt-1 d-flex align-items-center gap-2">
+                            <span id="labelSaldo">Rp ******</span>
+                            <span id="valSaldo" style="display: none;">Rp <%= uangKunci.saldoLaci.toLocaleString('id-ID') %></span>
+                            <i class="bi bi-eye-slash fs-5 text-white-50 ms-2" id="toggleEye" onclick="togglePrivasi()" style="cursor: pointer;"></i>
+                        </h2>
+                    </div>
+                    <span class="badge <%= uangKunci.statusAman ? 'bg-success' : 'bg-warning text-dark' %> rounded-pill px-3 py-2 shadow-sm">
+                        <%= uangKunci.statusAman ? '🛡️ AMAN' : '⚠️ KRITIS' %>
+                    </span>
+                </div>
+
+                <% if (isPro) { %>
+                    <div id="profitSection" style="display: none;" class="row g-2 pt-3 border-top border-light border-opacity-25 mt-auto">
+                        <div class="col-6">
+                            <small class="text-white-50 fw-bold" style="font-size: 10px;">🔒 UANG DIKUNCI</small>
+                            <div class="fw-bold" style="font-size: 14px;">Rp <%= uangKunci.totalUangDikunci.toLocaleString('id-ID') %></div>
+                        </div>
+                        <div class="col-6 text-end">
+                            <small class="text-white-50 fw-bold" style="font-size: 10px;">💰 PROFIT SIAP TARIK</small>
+                            <div class="fw-bold text-warning" style="font-size: 16px;">Rp <%= uangKunci.profitBolehAmbil.toLocaleString('id-ID') %></div>
+                        </div>
+                    </div>
+                    <div id="profitHidden" class="text-center text-white-50 mt-auto" style="font-size: 11px;">
+                        Klik ikon mata untuk melihat rincian profit
+                    </div>
+                <% } else { %>
+                    <div class="mt-auto pt-3 border-top border-light border-opacity-25 text-center cursor-pointer" onclick="ajakUpgrade('Analisis Profit Riil')">
+                        <span class="text-white-50" style="font-size: 12px;"><i class="bi bi-lock-fill text-warning"></i> Lihat Profit (Akun PRO)</span>
+                    </div>
+                <% } %>
+            </div>
+        </div>
+
+        <!-- KANAN: STATISTIK PO (QUICK STATS) -->
+        <div class="col-12 col-lg-7">
+            <h6 class="fw-bold text-dark mb-3"><i class="bi bi-activity text-success me-2"></i>Status Pesanan (PO)</h6>
+            <div class="row g-2 h-75">
+                <div class="col-3">
+                    <div class="bg-white rounded-4 p-3 text-center h-100 shadow-sm border border-light d-flex flex-column justify-content-center">
+                        <small class="text-muted fw-bold mb-1" style="font-size: 10px;">DESIGN</small>
+                        <h3 class="fw-bold text-dark mb-0"><%= stats.jml_design %></h3>
+                    </div>
+                </div>
+                <div class="col-3">
+                    <div class="bg-white rounded-4 p-3 text-center h-100 shadow-sm border border-light d-flex flex-column justify-content-center">
+                        <small class="text-muted fw-bold mb-1" style="font-size: 10px;">ANTRI</small>
+                        <h3 class="fw-bold text-warning mb-0"><%= stats.jml_antri %></h3>
+                    </div>
+                </div>
+                <div class="col-3">
+                    <div class="bg-white rounded-4 p-3 text-center h-100 shadow-sm border border-light d-flex flex-column justify-content-center">
+                        <small class="text-muted fw-bold mb-1" style="font-size: 10px;">PROSES</small>
+                        <h3 class="fw-bold text-primary mb-0"><%= stats.jml_produksi %></h3>
+                    </div>
+                </div>
+                <div class="col-3">
+                    <div class="bg-white rounded-4 p-3 text-center h-100 shadow-sm border border-light d-flex flex-column justify-content-center">
+                        <small class="text-muted fw-bold mb-1" style="font-size: 10px;">CLEAR</small>
+                        <h3 class="fw-bold text-success mb-0"><%= stats.jml_invoice %></h3>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- AREA GRAFIK ANALITIK (REAL DATA) -->
+    <div class="row g-4 mb-5">
+        <!-- Grafik 1: Pemasukan vs Pengeluaran (Model Area / Garis Halus) -->
+        <div class="col-12 col-lg-7">
+            <div class="chart-panel h-100">
+                <h6 class="fw-bold text-dark mb-3"><i class="bi bi-activity text-primary me-2"></i>Arus Kas (6 Bulan Terakhir)</h6>
+                <div class="chart-container">
+                    <canvas id="financeChart"></canvas>
+                </div>
+            </div>
+        </div>
+        <!-- Grafik 2: Tren Profit Bersih (Model Batang) -->
+        <div class="col-12 col-lg-5">
+            <div class="chart-panel h-100">
+                <h6 class="fw-bold text-dark mb-3"><i class="bi bi-graph-up-arrow text-success me-2"></i>Tren Profit Bulanan</h6>
+                <div class="chart-container">
+                    <canvas id="profitChart"></canvas>
+                </div>
+            </div>
+        </div>
+    </div>
+
+   <!-- MENU NAVIGASI GRID (App Drawer) -->
+    <h6 class="fw-bold text-dark mb-3"><i class="bi bi-grid-fill text-primary me-2"></i>Menu Utama</h6>
+    <div class="menu-grid mb-4">
+        
+        <!-- Baris 1: Aksi Cepat -->
+        <a href="/po-baru-v2" class="app-icon-btn" style="background: #e8f5e9; border-color: #2ecc71;">
+            <i class="bi bi-plus-circle-fill text-success"></i><span>INPUT PO</span>
+        </a>
+        <a href="/input-kas" class="app-icon-btn" style="background: #e3f2fd; border-color: #3498db;">
+            <i class="bi bi-wallet2 text-primary"></i><span>INPUT KAS</span>
+        </a>
+        <a href="/po-data-v2" class="app-icon-btn">
+            <i class="bi bi-journal-text text-info"></i><span>Data PO</span>
+        </a>
+        <a href="/laporan-kas" class="app-icon-btn">
+            <i class="bi bi-cash-stack text-success"></i><span>Keuangan</span>
+        </a>
+
+        <!-- Baris 2: Produksi & Tagihan -->
+        <a href="/daftar-produksi" class="app-icon-btn">
+            <i class="bi bi-list-check text-warning"></i><span>Log Produksi</span>
+        </a>
+        <a href="/piutang-customer" class="app-icon-btn">
+            <i class="bi bi-receipt text-danger"></i><span>Tagihan / Piutang</span>
+        </a>
+        <a href="/nota-manual" class="app-icon-btn">
+            <i class="bi bi-printer text-secondary"></i><span>Nota Manual</span>
+        </a>
+        <a href="/input-kerja-admin" class="app-icon-btn">
+            <i class="bi bi-person-plus text-primary"></i><span>Input Admin</span>
+        </a>
+
+        <!-- Baris 3: Karyawan & Gaji -->
+        <a href="/karyawan" class="app-icon-btn">
+            <i class="bi bi-people text-info"></i><span>Karyawan</span>
+        </a>
+        <a href="/input-gaji" class="app-icon-btn">
+            <i class="bi bi-calculator text-success"></i><span>Hitung Gaji</span>
+        </a>
+        
+        <!-- Fitur PRO (Terkunci / Terbuka) -->
+        <% if (isPro) { %>
+            <a href="/jadwal-produksi" class="app-icon-btn">
+                <span class="pro-badge">PRO</span><i class="bi bi-calendar-range text-primary"></i><span>Jadwal Prod</span>
+            </a>
+            <a href="/performa-operator" class="app-icon-btn">
+                <span class="pro-badge">PRO</span><i class="bi bi-bar-chart-line text-success"></i><span>Performa Op</span>
+            </a>
+            <a href="/admin/data-cmt" class="app-icon-btn">
+                <span class="pro-badge">PRO</span><i class="bi bi-briefcase text-dark"></i><span>Vendor CMT</span>
+            </a>
+            <a href="/kiosk-produksi" target="_blank" class="app-icon-btn">
+                <span class="pro-badge">PRO</span><i class="bi bi-display text-info"></i><span>Kiosk Prod</span>
+            </a>
+            <a href="/cek-balance" class="app-icon-btn">
+                <span class="pro-badge">PRO</span><i class="bi bi-shield-check text-warning"></i><span>Audit Balance</span>
+            </a>
+            <a href="/backup-database" class="app-icon-btn">
+                <span class="pro-badge">PRO</span><i class="bi bi-cloud-download text-danger"></i><span>Backup DB</span>
+            </a>
+        <% } else { %>
+            <a href="javascript:void(0)" onclick="ajakUpgrade('Jadwal Produksi')" class="app-icon-btn locked">
+                <span class="locked-badge"><i class="bi bi-lock-fill text-white"></i></span><i class="bi bi-calendar-range"></i><span>Jadwal Prod</span>
+            </a>
+            <a href="javascript:void(0)" onclick="ajakUpgrade('Performa Operator')" class="app-icon-btn locked">
+                <span class="locked-badge"><i class="bi bi-lock-fill text-white"></i></span><i class="bi bi-bar-chart-line"></i><span>Performa Op</span>
+            </a>
+            <a href="javascript:void(0)" onclick="ajakUpgrade('Pengelolaan CMT')" class="app-icon-btn locked">
+                <span class="locked-badge"><i class="bi bi-lock-fill text-white"></i></span><i class="bi bi-briefcase"></i><span>Vendor CMT</span>
+            </a>
+            <a href="javascript:void(0)" onclick="ajakUpgrade('Terminal Kiosk')" class="app-icon-btn locked">
+                <span class="locked-badge"><i class="bi bi-lock-fill text-white"></i></span><i class="bi bi-display"></i><span>Kiosk Prod</span>
+            </a>
+            <a href="javascript:void(0)" onclick="ajakUpgrade('Audit Balance')" class="app-icon-btn locked">
+                <span class="locked-badge"><i class="bi bi-lock-fill text-white"></i></span><i class="bi bi-shield-check"></i><span>Audit Balance</span>
+            </a>
+            <a href="javascript:void(0)" onclick="ajakUpgrade('Cloud Backup')" class="app-icon-btn locked">
+                <span class="locked-badge"><i class="bi bi-lock-fill text-white"></i></span><i class="bi bi-cloud-download"></i><span>Backup DB</span>
+            </a>
+        <% } %>
+
+        <!-- Pengaturan Sistem -->
+        <a href="/setup-auth" class="app-icon-btn">
+            <i class="bi bi-gear text-secondary"></i><span>Pengaturan</span>
+        </a>
+    </div>
+
+    <!-- PIUTANG BANNER -->
+    <% if (isPro) { %>
+        <div class="p-4 rounded-4 shadow-sm text-center mb-4" style="background: linear-gradient(135deg, #2c3e50 0%, #34495e 100%);">
+            <small class="text-white-50 fw-bold" style="font-size: 11px; letter-spacing: 1px;">TOTAL UANG DI LUAR (PIUTANG)</small>
+            <h2 class="text-danger fw-bold my-2">Rp <%= (totalPiutangSemua || 0).toLocaleString('id-ID') %></h2>
+            <a href="/piutang-customer" class="btn btn-outline-light btn-sm fw-bold px-4 mt-2 rounded-pill">BUAT PENAGIHAN SEKARANG →</a>
+        </div>
+    <% } %>
+
+    <!-- DEVELOPER MODE -->
+    <% if (user.tenantId === 1) { %>
+        <div class="text-center mb-4">
+            <a href="/master-users" class="btn btn-dark fw-bold rounded-pill px-4 shadow-sm">
+                <i class="bi bi-shield-lock-fill text-warning me-2"></i> DEVELOPER MODE
+            </a>
+        </div>
+    <% } %>
+
+    <div class="text-center text-muted mt-5" style="font-size: 11px;">
+        &copy; 2026 <%= config.nama_perusahaan %> | Tatriz SystemB v2.1
+    </div>
+
+</div>
+
+<script>
+    // --- TOGGLE PRIVASI WALLET ---
+    function togglePrivasi() {
+        const val = document.getElementById('valSaldo');
+        const label = document.getElementById('labelSaldo');
+        const eye = document.getElementById('toggleEye');
+        const profit = document.getElementById('profitSection');
+        const profitHidden = document.getElementById('profitHidden');
+
+        if (val.style.display === 'none') {
+            val.style.display = 'inline';
+            label.style.display = 'none';
+            eye.classList.replace('bi-eye-slash', 'bi-eye');
+            if(profit) profit.style.display = 'flex';
+            if(profitHidden) profitHidden.style.display = 'none';
+        } else {
+            val.style.display = 'none';
+            label.style.display = 'inline';
+            eye.classList.replace('bi-eye', 'bi-eye-slash');
+            if(profit) profit.style.display = 'none';
+            if(profitHidden) profitHidden.style.display = 'block';
+        }
+    }
+
+   // --- ALERT UPGRADE ---
+    function ajakUpgrade(fitur) {
+        Swal.fire({
+            title: '<span style="color: #DAA520;">Fitur Premium</span>',
+            html: `Akses cepat ke <b>${fitur}</b> terkunci di paket standar.<br><br>Upgrade ke <b>PRO</b> sekarang untuk mengoptimalkan manajemen bisnis Anda!`,
+            icon: 'info', iconColor: '#DAA520',
+            showCancelButton: true, confirmButtonColor: '#28a745', cancelButtonColor: '#6c757d',
+            confirmButtonText: '<i class="bi bi-rocket-takeoff"></i> Hubungi Developer',
+            cancelButtonText: 'Tutup', reverseButtons: true
+        }).then((result) => {
+            if (result.isConfirmed) {
+                window.open('https://wa.me/+6281315290003?text=Halo%20Admin%20Tatriz,%20saya%20tertarik%20upgrade%20PRO%20untuk%20fitur%20' + fitur, '_blank');
+            }
+        });
+    }
+</script> <!-- 🔥 INI YANG TADI TERTINGGAL 🔥 -->
+
+<!-- "Brankas" Data Rahasia (1000% Aman dari Linter VS Code) -->
+<textarea id="val-bulan" style="display: none;"><%- JSON.stringify(typeof chartBulan !== 'undefined' ? chartBulan : ['Bulan 1', 'Bulan 2', 'Bulan 3', 'Bulan 4', 'Bulan 5', 'Bulan 6']) %></textarea>
+<textarea id="val-masuk" style="display: none;"><%- JSON.stringify(typeof chartPemasukan !== 'undefined' ? chartPemasukan : [0, 0, 0, 0, 0, 0]) %></textarea>
+<textarea id="val-keluar" style="display: none;"><%- JSON.stringify(typeof chartPengeluaran !== 'undefined' ? chartPengeluaran : [0, 0, 0, 0, 0, 0]) %></textarea>
+<textarea id="val-profit" style="display: none;"><%- JSON.stringify(typeof chartProfit !== 'undefined' ? chartProfit : [0, 0, 0, 0, 0, 0]) %></textarea>
+
+<script>
+    // --- INISIALISASI CHART.JS (REAL DATA) ---
+    document.addEventListener("DOMContentLoaded", function() {
+        
+        // 1. TANGKAP DATA DARI BRANKAS TEXTAREA
+        const labelBulan = JSON.parse(document.getElementById('val-bulan').value);
+        const dataPemasukan = JSON.parse(document.getElementById('val-masuk').value);
+        const dataPengeluaran = JSON.parse(document.getElementById('val-keluar').value);
+        const dataProfit = JSON.parse(document.getElementById('val-profit').value);
+
+        // Formatter Rupiah untuk Tooltip & Sumbu Y
+        const rupiahFormatter = function(value) {
+            if (value >= 1000000) return 'Rp ' + (value / 1000000).toFixed(1) + 'Jt';
+            if (value >= 1000) return 'Rp ' + (value / 1000).toFixed(0) + 'Rb';
+            return 'Rp ' + value;
+        };
+
+        // 2. GRAFIK ARUS KAS (Model Line/Area Chart Mulus)
+        const ctxFinance = document.getElementById('financeChart').getContext('2d');
+        new Chart(ctxFinance, {
+            type: 'line', 
+            data: {
+                labels: labelBulan,
+                datasets: [
+                    {
+                        label: 'Pemasukan',
+                        data: dataPemasukan,
+                        borderColor: '#2ecc71', // Hijau
+                        backgroundColor: 'rgba(46, 204, 113, 0.15)', // Fill hijau transparan
+                        borderWidth: 3,
+                        pointBackgroundColor: '#2ecc71',
+                        pointBorderWidth: 2,
+                        pointRadius: 4,
+                        fill: true, // Mengaktifkan efek warna area di bawah garis
+                        tension: 0.4 // Membuat garis melengkung halus
+                    },
+                    {
+                        label: 'Pengeluaran',
+                        data: dataPengeluaran,
+                        borderColor: '#ff4757', // Merah
+                        backgroundColor: 'rgba(255, 71, 87, 0.1)', // Fill merah transparan
+                        borderWidth: 3,
+                        pointBackgroundColor: '#ff4757',
+                        pointBorderWidth: 2,
+                        pointRadius: 4,
+                        fill: true,
+                        tension: 0.4
+                    }
+                ]
+            },
+            options: {
+                responsive: true, maintainAspectRatio: false,
+                interaction: { mode: 'index', intersect: false }, // Tooltip muncul bersamaan
+                scales: {
+                    y: { beginAtZero: true, ticks: { callback: rupiahFormatter, font: {size: 10} } },
+                    x: { grid: { display: false } }
+                },
+                plugins: { legend: { position: 'top', labels: { boxWidth: 12, usePointStyle: true, font: {size: 11} } } }
+            }
+        });
+
+        // 3. GRAFIK PROFIT BULANAN (Model Bar Chart)
+        const ctxProfit = document.getElementById('profitChart').getContext('2d');
+        new Chart(ctxProfit, {
+            type: 'bar',
+            data: {
+                labels: labelBulan,
+                datasets: [{
+                    label: 'Profit Bersih',
+                    data: dataProfit,
+                    backgroundColor: function(context) {
+                        const value = context.dataset.data[context.dataIndex];
+                        return value < 0 ? '#ff4757' : '#3498db'; // Merah jika rugi, Biru jika untung
+                    },
+                    borderRadius: 6, // Ujung batang melengkung elegan
+                    borderWidth: 0
+                }]
+            },
+            options: {
+                responsive: true, maintainAspectRatio: false,
+                scales: {
+                    y: { beginAtZero: true, ticks: { callback: rupiahFormatter, font: {size: 10} } },
+                    x: { grid: { display: false } }
+                },
+                plugins: { 
+                    legend: { display: false }, // Disembunyikan karena hanya ada 1 dataset
+                    tooltip: {
+                        callbacks: {
+                            label: function(context) {
+                                return 'Profit: Rp ' + context.raw.toLocaleString('id-ID');
+                            }
+                        }
+                    }
+                }
+            }
+        });
+    });
+</script>
+
+<%- include('partials/footer') %>
