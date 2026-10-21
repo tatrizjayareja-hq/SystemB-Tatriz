@@ -290,6 +290,30 @@ app.get('/', async (req, res) => {
     }
 });
 
+// --- ROUTE LOGIN (INI YANG HILANG, JADI 404) ---
+app.get('/login', (req, res) => {
+    res.set('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate');
+    res.set('Pragma', 'no-cache');
+    res.set('Expires', '0');
+
+    // kalau sudah login, lempar ke dashboard
+    if (req.session && req.session.userId) {
+        return res.redirect('/dashboard');
+    }
+
+    // render login.ejs (versi baru yang sudah ada link Daftar Perusahaan -> /daftar-baru)
+    res.render('login', {
+        isNew: false,
+        version: APP_VERSION,
+        error: req.query.error || null,
+        reason: req.query.reason || null,
+        username: req.query.u || ''
+    });
+});
+
+app.get('/daftar-baru', (req, res) => {
+    res.render('daftar-baru', { error: null });
+});
 
 // ==============================================================
 // 1. PROSES LOGIN UTAMA (DENGAN PROTEKSI BRUTE-FORCE)
