@@ -1614,8 +1614,8 @@ app.get('/po-data-v2', isAdmin, async (req, res) => {
                     WHEN 'Design' THEN 1
                     WHEN 'Antri' THEN 2
                     WHEN 'Produksi' THEN 3
-                    WHEN 'QC' THEN 4
-                    WHEN 'CMT' THEN 5
+                    WHEN 'CMT' THEN 4
+                    WHEN 'QC' THEN 5
                     WHEN 'Clear' THEN 6
                     WHEN 'DP/Cicil' THEN 7
                     WHEN 'Lunas' THEN 8
