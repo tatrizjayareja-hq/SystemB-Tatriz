@@ -978,69 +978,49 @@ app.get('/daftar-baru', (req, res) => {
     res.render('daftar-baru'); // file daftar-baru.ejs yang tadi
 });
 
-// 2. Proses daftar baru - SIMPAN SEBAGAI PENDING (is_active = false)
-// Ini akan langsung muncul di /master-users kamu sebagai "Terblokir / Belum Aktif"
+// VERSI FINAL - PAKAI JATUH_TEMPO YANG SUDAH ADA
 app.post('/daftar-baru', async (req, res) => {
     const { nama_toko, username, password, no_hp, alamat } = req.body;
-
     try {
         if (!nama_toko || !username || !password || !no_hp) {
             return res.json({ success: false, message: 'Data wajib belum lengkap' });
         }
-
-        // Cek username sudah ada
         const checkUser = await db.query("SELECT username FROM users WHERE username = $1", [username]);
         if (checkUser.rows.length > 0) {
-            return res.json({ success: false, message: 'Username sudah dipakai, coba yang lain' });
+            return res.json({ success: false, message: 'Username sudah dipakai' });
         }
 
-        // Ambil max tenant_id seperti kode register lamamu
         const row = await db.query("SELECT MAX(tenant_id) as maxid FROM settings");
         let currentMax = parseInt(row.rows[0]?.maxid || 0);
         let newTenantId = (currentMax < 100) ? 100 : currentMax + 1;
 
         await db.query("BEGIN");
 
-        // --- SESUAI SISTEM KAMU: is_active = false (pending) ---
-        // Level tetap 1 seperti pendaftaran normal, cuma is_active yang false
-        // Jadi di /master-users akan kelihatan dan bisa di-toggle jadi true
+        // GRATIS 1 BULAN = JATUH_TEMPO + 30 HARI, LANGSUNG AKTIF
         await db.query(
             `INSERT INTO settings 
-            (tenant_id, nama_perusahaan, level, nama_aplikasi, no_hp, alamat, is_active, registration_secret) 
-            VALUES ($1, $2, 1, $3, $4, $5, false, 'PENDING-ACTIVATION')`,
+            (tenant_id, nama_perusahaan, level, nama_aplikasi, no_hp, nomor_wa_admin, alamat, is_active, jatuh_tempo, registration_secret) 
+            VALUES ($1, $2, 1, $3, $4, $4, $5, true, CURRENT_DATE + INTERVAL '30 days', 'TRIAL-30-DAYS')`,
             [newTenantId, nama_toko, 'Tatriz SystemB', no_hp, alamat]
         );
 
         const hashedPassword = await bcrypt.hash(password, 10);
-
         await db.query(
             "INSERT INTO users (tenant_id, username, password, role, nama_lengkap) VALUES ($1, $2, $3, 'admin', $4)",
             [newTenantId, username, hashedPassword, 'Owner ' + nama_toko]
         );
-
-        await db.query(
-            "INSERT INTO mesin (tenant_id, nama_mesin) VALUES ($1, $2)",
-            [newTenantId, 'Mesin Utama']
+        await db.query("INSERT INTO mesin (tenant_id, nama_mesin) VALUES ($1, $2)", [newTenantId, 'Mesin Utama']);
+        await db.query(`INSERT INTO dev_logs (admin_id, aksi, target_info, keterangan) VALUES ($1, $2, $3, $4)`, 
+            [1, 'REGISTER-TRIAL', `Tenant #${newTenantId}`, `Trial 30 hari: ${nama_toko} (${username}) - jatuh tempo 30 hari`]
         );
 
-        // Log untuk developer (optional, pakai sistem dev_logs kamu)
-        if (req.session && req.session.userId) {
-            // Jika ada admin yang daftarkan, log
-        } else {
-            // Daftar mandiri - log sebagai system
-            await db.query(`INSERT INTO dev_logs (admin_id, aksi, target_info, keterangan) VALUES ($1, $2, $3, $4)`, 
-                [1, 'REGISTER-PENDING', `Tenant #${newTenantId}`, `Pendaftaran baru: ${nama_toko} (${username}) menunggu aktivasi`]
-            );
-        }
-
         await db.query("COMMIT");
-
-        res.json({ success: true, tenant_id: newTenantId, nama_toko: nama_toko });
+        res.json({ success: true, tenant_id: newTenantId });
 
     } catch (err) {
-        if (db) await db.query("ROLLBACK");
+        await db.query("ROLLBACK");
         console.error("🔥 Daftar Baru Error:", err.message);
-        res.json({ success: false, message: 'Gagal mendaftar: ' + err.message });
+        res.json({ success: false, message: 'Gagal: ' + err.message });
     }
 });
 
@@ -5182,9 +5162,14 @@ app.get('/master-users', isAdmin, async (req, res) => {
 
     try {
         // Gunakan parameter $1 untuk menghindari SQL Injection (walaupun tId 1 sudah pasti, ini praktik terbaik)
+        // GANTI query di dalam /master-users jadi ini:
         const userSql = `
             SELECT u.id, u.username, u.nama_lengkap, u.role, u.tenant_id, 
-                   s.nama_perusahaan, s.level, s.is_active 
+                s.nama_perusahaan, s.level, s.is_active, s.jatuh_tempo, s.nomor_wa_admin,
+                CASE 
+                    WHEN s.jatuh_tempo IS NOT NULL THEN (s.jatuh_tempo::date - CURRENT_DATE)
+                    ELSE NULL 
+                END as sisa_hari
             FROM users u 
             LEFT JOIN settings s ON u.tenant_id = s.tenant_id 
             ORDER BY u.tenant_id ASC
