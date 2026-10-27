@@ -1000,8 +1000,8 @@ app.post('/daftar-baru', async (req, res) => {
         await db.query(
             `INSERT INTO settings 
             (tenant_id, nama_perusahaan, level, nama_aplikasi, no_hp, nomor_wa_admin, alamat, is_active, jatuh_tempo, registration_secret) 
-            VALUES ($1, $2, 1, $3, $4, $4, $5, true, CURRENT_DATE + INTERVAL '30 days', 'TRIAL-30-DAYS')`,
-            [newTenantId, nama_toko, 'Tatriz SystemB', no_hp, alamat]
+            VALUES ($1, $2, 1, $3, $4, $5, $6, true, CURRENT_DATE + INTERVAL '30 days', 'TRIAL-30-DAYS')`,
+            [newTenantId, nama_toko, 'Tatriz SystemB', no_hp, no_hp, alamat]
         );
 
         const hashedPassword = await bcrypt.hash(password, 10);
