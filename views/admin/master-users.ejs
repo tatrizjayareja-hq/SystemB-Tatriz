@@ -121,6 +121,7 @@
                 <thead>
                     <tr>
                         <th>Waktu</th>
+                        <th>Admin</th>
                         <th>Aksi</th>
                         <th>Target</th>
                         <th>Keterangan</th>
@@ -130,13 +131,14 @@
                     <% devLogs.forEach(log => { %>
                         <tr>
                             <td><%= new Date(log.created_at).toLocaleString('id-ID') %></td>
+                            <td><%= log.admin_name || 'SYSTEM' %></td>
                             <td><%= log.aksi %></td>
                             <td><%= log.target_info %></td>
                             <td><%= log.keterangan %></td>
                         </tr>
                     <% }) %>
                 </tbody>
-            </table>
+                            </table>
         </div>
 
         <a href="/dashboard" style="display:block; margin-top:20px; color:#195e0b; text-decoration:none;">← Dashboard</a>

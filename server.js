@@ -5179,7 +5179,7 @@ app.get('/master-users', isAdmin, async (req, res) => {
         const logSql = `
             SELECT l.*, u.username as admin_name 
             FROM dev_logs l
-            JOIN users u ON l.admin_id = u.id
+            LEFT JOIN users u ON l.admin_id = u.id
             ORDER BY l.created_at DESC LIMIT 10
         `;
         const logs = await db.query(logSql);
