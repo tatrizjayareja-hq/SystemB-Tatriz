@@ -1540,6 +1540,10 @@ app.post('/save-po-v2', isAdmin, async (req, res) => {
 // RUTE HALAMAN DATA PO V2 - PATCH FIX CAMPUR (OPSI A)
 // Aman untuk data 2 tahun, pakai qty_cmt & qty_internal yang sudah ada
 
+// RUTE HALAMAN DATA PO V2 - FINAL FIX CAMPUR + BADGE MERAH
+// Sudah include: qty_cmt, qty_internal, is_campur, fix is_over/under/empty biar PO lama tidak merah
+// Pakai kolom asli: jumlah, qty_cmt, qty_internal
+
 app.get('/po-data-v2', isAdmin, async (req, res) => {
     if (!req.session.userId) return res.redirect('/');
     const tId = req.session.tenantId;
@@ -1566,7 +1570,7 @@ app.get('/po-data-v2', isAdmin, async (req, res) => {
             paramIndex++;
         }
 
-        // FIX: Agar PO campur yang masih nyangkut status 'Parsial CMT' tetap muncul pas filter Produksi/CMT
+        // FIX: PO campur yang nyangkut status 'Parsial CMT' tetap muncul pas filter Produksi
         if (statusQuery !== 'ALL') {
             if (statusQuery === 'Produksi') {
                 whereClauses += ` AND (u.status = $${paramIndex} OR u.status = 'Parsial CMT')`;
@@ -1604,33 +1608,38 @@ app.get('/po-data-v2', isAdmin, async (req, res) => {
                     AND COALESCE(d.qty_internal, d.jumlah) > 0
                 ) as is_campur,
 
-                -- FIX is_over/is_under/is_empty: pakai qty_internal sebagai acuan, bukan jumlah full
-                -- Jadi PO campur tidak dianggap KURANG hanya karena yang CMT belum setor ke hasil_kerja
-                EXISTS (
+                -- FIX BADGE MERAH: hanya cek LEBIH/KURANG untuk PO aktif saja, PO Clear/Lunas tidak dicek
+                CASE WHEN u.status IN ('Produksi','Antri','CMT','Parsial CMT') THEN
+                  EXISTS (
                     SELECT 1 FROM po_detail d2
                     LEFT JOIN hasil_kerja h2 ON d2.id = h2.detail_id
                     WHERE d2.po_id = u.id
                     GROUP BY d2.id, d2.jumlah, d2.qty_internal
                     HAVING SUM(COALESCE(h2.jumlah_setor, 0)) > COALESCE(d2.qty_internal, d2.jumlah)
-                ) as is_over,
+                  )
+                ELSE false END as is_over,
                 
-                EXISTS (
+                CASE WHEN u.status IN ('Produksi','Antri','CMT','Parsial CMT') THEN
+                  EXISTS (
                     SELECT 1 FROM po_detail d2
                     LEFT JOIN hasil_kerja h2 ON d2.id = h2.detail_id
                     WHERE d2.po_id = u.id
                     GROUP BY d2.id, d2.jumlah, d2.qty_internal
                     HAVING SUM(COALESCE(h2.jumlah_setor, 0)) > 0 
                     AND SUM(COALESCE(h2.jumlah_setor, 0)) < COALESCE(d2.qty_internal, d2.jumlah)
-                ) as is_under,
+                  )
+                ELSE false END as is_under,
                 
-                EXISTS (
+                CASE WHEN u.status IN ('Produksi','Antri') THEN
+                  EXISTS (
                     SELECT 1 FROM po_detail d2
                     LEFT JOIN hasil_kerja h2 ON d2.id = h2.detail_id
                     WHERE d2.po_id = u.id
                     GROUP BY d2.id, d2.jumlah, d2.qty_internal
                     HAVING SUM(COALESCE(h2.jumlah_setor, 0)) = 0
                     AND COALESCE(d2.qty_internal, d2.jumlah) > 0
-                ) as is_empty
+                  )
+                ELSE false END as is_empty
 
             FROM po_utama u 
             WHERE ${whereClauses}
