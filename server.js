@@ -1268,8 +1268,7 @@ app.post('/update-po/:id', isAdmin, async (req, res) => {
 
     if (!tId) return res.redirect('/');
 
-    // Tentukan apakah tenant ini termasuk internal
-    const isInternal = (tId === 1 || tId === 100); // Sesuaikan ID tenant internal Anda
+    const isInternal = (tId === 1 || tId === 100);
 
     let { 
         tanggal, nama_po, customer, status, 
@@ -1319,14 +1318,11 @@ app.post('/update-po/:id', isAdmin, async (req, res) => {
             let finalHOp, finalHCmt;
 
             if (isInternal) {
-                // Tenant Internal: Boleh isi harga CMT/Operator sendiri
                 const cmtInput = Number(hrgCmtList[i]) || 0;
                 const opInput = Number(hrgOpList[i]) || 0;
-                
                 finalHCmt = cmtInput > 0 ? cmtInput : opInput;
                 finalHOp = finalHCmt; 
             } else {
-                // Tenant Luar (Non-Internal): Harga CMT & Operator Wajib Mengikuti Harga Customer
                 finalHCmt = hCu;
                 finalHOp = hCu;
             }
@@ -1334,17 +1330,22 @@ app.post('/update-po/:id', isAdmin, async (req, res) => {
             totalTagihanBaru += (qty * hCu);
 
             if (idList[i] && idList[i] !== "") {
-                // A. UPDATE DETAIL PO
+                // A. UPDATE DETAIL PO - FINAL FIX
+                // Kalau full internal (qty_cmt=0), qty_internal ikut jumlah baru biar edit 50->49 jadi LENGKAP
+                // Kalau sudah campur (qty_cmt>0), qty_internal jangan ikut berubah
                 await db.query(
                     `UPDATE po_detail SET 
                         jenis_bordir=$1, nama_desain=$2, jumlah=$3, 
-                        harga_cmt=$4, harga_operator=$5, harga_customer=$6 
+                        harga_cmt=$4, harga_operator=$5, harga_customer=$6,
+                        qty_internal = CASE 
+                          WHEN COALESCE(qty_cmt,0) = 0 THEN $3
+                          ELSE qty_internal
+                        END
                     WHERE id=$7 AND po_id=$8`,
                     [jbList[i], dsList[i], qty, finalHCmt, finalHOp, hCu, idList[i], poId]
                 );
 
-                // B. SINKRONISASI OTOMATIS KE SURAT JALAN CMT (AGAR HARGA KAS & NOTA IKUT BERUBAH)
-                // Update harga satuan di riwayat detail surat jalan
+                // B. SINKRONISASI OTOMATIS KE SURAT JALAN CMT
                 await db.query(
                     `UPDATE cmt_surat_jalan_detail 
                      SET harga_cmt_saat_ini = $1 
@@ -1352,7 +1353,6 @@ app.post('/update-po/:id', isAdmin, async (req, res) => {
                     [finalHCmt, idList[i]]
                 );
 
-                // Cari Surat Jalan yang mencakup item ini, lalu hitung ulang total biayanya secara otomatis
                 const affectedSJ = await db.query(
                     `SELECT DISTINCT sj_id FROM cmt_surat_jalan_detail WHERE po_detail_id = $1`,
                     [idList[i]]
@@ -1371,10 +1371,10 @@ app.post('/update-po/:id', isAdmin, async (req, res) => {
                 }
 
             } else {
-                // INSERT DETAIL BARU
+                // INSERT DETAIL BARU - langsung set full internal biar bersih
                 await db.query(
-                    `INSERT INTO po_detail (po_id, jenis_bordir, nama_desain, jumlah, harga_cmt, harga_operator, harga_customer) 
-                    VALUES ($1, $2, $3, $4, $5, $6, $7)`,
+                    `INSERT INTO po_detail (po_id, jenis_bordir, nama_desain, jumlah, harga_cmt, harga_operator, harga_customer, qty_internal, qty_cmt) 
+                    VALUES ($1, $2, $3, $4, $5, $6, $7, $3, 0)`,
                     [poId, jbList[i], dsList[i], qty, finalHCmt, finalHOp, hCu]
                 );
             }
@@ -1392,6 +1392,7 @@ app.post('/update-po/:id', isAdmin, async (req, res) => {
         res.status(500).send("Gagal update PO: " + err.message);
     }
 });
+
 
 app.get('/edit-po/:id', async (req, res) => {
     const tId = req.session.tenantId;
