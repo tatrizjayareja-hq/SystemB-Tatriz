@@ -4390,7 +4390,9 @@ app.get('/admin/data-cmt', isAdmin, async (req, res) => {
                 d.jumlah as total_order, 
                 d.harga_cmt,
                 (d.jumlah * d.harga_cmt) as total_biaya_po,
-                (d.jumlah - COALESCE((SELECT SUM(qty_dikirim) FROM cmt_surat_jalan_detail WHERE po_detail_id = d.id), 0)) as sisa_gudang,
+                (d.jumlah - COALESCE((SELECT SUM(qty_dikirim) FROM cmt_surat_jalan_detail WHERE po_detail_id = d.id),0) 
+                        - COALESCE((SELECT SUM(jumlah_setor) FROM hasil_kerja WHERE detail_id = d.id),0)
+                ) as sisa_gudang,
                 COALESCE(
                     (SELECT json_agg(json_build_object(
                         'sj_id', sj.id, 
@@ -4715,12 +4717,15 @@ app.post('/admin/kirim-ke-vendor-parsial', isAdmin, async (req, res) => {
             );
         }
 
-        // C. UPDATE STATUS PO UTAMA
-        // Kita ubah menjadi 'Parsial CMT' agar logikanya lebih pas bahwa tidak semua di makloon-kan.
-        // (Pastikan query di halaman operator mengizinkan status 'Parsial CMT' ini lewat)
-        await db.query("UPDATE po_utama SET status = 'Parsial CMT' WHERE id = $1 AND tenant_id = $2", [po_id, tId]);
-
-        await db.query("COMMIT");
+        const statusBaru = qtyInternalBaru > 0 ? 'Produksi' : 'CMT';
+        await db.query("UPDATE po_utama SET status = $1 WHERE id = $2 AND tenant_id = $3", [statusBaru, po_id, tId]);
+        // Tambah flag campur di detail
+        await db.query(`
+        UPDATE po_detail 
+        SET qty_cmt = $1, qty_internal = $2,
+            metode_pengerjaan = CASE WHEN $1 > 0 AND $2 > 0 THEN 'campur' WHEN $1 > 0 THEN 'cmt' ELSE 'internal' END
+        WHERE id = $3
+        `, [qtyCmtBaru, qtyInternalBaru, currentDetailId]);
         
         res.redirect('/po-data-v2'); 
 
