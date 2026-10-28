@@ -3305,14 +3305,10 @@ app.get('/input-kerja-admin', isAdmin, async (req, res) => {
             JOIN po_detail d ON u.id = d.po_id
             WHERE u.tenant_id = $1 
             AND u.status IN ('Produksi', 'DP/Cicil', 'CMT', 'Parsial CMT') 
-            AND (
-                d.qty_internal > 0 
-                OR 
-                (d.qty_internal = 0 AND d.qty_cmt = 0 AND d.jumlah > 0)
-            )
+            AND COALESCE(d.qty_internal, d.jumlah) > 0
             ORDER BY u.id DESC
         `;
-        
+                
         // Perbaikan: Gunakan db.query dan ambil .rows untuk PostgreSQL
         const activePosRes = await db.query(sqlActivePOs, [tId]);
         const active_pos = activePosRes.rows;
