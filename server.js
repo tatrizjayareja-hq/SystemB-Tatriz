@@ -2200,7 +2200,8 @@ app.get('/piutang-customer', isAdmin, async (req, res) => {
             WHERE kategori IN ('PEMBAYARAN BORDIR', 'PELUNASAN', 'DP/CICILAN') 
             GROUP BY po_id
         ) bayar ON p.id = bayar.po_id
-        WHERE p.status NOT IN ('Lunas', 'Design') AND p.tenant_id = $1
+        WHERE p.status IN ('Produksi','CMT','Parsial CMT','QC','Clear','DP/Cicil') 
+        AND p.tenant_id = $1
         GROUP BY p.customer 
         HAVING SUM(p.total_harga_customer - COALESCE(bayar.total, 0)) > 0
         ORDER BY sisa_piutang_customer DESC`;
@@ -2893,14 +2894,7 @@ app.get('/operator', async (req, res) => {
             JOIN po_detail d ON p.id = d.po_id
             WHERE p.tenant_id = $1 
             AND p.status IN ('Produksi', 'DP/Cicil', 'CMT', 'Parsial CMT') 
-            
-            -- 🌟 LOGIKA BARU: Toleransi untuk data lama
-            AND (
-                d.qty_internal > 0 
-                OR 
-                (d.qty_internal = 0 AND d.qty_cmt = 0 AND d.jumlah > 0)
-            )
-            
+            AND COALESCE(d.qty_internal, d.jumlah) > 0
             ORDER BY p.tanggal DESC, p.id DESC
         `;
         const activePosRes = await db.query(sqlPO, [tId]);
