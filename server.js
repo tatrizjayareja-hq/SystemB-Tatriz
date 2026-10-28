@@ -1537,13 +1537,6 @@ app.post('/save-po-v2', isAdmin, async (req, res) => {
     }
 });
 
-// RUTE HALAMAN DATA PO V2 - PATCH FIX CAMPUR (OPSI A)
-// Aman untuk data 2 tahun, pakai qty_cmt & qty_internal yang sudah ada
-
-// RUTE HALAMAN DATA PO V2 - FINAL FIX CAMPUR + BADGE MERAH
-// Sudah include: qty_cmt, qty_internal, is_campur, fix is_over/under/empty biar PO lama tidak merah
-// Pakai kolom asli: jumlah, qty_cmt, qty_internal
-
 app.get('/po-data-v2', isAdmin, async (req, res) => {
     if (!req.session.userId) return res.redirect('/');
     const tId = req.session.tenantId;
@@ -1570,7 +1563,7 @@ app.get('/po-data-v2', isAdmin, async (req, res) => {
             paramIndex++;
         }
 
-        // FIX: PO campur yang nyangkut status 'Parsial CMT' tetap muncul pas filter Produksi
+        // FIX: PO yang nyangkut status 'Parsial CMT' tetap muncul pas filter Produksi
         if (statusQuery !== 'ALL') {
             if (statusQuery === 'Produksi') {
                 whereClauses += ` AND (u.status = $${paramIndex} OR u.status = 'Parsial CMT')`;
@@ -1601,6 +1594,7 @@ app.get('/po-data-v2', isAdmin, async (req, res) => {
                 (SELECT COUNT(*) FROM po_detail WHERE po_id = u.id) as variasi_jumlah,
                 
                 -- FLAG CAMPUR: true jika ada detail yang qty_cmt>0 dan qty_internal>0
+                -- Ini handle 2 skenario: CMT dulu atau Internal dulu, hasilnya sama
                 EXISTS (
                     SELECT 1 FROM po_detail d 
                     WHERE d.po_id = u.id 
@@ -1608,36 +1602,41 @@ app.get('/po-data-v2', isAdmin, async (req, res) => {
                     AND COALESCE(d.qty_internal, d.jumlah) > 0
                 ) as is_campur,
 
-                -- FIX BADGE MERAH: hanya cek LEBIH/KURANG untuk PO aktif saja, PO Clear/Lunas tidak dicek
-                CASE WHEN u.status IN ('Produksi','Antri','CMT','Parsial CMT') THEN
+                -- LOGIKA BADGE FINAL - SUDAH BERSIH
+                -- 1. QC HARUS IKUT DICEK karena lebih itu pemicu QC
+                -- 2. Hanya Lunas yang tidak dicek
+                -- 3. Skip detail full CMT (qty_internal=0) biar gak bikin merah palsu
+                CASE WHEN u.status != 'Lunas' THEN
                   EXISTS (
                     SELECT 1 FROM po_detail d2
                     LEFT JOIN hasil_kerja h2 ON d2.id = h2.detail_id
                     WHERE d2.po_id = u.id
+                    AND COALESCE(d2.qty_internal, d2.jumlah) > 0
                     GROUP BY d2.id, d2.jumlah, d2.qty_internal
                     HAVING SUM(COALESCE(h2.jumlah_setor, 0)) > COALESCE(d2.qty_internal, d2.jumlah)
                   )
                 ELSE false END as is_over,
                 
-                CASE WHEN u.status IN ('Produksi','Antri','CMT','Parsial CMT') THEN
+                CASE WHEN u.status != 'Lunas' THEN
                   EXISTS (
                     SELECT 1 FROM po_detail d2
                     LEFT JOIN hasil_kerja h2 ON d2.id = h2.detail_id
                     WHERE d2.po_id = u.id
+                    AND COALESCE(d2.qty_internal, d2.jumlah) > 0
                     GROUP BY d2.id, d2.jumlah, d2.qty_internal
                     HAVING SUM(COALESCE(h2.jumlah_setor, 0)) > 0 
                     AND SUM(COALESCE(h2.jumlah_setor, 0)) < COALESCE(d2.qty_internal, d2.jumlah)
                   )
                 ELSE false END as is_under,
                 
-                CASE WHEN u.status IN ('Produksi','Antri') THEN
+                CASE WHEN u.status IN ('Antri','Produksi','CMT','Parsial CMT','QC') THEN
                   EXISTS (
                     SELECT 1 FROM po_detail d2
                     LEFT JOIN hasil_kerja h2 ON d2.id = h2.detail_id
                     WHERE d2.po_id = u.id
+                    AND COALESCE(d2.qty_internal, d2.jumlah) > 0
                     GROUP BY d2.id, d2.jumlah, d2.qty_internal
                     HAVING SUM(COALESCE(h2.jumlah_setor, 0)) = 0
-                    AND COALESCE(d2.qty_internal, d2.jumlah) > 0
                   )
                 ELSE false END as is_empty
 
@@ -4742,10 +4741,9 @@ app.post('/admin/kirim-ke-vendor-parsial', isAdmin, async (req, res) => {
             );
         }
 
-        // FIX UTAMA OPSI A: Jangan set status = 'Parsial CMT' (itu bikin hilang di filter)
-        // Kalau masih ada sisa internal -> status tetap Produksi (biar muncul di operator & piutang)
-        // Kalau sudah habis internal -> status jadi CMT
-        const statusBaru = totalInternalSisa > 0 ? 'Produksi' : 'CMT';
+        const sisaRes = await db.query(`SELECT SUM(qty_internal) as sisa FROM po_detail WHERE po_id = $1`, [po_id]);
+        const sisaInternalReal = parseInt(sisaRes.rows[0].sisa) || 0;
+        const statusBaru = sisaInternalReal > 0 ? 'Produksi' : 'CMT';
         await db.query("UPDATE po_utama SET status = $1 WHERE id = $2 AND tenant_id = $3", [statusBaru, po_id, tId]);
 
         await db.query("COMMIT");
