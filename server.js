@@ -1537,7 +1537,9 @@ app.post('/save-po-v2', isAdmin, async (req, res) => {
     }
 });
 
-// RUTE HALAMAN DATA PO V2
+// RUTE HALAMAN DATA PO V2 - PATCH FIX CAMPUR (OPSI A)
+// Aman untuk data 2 tahun, pakai qty_cmt & qty_internal yang sudah ada
+
 app.get('/po-data-v2', isAdmin, async (req, res) => {
     if (!req.session.userId) return res.redirect('/');
     const tId = req.session.tenantId;
@@ -1551,7 +1553,7 @@ app.get('/po-data-v2', isAdmin, async (req, res) => {
     
     const searchQuery = req.query.search || '';
     const statusQuery = req.query.status || 'ALL';
-    const hideLunas = req.query.hideLunas === 'true'; // Tangkap status Hide Lunas
+    const hideLunas = req.query.hideLunas === 'true';
 
     try {
         let whereClauses = `u.tenant_id = $1`;
@@ -1564,13 +1566,19 @@ app.get('/po-data-v2', isAdmin, async (req, res) => {
             paramIndex++;
         }
 
+        // FIX: Agar PO campur yang masih nyangkut status 'Parsial CMT' tetap muncul pas filter Produksi/CMT
         if (statusQuery !== 'ALL') {
-            whereClauses += ` AND u.status = $${paramIndex}`;
-            queryParams.push(statusQuery);
-            paramIndex++;
+            if (statusQuery === 'Produksi') {
+                whereClauses += ` AND (u.status = $${paramIndex} OR u.status = 'Parsial CMT')`;
+                queryParams.push(statusQuery);
+                paramIndex++;
+            } else {
+                whereClauses += ` AND u.status = $${paramIndex}`;
+                queryParams.push(statusQuery);
+                paramIndex++;
+            }
         }
 
-        // Jika Hide Lunas dicentang, kecualikan status 'Lunas'
         if (hideLunas) {
             whereClauses += ` AND u.status != 'Lunas'`;
         }
@@ -1584,31 +1592,44 @@ app.get('/po-data-v2', isAdmin, async (req, res) => {
             SELECT 
                 u.*, 
                 (SELECT SUM(jumlah) FROM po_detail WHERE po_id = u.id) as qty_tampil,
+                (SELECT SUM(COALESCE(qty_cmt,0)) FROM po_detail WHERE po_id = u.id) as total_cmt,
+                (SELECT SUM(COALESCE(qty_internal, jumlah)) FROM po_detail WHERE po_id = u.id) as total_internal,
                 (SELECT COUNT(*) FROM po_detail WHERE po_id = u.id) as variasi_jumlah,
                 
+                -- FLAG CAMPUR: true jika ada detail yang qty_cmt>0 dan qty_internal>0
+                EXISTS (
+                    SELECT 1 FROM po_detail d 
+                    WHERE d.po_id = u.id 
+                    AND COALESCE(d.qty_cmt,0) > 0 
+                    AND COALESCE(d.qty_internal, d.jumlah) > 0
+                ) as is_campur,
+
+                -- FIX is_over/is_under/is_empty: pakai qty_internal sebagai acuan, bukan jumlah full
+                -- Jadi PO campur tidak dianggap KURANG hanya karena yang CMT belum setor ke hasil_kerja
                 EXISTS (
                     SELECT 1 FROM po_detail d2
                     LEFT JOIN hasil_kerja h2 ON d2.id = h2.detail_id
                     WHERE d2.po_id = u.id
-                    GROUP BY d2.id, d2.jumlah
-                    HAVING SUM(COALESCE(h2.jumlah_setor, 0)) > d2.jumlah
+                    GROUP BY d2.id, d2.jumlah, d2.qty_internal
+                    HAVING SUM(COALESCE(h2.jumlah_setor, 0)) > COALESCE(d2.qty_internal, d2.jumlah)
                 ) as is_over,
                 
                 EXISTS (
                     SELECT 1 FROM po_detail d2
                     LEFT JOIN hasil_kerja h2 ON d2.id = h2.detail_id
                     WHERE d2.po_id = u.id
-                    GROUP BY d2.id, d2.jumlah
+                    GROUP BY d2.id, d2.jumlah, d2.qty_internal
                     HAVING SUM(COALESCE(h2.jumlah_setor, 0)) > 0 
-                    AND SUM(COALESCE(h2.jumlah_setor, 0)) < d2.jumlah
+                    AND SUM(COALESCE(h2.jumlah_setor, 0)) < COALESCE(d2.qty_internal, d2.jumlah)
                 ) as is_under,
                 
                 EXISTS (
                     SELECT 1 FROM po_detail d2
                     LEFT JOIN hasil_kerja h2 ON d2.id = h2.detail_id
                     WHERE d2.po_id = u.id
-                    GROUP BY d2.id, d2.jumlah
+                    GROUP BY d2.id, d2.jumlah, d2.qty_internal
                     HAVING SUM(COALESCE(h2.jumlah_setor, 0)) = 0
+                    AND COALESCE(d2.qty_internal, d2.jumlah) > 0
                 ) as is_empty
 
             FROM po_utama u 
@@ -1618,6 +1639,7 @@ app.get('/po-data-v2', isAdmin, async (req, res) => {
                     WHEN 'Design' THEN 1
                     WHEN 'Antri' THEN 2
                     WHEN 'Produksi' THEN 3
+                    WHEN 'Parsial CMT' THEN 3
                     WHEN 'CMT' THEN 4
                     WHEN 'QC' THEN 5
                     WHEN 'Clear' THEN 6
@@ -1646,7 +1668,7 @@ app.get('/po-data-v2', isAdmin, async (req, res) => {
             totalPages: totalPages,
             searchQuery: searchQuery,
             statusQuery: statusQuery,
-            hideLunas: hideLunas // Kirim status ke EJS
+            hideLunas: hideLunas
         });
 
     } catch (err) {
@@ -4659,7 +4681,6 @@ app.get('/api/po-cmt-status/:po_id', isAdmin, async (req, res) => {
     }
 });
 
-// 2. HANDLER BARU: SIMPAN KIRIMAN PARSIAL / SUSULAN DARI HALAMAN DEPAN
 app.post('/admin/kirim-ke-vendor-parsial', isAdmin, async (req, res) => {
     const tId = req.session.tenantId;
     const { po_id, po_detail_ids, nama_vendors, qty_kirims, harga_cmts } = req.body;
@@ -4672,6 +4693,9 @@ app.post('/admin/kirim-ke-vendor-parsial', isAdmin, async (req, res) => {
         const qtys = Array.isArray(qty_kirims) ? qty_kirims : [qty_kirims];
         const hargas = Array.isArray(harga_cmts) ? harga_cmts : [harga_cmts];
 
+        let totalCmtBaru = 0;
+        let totalInternalSisa = 0;
+
         for (let i = 0; i < vendors.length; i++) {
             const currentVendor = vendors[i]?.trim();
             const currentQty = parseInt(qtys[i]) || 0;
@@ -4680,28 +4704,31 @@ app.post('/admin/kirim-ke-vendor-parsial', isAdmin, async (req, res) => {
 
             if (!currentVendor || currentQty <= 0) continue;
 
-            // ================================================================
-            // 🌟 TAMBAHAN BARU: PECAH KUANTITAS INTERNAL DAN CMT DI PO_DETAIL
-            // ================================================================
+            // Ambil data asli po_detail (pakai kolom yang ADA: jumlah, qty_internal, qty_cmt)
             const detRes = await db.query("SELECT jumlah, qty_internal, qty_cmt FROM po_detail WHERE id = $1", [currentDetailId]);
+            if (detRes.rows.length === 0) continue;
             
             const qtyTotalAsli = detRes.rows[0].jumlah;
             const qtyCmtLama = detRes.rows[0].qty_cmt || 0;
+            const qtyInternalLama = detRes.rows[0].qty_internal ?? qtyTotalAsli;
             
             const qtyCmtBaru = qtyCmtLama + currentQty;
-            const qtyInternalBaru = qtyTotalAsli - qtyCmtBaru;
+            let qtyInternalBaru = qtyTotalAsli - qtyCmtBaru;
+            if (qtyInternalBaru < 0) qtyInternalBaru = 0;
 
-            // Potong sisa pekerjaan untuk internal
+            // Update po_detail dengan kolom yang ada saja
             await db.query(`
                 UPDATE po_detail 
                 SET qty_cmt = $1, qty_internal = $2 
                 WHERE id = $3
             `, [qtyCmtBaru, qtyInternalBaru, currentDetailId]);
-            // ================================================================
+
+            totalCmtBaru += qtyCmtBaru;
+            totalInternalSisa += qtyInternalBaru;
 
             const totalBiayaVendor = currentQty * currentHarga;
 
-            // A. Buat Header Surat Jalan Baru
+            // Buat Surat Jalan
             const sjRes = await db.query(
                 `INSERT INTO cmt_surat_jalan (tenant_id, nama_vendor, total_biaya_vendor, status, status_pembayaran, tanggal_kirim) 
                  VALUES ($1, $2, $3, 'PROSES', 'BELUM LUNAS', CURRENT_DATE) RETURNING id`,
@@ -4709,7 +4736,6 @@ app.post('/admin/kirim-ke-vendor-parsial', isAdmin, async (req, res) => {
             );
             const newSjId = sjRes.rows[0].id;
 
-            // B. Masukkan ke Detail Surat Jalan
             await db.query(
                 `INSERT INTO cmt_surat_jalan_detail (sj_id, po_detail_id, qty_dikirim, harga_cmt_saat_ini) 
                  VALUES ($1, $2, $3, $4)`,
@@ -4717,16 +4743,13 @@ app.post('/admin/kirim-ke-vendor-parsial', isAdmin, async (req, res) => {
             );
         }
 
-        const statusBaru = qtyInternalBaru > 0 ? 'Produksi' : 'CMT';
+        // FIX UTAMA OPSI A: Jangan set status = 'Parsial CMT' (itu bikin hilang di filter)
+        // Kalau masih ada sisa internal -> status tetap Produksi (biar muncul di operator & piutang)
+        // Kalau sudah habis internal -> status jadi CMT
+        const statusBaru = totalInternalSisa > 0 ? 'Produksi' : 'CMT';
         await db.query("UPDATE po_utama SET status = $1 WHERE id = $2 AND tenant_id = $3", [statusBaru, po_id, tId]);
-        // Tambah flag campur di detail
-        await db.query(`
-        UPDATE po_detail 
-        SET qty_cmt = $1, qty_internal = $2,
-            metode_pengerjaan = CASE WHEN $1 > 0 AND $2 > 0 THEN 'campur' WHEN $1 > 0 THEN 'cmt' ELSE 'internal' END
-        WHERE id = $3
-        `, [qtyCmtBaru, qtyInternalBaru, currentDetailId]);
-        
+
+        await db.query("COMMIT");
         res.redirect('/po-data-v2'); 
 
     } catch (err) {

@@ -146,9 +146,14 @@
                         <div class="ps-4 ms-2">
                             <h6 class="fw-bold text-dark mb-1"><%= po.customer %></h6>
                             <div class="d-flex justify-content-between align-items-center mt-2">
-                                <span class="badge bg-primary px-3 py-2 badge-status shadow-sm" onclick="ubahStatusMobile('<%= po.id %>', '<%= po.status %>')">
-                                    <%= po.status %> <i class="bi bi-pencil-square ms-1"></i>
-                                </span>
+                                <div class="d-flex align-items-center gap-1">
+                                    <span class="badge bg-primary px-3 py-2 badge-status shadow-sm" onclick="ubahStatusMobile('<%= po.id %>', '<%= po.status %>')">
+                                        <%= po.status %> <i class="bi bi-pencil-square ms-1"></i>
+                                    </span>
+                                    <% if (typeof po.is_campur !== 'undefined' && po.is_campur) { %>
+                                        <span class="badge bg-dark px-2 py-2" style="font-size:10px">CAMPUR I:<%= po.total_internal %> C:<%= po.total_cmt %></span>
+                                    <% } %>
+                                </div>
                                 <strong class="text-success"><%= (po.total_harga_customer || 0).toLocaleString('id-ID') %></strong>
                             </div>
                             
@@ -244,6 +249,9 @@
                                         </select>
                                         <button type="submit" class="btn btn-sm btn-primary py-0"><i class="bi bi-save"></i></button>
                                     </form>
+                                    <% if (typeof po.is_campur !== 'undefined' && po.is_campur) { %>
+                                        <span class="badge bg-dark mt-1 d-block" style="font-size:9px">CAMPUR I:<%= po.total_internal %> C:<%= po.total_cmt %></span>
+                                    <% } %>
                                 </td>
                                 <td class="text-center" onclick="event.stopPropagation()">
                                     <div class="d-flex justify-content-center gap-1">
