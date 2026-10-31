@@ -2311,7 +2311,7 @@ app.get('/laporan-kas', isAdmin, async (req, res) => {
                  AND h.mesin_id::TEXT = '20') as prod_mesin_22_bln,
                 
                 -- PENGECUALIAN: Jatah khusus tidak dianggap operasional agar profit global tidak turun
-                (SELECT COALESCE(SUM(jumlah), 0) FROM arus_kas WHERE jenis = 'PENGELUARAN' AND kategori NOT IN ('BIAYA KONTRAKAN', 'BAYAR HUTANG', 'JATAH PROFIT OWNER', 'BAYAR CMT / VENDOR', 'JATAH KHUSUS UTUK & CMT') AND TO_CHAR(tanggal::DATE, 'YYYY-MM') = $1 AND tenant_id = $2) as op_bln,
+                (SELECT COALESCE(SUM(jumlah), 0) FROM arus_kas WHERE jenis = 'PENGELUARAN' AND kategori NOT IN ('BIAYA KONTRAKAN', 'BAYAR SEWA MESIN', 'BAYAR HUTANG', 'JATAH PROFIT OWNER', 'BAYAR CMT / VENDOR', 'JATAH KHUSUS UTUK & CMT') AND TO_CHAR(tanggal::DATE, 'YYYY-MM') = $1 AND tenant_id = $2) as op_bln,
                 
                 (SELECT COALESCE(SUM(ak.jumlah), 0) 
                     FROM arus_kas ak 
@@ -2343,7 +2343,7 @@ app.get('/laporan-kas', isAdmin, async (req, res) => {
                 (SELECT COALESCE(SUM(h.jumlah_setor * d.harga_customer), 0) FROM hasil_kerja h JOIN po_detail d ON h.detail_id = d.id WHERE h.tenant_id = $1) as prod_all,
                 
                 -- PENGECUALIAN Jatah Khusus dari operasional All Time
-                (SELECT COALESCE(SUM(jumlah), 0) FROM arus_kas WHERE jenis = 'PENGELUARAN' AND kategori NOT IN ('BIAYA KONTRAKAN', 'BAYAR HUTANG', 'JATAH PROFIT OWNER', 'BAYAR CMT / VENDOR', 'JATAH KHUSUS UTUK & CMT') AND tenant_id = $1) as op_all,
+                (SELECT COALESCE(SUM(jumlah), 0) FROM arus_kas WHERE jenis = 'PENGELUARAN' AND kategori NOT IN ('BIAYA KONTRAKAN', 'BAYAR SEWA MESIN','BAYAR HUTANG', 'JATAH PROFIT OWNER', 'BAYAR CMT / VENDOR', 'JATAH KHUSUS UTUK & CMT') AND tenant_id = $1) as op_all,
                 
                 (SELECT COALESCE(SUM(ak.jumlah), 0) 
                     FROM arus_kas ak 
@@ -2360,14 +2360,14 @@ app.get('/laporan-kas', isAdmin, async (req, res) => {
                 
                 -- Gabungkan penarikan Jatah Owner biasa & Jatah Khusus agar Sisa Profit All-Time akurat
                 (SELECT COALESCE(SUM(jumlah), 0) FROM arus_kas WHERE kategori IN ('JATAH PROFIT OWNER', 'JATAH KHUSUS UTUK & CMT') AND tenant_id = $1) as ditarik_all,
-                
+                (SELECT COALESCE(SUM(jumlah), 0) FROM arus_kas WHERE kategori = 'BAYAR SEWA MESIN' AND tenant_id = $1) as sewa_mesin_all,
                 (SELECT COALESCE(SUM(jumlah), 0) FROM arus_kas WHERE kategori = 'BIAYA KONTRAKAN' AND tenant_id = $1) as kontrakan_all
         `;
         const akumulasiRes = await db.query(sqlAkumulasi, [tId]);
         const akData = akumulasiRes.rows[0];
 
         // Kalkulasi All-Time Retained Earnings
-        const profitKotorAllTime = (parseFloat(akData.prod_all) - parseFloat(akData.op_all)) + (parseFloat(akData.omzet_cmt_all) - parseFloat(akData.hpp_cmt_all)) - parseFloat(akData.kontrakan_all);
+        const profitKotorAllTime = (parseFloat(akData.prod_all) - parseFloat(akData.op_all)) + (parseFloat(akData.omzet_cmt_all) - parseFloat(akData.hpp_cmt_all)) - parseFloat(akData.kontrakan_all) - parseFloat(akData.sewa_mesin_all);
         const sisaProfitAkumulasi = profitKotorAllTime - parseFloat(akData.ditarik_all);
 
         // 3. Query Piutang Berjalan & Bulan Ini
