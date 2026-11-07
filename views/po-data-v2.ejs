@@ -403,6 +403,8 @@
 <% } %>
 
 <script>
+    let selectedPoIds = new Set();
+    let selectedCustomers = new Map();
     // --- FUNGSI CMT ---
     const rawDetails = JSON.parse(document.getElementById('data-details').textContent);
 
@@ -606,6 +608,38 @@
         }
     }
 
+    function handleCheckboxChange(checkbox) {
+    const poId = checkbox.value;
+    const customer = checkbox.getAttribute('data-customer');
+
+    if (checkbox.checked) {
+        if (selectedCustomers.size > 0 && !selectedCustomers.has(customer)) {
+            Swal.fire('Beda Customer!', 'Nota gabungan hanya bisa dibuat untuk 1 customer yang sama.', 'warning');
+            checkbox.checked = false;
+            return;
+        }
+        selectedPoIds.add(poId);
+        selectedCustomers.set(customer, true);
+    } else {
+        selectedPoIds.delete(poId);
+        if (selectedPoIds.size === 0) {
+            selectedCustomers.clear();
+        }
+    }
+    updateCounterUI();
+}
+
+function updateCounterUI() {
+    const bar = document.getElementById('bulkActionArea');
+    const count = selectedPoIds.size;
+    if (count > 0) {
+        bar.style.display = 'flex';
+        document.getElementById('countSelected').innerText = count + " PO Terpilih";
+    } else {
+        bar.style.display = 'none';
+    }
+}
+
     // Helper untuk merender HTML Detail Desktop
     function renderTabelDetailHTML(poId, details) {
         let rowsHtml = '';
@@ -723,13 +757,13 @@
     }
 
     function prosesNotaGabungan(mode = 'rinci') {
-        const checked = document.querySelectorAll('.po-checkbox:checked');
-        let ids = Array.from(checked).map(cb => cb.value);
-        let customers = new Set(Array.from(checked).map(cb => cb.getAttribute('data-customer')));
-        if (customers.size > 1) return alert("❌ Nota Gabungan hanya untuk 1 Customer yang sama.");
-        window.open(`/cetak-nota-gabungan?ids=${ids.join(',')}&mode=${mode}`, '_blank');
-    }
-
+            if (selectedPoIds.size === 0) {
+                alert("❌ Belum ada PO yang dipilih.");
+                return;
+            }
+            let idsArray = Array.from(selectedPoIds);
+            window.open(`/cetak-nota-gabungan?ids=${idsArray.join(',')}&mode=${mode}`, '_blank');
+        }
     function sinkronLunas(cb) {
         if (cb.checked && document.getElementById('filterStatus').value === 'Lunas') {
             document.getElementById('filterStatus').value = 'ALL';
@@ -828,11 +862,21 @@
         if (shl !== null) document.getElementById('checkLunas').checked = (shl === 'true');
         jalankanFilter();
     };
-</script>
-<script>
+
     let searchTimer;
 
-    // Fungsi utama untuk memicu pencarian live
+    // --- FUNGSI RESTORE CHECKBOXES (SELEKSI LINTAS HALAMAN) ---
+    function restoreCheckboxes() {
+        const checkboxes = document.querySelectorAll('.po-checkbox');
+        checkboxes.forEach(cb => {
+            if (selectedPoIds.has(cb.value)) {
+                cb.checked = true;
+            }
+        });
+        updateCounterUI();
+    }
+
+    // --- FUNGSI UTAMA LIVE SEARCH (AJAX) ---
     function triggerLiveSearch(page = 1) {
         const keyword = document.getElementById('liveSearchInput').value;
         const status = document.getElementById('filterStatusDropdown').value;
@@ -853,11 +897,14 @@
                 const doc = parser.parseFromString(html, 'text/html');
                 const newTabelContent = doc.getElementById('areaTabelPO').innerHTML;
                 document.getElementById('areaTabelPO').innerHTML = newTabelContent;
+                
+                // Pastikan centangan dikembalikan setelah tabel baru dimuat via AJAX
+                restoreCheckboxes();
             })
             .catch(err => console.error("Gagal memuat pencarian:", err));
     }
 
-    // Event listener untuk Live Search (hanya dideklarasikan sekali di sini)
+    // --- EVENT LISTENER UNTUK LIVE SEARCH ---
     const searchInputEl = document.getElementById('liveSearchInput');
     if (searchInputEl) {
         searchInputEl.addEventListener('input', function() {
@@ -867,6 +914,7 @@
             }, 300);
         });
     }
+
 </script>
 
 
