@@ -113,13 +113,23 @@
         </label>
     </div>
 
+    <!-- BAR INFO FILTER + PILIH SEMUA (FIX: filter nempel & pilih lintas halaman) -->
+    <div class="d-flex justify-content-between align-items-center mb-2 px-1 flex-wrap gap-2">
+        <small class="text-muted" id="infoFilter">Total: <b><%= typeof totalRows !== 'undefined' ? totalRows : orders.length %></b> PO
+            <% if (typeof searchQuery !== 'undefined' && searchQuery) { %> untuk "<b><%= searchQuery %></b>" <% } %>
+        </small>
+        <button id="btnPilihSemuaFilter" onclick="pilihSemuaFilter()" class="btn btn-primary btn-sm fw-bold" style="display:none;">
+            <i class="bi bi-check-all"></i> Pilih SEMUA PO Customer Ini (Semua Halaman)
+        </button>
+    </div>
+
 <div id="areaTabelPO">
 
     <!-- Tampilan Mobile -->
     <div class="d-block d-md-none" id="mobileDataContainer">
             <% orders.forEach(function(po) { %>
                 <div class="card mb-2 shadow-sm mobile-card filter-item <%= po.is_over ? 'over' : (po.is_under ? 'under' : '') %>" 
-                    data-nama="<%= po.nama_po.toLowerCase() %> <%= po.customer.toLowerCase() %>" 
+                    data-nama="<%= ((po.nama_po||'') + ' ' + (po.customer||'')).toLowerCase() %>" 
                     data-status="<%= po.status %>">
                     
                     <div class="card-body p-3">
@@ -127,7 +137,7 @@
                             <div class="d-flex align-items-center gap-3">
                                 <!-- DIUBAH KE handleCheckboxChange(this) -->
                                 <input type="checkbox" class="form-check-input mobile-checkbox po-checkbox" value="<%= po.id %>" data-customer="<%= po.customer %>" onchange="handleCheckboxChange(this)">
-                                <small class="text-secondary fw-bold"><%= po.nama_po %></small>
+                                <small class="text-secondary fw-bold"><%= po.nama_po || '-' %></small>
                             </div>
                             <div class="text-end">
                                 <span class="badge bg-light text-dark border mb-1"><%= po.qty_tampil || 0 %> Pcs</span><br>
@@ -145,7 +155,7 @@
                         </div>
                         
                         <div class="ps-4 ms-2">
-                            <h6 class="fw-bold text-dark mb-1"><%= po.customer %></h6>
+                            <h6 class="fw-bold text-dark mb-1"><%= po.customer || '-' %></h6>
                             <div class="d-flex justify-content-between align-items-center mt-2">
                                 <div class="d-flex align-items-center gap-1">
                                     <span class="badge bg-primary px-3 py-2 badge-status shadow-sm" onclick="ubahStatusMobile('<%= po.id %>', '<%= po.status %>')">
@@ -172,7 +182,7 @@
                                 <button onclick="bukaModalEdit('<%= po.id %>')" class="btn btn-outline-warning btn-sm w-100 fw-bold"><i class="bi bi-pencil-square"></i> Edit PO</button>
                             </div>
                             <div class="col-6">
-                                <a href="https://wa.me/?text=Halo%20<%= po.customer.replace(' ', '%20') %>,%20Berikut%20kami%20lampirkan%20tagihan%20untuk%20PO%20<%= po.nama_po %>" target="_blank" class="btn btn-success btn-sm w-100 fw-bold"><i class="bi bi-whatsapp"></i> Tagih WA</a>
+                                <a href="https://wa.me/?text=Halo%20<%= encodeURIComponent(po.customer||'') %>,%20Berikut%20kami%20lampirkan%20tagihan%20untuk%20PO%20<%= encodeURIComponent(po.nama_po||'') %>" target="_blank" class="btn btn-success btn-sm w-100 fw-bold"><i class="bi bi-whatsapp"></i> Tagih WA</a>
                             </div>
                             <div class="btn-group mt-2">
                                 <a href="/cetak-nota-gabungan?ids=<%= po.id %>&mode=simple" target="_blank" class="btn btn-primary btn-sm">
@@ -183,7 +193,7 @@
                                 </a>
                             </div>
                             <div class="col-12 mt-2">
-                                <button onclick="konfirmasiRepeat('<%= po.id %>', '<%= po.nama_po %>')" class="btn btn-outline-success btn-sm w-100 fw-bold"><i class="bi bi-arrow-repeat"></i> Repeat Order</button>
+                                <button data-id="<%= po.id %>" data-nama="<%= po.nama_po %>" onclick="konfirmasiRepeat(this.dataset.id, this.dataset.nama)" class="btn btn-outline-success btn-sm w-100 fw-bold"><i class="bi bi-arrow-repeat"></i> Repeat Order</button>
                             </div>
                         </div>
 
@@ -215,7 +225,7 @@
                     <tbody id="bodyPO">
                         <% orders.forEach(function(po) { %>
                             <tr class="clickable-row filter-item <%= po.is_over ? 'table-danger' : (po.is_under ? 'table-warning' : '') %>" 
-                                data-nama="<%= po.nama_po.toLowerCase() %> <%= po.customer.toLowerCase() %>" 
+                                data-nama="<%= ((po.nama_po||'') + ' ' + (po.customer||'')).toLowerCase() %>" 
                                 data-status="<%= po.status %>"
                                 onclick="toggleDetailDesktop('<%= po.id %>')">
                                 
@@ -261,7 +271,7 @@
                                         <div class="action-dropdown">
                                             <button class="btn btn-sm btn-outline-dark py-0 px-2 shadow-sm" onclick="toggleMenu(event, '<%= po.id %>')">Opsi <i class="bi bi-chevron-down small"></i></button>
                                             <div id="menu-<%= po.id %>" class="dropdown-content shadow rounded">
-                                                <button onclick="konfirmasiRepeat('<%= po.id %>', '<%= po.nama_po %>')" class="fw-bold text-success"><i class="bi bi-arrow-repeat"></i> Repeat Order</button>                                        
+                                                <button data-id="<%= po.id %>" data-nama="<%= po.nama_po %>" onclick="konfirmasiRepeat(this.dataset.id, this.dataset.nama)" class="fw-bold text-success"><i class="bi bi-arrow-repeat"></i> Repeat Order</button>                                        
                                                 <hr class="my-1">
                                                 <a href="/cetak-nota-gabungan?ids=<%= po.id %>" target="_blank" class="fw-bold text-dark"><i class="bi bi-printer"></i> Cetak Nota Lengkap</a>
                                                 <a href="/cetak-nota-gabungan?ids=<%= po.id %>&mode=thermal" target="_blank" class="text-secondary"><i class="bi bi-receipt"></i> Cetak Thermal</a>
@@ -286,6 +296,60 @@
             </div>
         </div>
     </div>
+<% if (totalPages > 1) { %>
+    <nav class="mt-4" id="paginationArea">
+        <div class="text-center small text-muted mb-1">Menampilkan <b><%= orders.length %></b> dari <b><%= typeof totalRows !== 'undefined' ? totalRows : orders.length %></b> PO <% if (typeof searchQuery !== 'undefined' && searchQuery) { %> untuk "<b><%= searchQuery %></b>" <% } %></div>
+        <ul class="pagination justify-content-center pagination-sm">
+            <% 
+                let queryParamsStr = '';
+                if (typeof searchQuery !== 'undefined' && searchQuery) queryParamsStr += `&search=${encodeURIComponent(searchQuery)}`;
+                if (typeof statusQuery !== 'undefined' && statusQuery) queryParamsStr += `&status=${encodeURIComponent(statusQuery)}`;
+                if (typeof hideLunas !== 'undefined' && hideLunas) queryParamsStr += `&hideLunas=true`;
+            %>
+
+            <li class="page-item <%= currentPage === 1 ? 'disabled' : '' %>">
+                <a class="page-link" href="javascript:void(0);" data-page="1" onclick="triggerLiveSearch(this.dataset.page)">«</a>
+            </li>
+            <li class="page-item <%= currentPage === 1 ? 'disabled' : '' %>">
+                <a class="page-link" href="javascript:void(0);" data-page="<%= currentPage - 1 %>" onclick="triggerLiveSearch(this.dataset.page)">‹</a>
+            </li>
+
+            <% 
+                let range = 2; 
+                let startPage = Math.max(1, currentPage - range);
+                let endPage = Math.min(totalPages, currentPage + range);
+
+                if (startPage > 1) { 
+            %>
+                <li class="page-item"><a class="page-link" href="javascript:void(0);" data-page="1" onclick="triggerLiveSearch(this.dataset.page)">1</a></li>
+                <% if (startPage > 2) { %>
+                    <li class="page-item disabled"><span class="page-link">...</span></li>
+                <% } %>
+            <% } %>
+
+            <% for(let i = startPage; i <= endPage; i++) { %>
+                <li class="page-item <%= currentPage === i ? 'active' : '' %>">
+                    <a class="page-link" href="javascript:void(0);" data-page="<%= i %>" onclick="triggerLiveSearch(this.dataset.page)"><%= i %></a>
+                </li>
+            <% } %>
+
+            <% if (endPage < totalPages) { %>
+                <% if (endPage < totalPages - 1) { %>
+                    <li class="page-item disabled"><span class="page-link">...</span></li>
+                <% } %>
+                <li class="page-item"><a class="page-link" href="javascript:void(0);" data-page="<%= totalPages %>" onclick="triggerLiveSearch(this.dataset.page)"><%= totalPages %></a></li>
+            <% } %>
+
+            <li class="page-item <%= currentPage === totalPages ? 'disabled' : '' %>">
+                <a class="page-link" href="javascript:void(0);" data-page="<%= currentPage + 1 %>" onclick="triggerLiveSearch(this.dataset.page)">›</a>
+            </li>
+            <li class="page-item <%= currentPage === totalPages ? 'disabled' : '' %>">
+                <a class="page-link" href="javascript:void(0);" data-page="<%= totalPages %>" onclick="triggerLiveSearch(this.dataset.page)">»</a>
+            </li>
+        </ul>
+    </nav>
+<% } %>
+
 </div>
 <!-- ================= MODALS ================= -->
 <div class="modal fade" id="modalQC" tabindex="-1" aria-hidden="true">
@@ -349,69 +413,13 @@
         </div>
     </div>
 </div>
-<!-- ================= END MODALS ================= -->
-<!-- Navigasi Paginasi -->
-<% if (totalPages > 1) { %>
-    <nav class="mt-4">
-        <ul class="pagination justify-content-center pagination-sm">
-            <% 
-                let queryParamsStr = '';
-                if (typeof searchQuery !== 'undefined' && searchQuery) queryParamsStr += `&search=${encodeURIComponent(searchQuery)}`;
-                if (typeof statusQuery !== 'undefined' && statusQuery) queryParamsStr += `&status=${encodeURIComponent(statusQuery)}`;
-                if (typeof hideLunas !== 'undefined' && hideLunas) queryParamsStr += `&hideLunas=true`;
-            %>
-
-            <li class="page-item <%= currentPage === 1 ? 'disabled' : '' %>">
-                <a class="page-link" href="/po-data-v2?page=1<%= queryParamsStr %>">«</a>
-            </li>
-            <li class="page-item <%= currentPage === 1 ? 'disabled' : '' %>">
-                <a class="page-link" href="/po-data-v2?page=<%= currentPage - 1 %><%= queryParamsStr %>">‹</a>
-            </li>
-
-            <% 
-                let range = 2; 
-                let startPage = Math.max(1, currentPage - range);
-                let endPage = Math.min(totalPages, currentPage + range);
-
-                if (startPage > 1) { 
-            %>
-                    <li class="page-item"><a class="page-link" href="/po-data-v2?page=1<%= queryParamsStr %>">1</a></li>
-                    <% if (startPage > 2) { %>
-                        <li class="page-item disabled"><span class="page-link">...</span></li>
-                    <% } %>
-            <% } %>
-
-            <% for(let i = startPage; i <= endPage; i++) { %>
-                <li class="page-item <%= currentPage === i ? 'active' : '' %>">
-                    <a class="page-link" href="/po-data-v2?page=<%= i %><%= queryParamsStr %>"><%= i %></a>
-                </li>
-            <% } %>
-
-            <% if (endPage < totalPages) { %>
-                <% if (endPage < totalPages - 1) { %>
-                    <li class="page-item disabled"><span class="page-link">...</span></li>
-                <% } %>
-                <li class="page-item"><a class="page-link" href="/po-data-v2?page=<%= totalPages %><%= queryParamsStr %>"><%= totalPages %></a></li>
-            <% } %>
-
-            <li class="page-item <%= currentPage === totalPages ? 'disabled' : '' %>">
-                <a class="page-link" href="/po-data-v2?page=<%= currentPage + 1 %><%= queryParamsStr %>">›</a>
-            </li>
-            <li class="page-item <%= currentPage === totalPages ? 'disabled' : '' %>">
-                <a class="page-link" href="/po-data-v2?page=<%= totalPages %><%= queryParamsStr %>">»</a>
-            </li>
-        </ul>
-    </nav>
-<% } %>
-
 <script>
     // --- VARIABEL GLOBAL SELEKSI LINTAS HALAMAN ---
     let selectedPoIds = new Set();
     let selectedCustomers = new Map();
     let searchTimer;
 
-    // --- FUNGSI CMT ---
-    const rawDetails = JSON.parse(document.getElementById('data-details').textContent);
+    // data-details dihapus: elemen tidak ada di HTML, sebelumnya bikin bingung
 
     function cekStatusCMT(event, formElement, poId, namaPo) {
         const statusTerpilih = formElement.querySelector('select[name="status_baru"]').value;
@@ -774,7 +782,7 @@
         if (cb.checked && document.getElementById('filterStatusDropdown').value === 'Lunas') {
             document.getElementById('filterStatusDropdown').value = 'ALL';
         }
-        jalankanFilter();
+        triggerLiveSearch();
     }
 
     function bukaPanelQC(poId, namaPo) {
@@ -861,31 +869,102 @@
         });
     }
 
-    // --- FUNGSI UTAMA LIVE SEARCH (AJAX) ---
+    // --- FUNGSI UTAMA LIVE SEARCH (AJAX) - FIX: filter nempel lintas halaman ---
+    function getFilterAktif(){
+        return {
+            search: document.getElementById('liveSearchInput') ? document.getElementById('liveSearchInput').value : '',
+            status: document.getElementById('filterStatusDropdown') ? document.getElementById('filterStatusDropdown').value : 'ALL',
+            hideLunas: document.getElementById('checkHideLunas') ? document.getElementById('checkHideLunas').checked : false
+        };
+    }
+
+    function updateTombolPilihSemua(){
+        const btn = document.getElementById('btnPilihSemuaFilter');
+        if(!btn) return;
+        const f = getFilterAktif();
+        // Muncul hanya kalau user sudah ketik filter customer (min 2 huruf)
+        btn.style.display = (f.search && f.search.trim().length >= 2) ? 'inline-block' : 'none';
+    }
+
     function triggerLiveSearch(page = 1) {
-        const keyword = document.getElementById('liveSearchInput').value;
-        const status = document.getElementById('filterStatusDropdown').value;
-        const hideLunas = document.getElementById('checkHideLunas').checked;
+        const f = getFilterAktif();
+
+        // SIMPAN filter biar nempel pas pindah halaman / reload
+        localStorage.setItem('filterNama', f.search);
+        localStorage.setItem('filterStatus', f.status);
+        localStorage.setItem('hideLunas', String(f.hideLunas));
 
         const params = new URLSearchParams({
-            search: keyword,
-            status: status,
-            hideLunas: hideLunas,
+            search: f.search,
+            status: f.status,
+            hideLunas: f.hideLunas,
             page: page,
             ajax: 'true'
         });
 
         fetch(`/po-data-v2?${params.toString()}`)
-            .then(response => response.text())
+            .then(response => {
+                if(!response.ok) throw new Error('Server error ' + response.status);
+                return response.text();
+            })
             .then(html => {
                 const parser = new DOMParser();
                 const doc = parser.parseFromString(html, 'text/html');
-                const newTabelContent = doc.getElementById('areaTabelPO').innerHTML;
-                document.getElementById('areaTabelPO').innerHTML = newTabelContent;
-                
-                restoreCheckboxes();
+                const newTabelContent = doc.getElementById('areaTabelPO');
+                const target = document.getElementById('areaTabelPO');
+                if(newTabelContent && target){
+                    target.innerHTML = newTabelContent.innerHTML;
+                    restoreCheckboxes();
+                    updateTombolPilihSemua();
+                } else {
+                    console.error('areaTabelPO tidak ditemukan di hasil fetch - kemungkinan session habis / server error');
+                }
             })
             .catch(err => console.error("Gagal memuat pencarian:", err));
+    }
+
+    // --- BARU: Pilih SEMUA PO yang ke-filter (semua halaman, bukan cuma yang tampil) ---
+    async function pilihSemuaFilter(){
+        const f = getFilterAktif();
+        if(!f.search || f.search.trim().length < 2){
+            Swal.fire('Ketik dulu', 'Ketik nama Customer / PO dulu biar yang kepilih cuma customer itu.', 'info');
+            return;
+        }
+        const btn = document.getElementById('btnPilihSemuaFilter');
+        const teksAwal = btn ? btn.innerHTML : '';
+        if(btn){ btn.disabled = true; btn.innerHTML = 'Memuat...'; }
+
+        try{
+            const params = new URLSearchParams({ search: f.search, status: f.status, hideLunas: f.hideLunas });
+            const res = await fetch(`/api/po-ids-filtered?${params.toString()}`);
+            const rows = await res.json();
+
+            if(!rows || rows.length === 0){
+                Swal.fire('Kosong', 'Tidak ada PO untuk filter ini.', 'info');
+                return;
+            }
+
+            // Validasi 1 customer (pengaman nota gabungan)
+            const firstCust = rows[0].customer;
+            if(!rows.every(r => r.customer === firstCust)){
+                Swal.fire('Beda Customer!', 'Filter ini masih campur customer. Ketik nama customer lebih spesifik sampai 1 customer saja.', 'warning');
+                return;
+            }
+
+            // Masukkan SEMUA ID ke Set, termasuk yang ada di halaman lain
+            selectedCustomers.clear();
+            selectedCustomers.set(firstCust, true);
+            rows.forEach(r => selectedPoIds.add(String(r.id)));
+
+            restoreCheckboxes();
+            updateCounterUI();
+            Swal.fire('Berhasil!', `${rows.length} PO dari ${firstCust} sudah terpilih semua. Pindah halaman pun aman, gak ada yang kelewat.`, 'success');
+        } catch(e){
+            console.error(e);
+            Swal.fire('Gagal', 'Gagal mengambil semua PO. Coba lagi.', 'error');
+        } finally {
+            if(btn){ btn.disabled = false; btn.innerHTML = teksAwal; updateTombolPilihSemua(); }
+        }
     }
 
     // --- EVENT LISTENER UNTUK LIVE SEARCH ---
@@ -895,6 +974,7 @@
             clearTimeout(searchTimer);
             searchTimer = setTimeout(() => {
                 triggerLiveSearch(1);
+                updateTombolPilihSemua();
             }, 300);
         });
     }
@@ -907,8 +987,14 @@
         if (sn !== null && document.getElementById('liveSearchInput')) document.getElementById('liveSearchInput').value = sn;
         if (ss !== null && document.getElementById('filterStatusDropdown')) document.getElementById('filterStatusDropdown').value = ss;
         if (shl !== null && document.getElementById('checkHideLunas')) document.getElementById('checkHideLunas').checked = (shl === 'true');
-        
-        restoreCheckboxes();
+
+        // Kalau ada filter tersimpan, langsung pakai filter itu
+        if ((sn && sn.trim() !== '') || (ss && ss !== 'ALL')) {
+            triggerLiveSearch(1);
+        } else {
+            restoreCheckboxes();
+        }
+        updateTombolPilihSemua();
     };
 </script>
 

@@ -1564,12 +1564,11 @@ app.get('/po-data-v2', isAdmin, async (req, res) => {
             paramIndex++;
         }
 
-        // FIX: PO yang nyangkut status 'Parsial CMT' tetap muncul pas filter Produksi
         if (statusQuery !== 'ALL') {
             if (statusQuery === 'Produksi') {
-                whereClauses += ` AND (u.status = $${paramIndex} OR u.status = 'Parsial CMT')`;
-                queryParams.push(statusQuery);
-                paramIndex++;
+                whereClauses += ` AND (u.status = $${paramIndex} OR u.status = $${paramIndex + 1})`;
+                queryParams.push(statusQuery, 'Parsial CMT');
+                paramIndex += 2; 
             } else {
                 whereClauses += ` AND u.status = $${paramIndex}`;
                 queryParams.push(statusQuery);
@@ -1583,7 +1582,7 @@ app.get('/po-data-v2', isAdmin, async (req, res) => {
 
         const countQuery = `SELECT COUNT(*) FROM po_utama u WHERE ${whereClauses}`;
         const countResult = await db.query(countQuery, queryParams);
-        const totalRows = parseInt(countResult.rows[0].count);
+        const totalRows = parseInt(countResult.rows[0]?.count || 0);
         const totalPages = Math.ceil(totalRows / limit) || 1;
 
         const sqlOrders = `
@@ -1593,20 +1592,12 @@ app.get('/po-data-v2', isAdmin, async (req, res) => {
                 (SELECT SUM(COALESCE(qty_cmt,0)) FROM po_detail WHERE po_id = u.id) as total_cmt,
                 (SELECT SUM(COALESCE(qty_internal, jumlah)) FROM po_detail WHERE po_id = u.id) as total_internal,
                 (SELECT COUNT(*) FROM po_detail WHERE po_id = u.id) as variasi_jumlah,
-                
-                -- FLAG CAMPUR: true jika ada detail yang qty_cmt>0 dan qty_internal>0
-                -- Ini handle 2 skenario: CMT dulu atau Internal dulu, hasilnya sama
                 EXISTS (
                     SELECT 1 FROM po_detail d 
                     WHERE d.po_id = u.id 
                     AND COALESCE(d.qty_cmt,0) > 0 
                     AND COALESCE(d.qty_internal, d.jumlah) > 0
                 ) as is_campur,
-
-                -- LOGIKA BADGE FINAL - SUDAH BERSIH
-                -- 1. QC HARUS IKUT DICEK karena lebih itu pemicu QC
-                -- 2. Hanya Lunas yang tidak dicek
-                -- 3. Skip detail full CMT (qty_internal=0) biar gak bikin merah palsu
                 CASE WHEN u.status != 'Lunas' THEN
                   EXISTS (
                     SELECT 1 FROM po_detail d2
@@ -1617,7 +1608,6 @@ app.get('/po-data-v2', isAdmin, async (req, res) => {
                     HAVING SUM(COALESCE(h2.jumlah_setor, 0)) > COALESCE(d2.qty_internal, d2.jumlah)
                   )
                 ELSE false END as is_over,
-                
                 CASE WHEN u.status != 'Lunas' THEN
                   EXISTS (
                     SELECT 1 FROM po_detail d2
@@ -1629,7 +1619,6 @@ app.get('/po-data-v2', isAdmin, async (req, res) => {
                     AND SUM(COALESCE(h2.jumlah_setor, 0)) < COALESCE(d2.qty_internal, d2.jumlah)
                   )
                 ELSE false END as is_under,
-                
                 CASE WHEN u.status IN ('Antri','Produksi','CMT','Parsial CMT','QC') THEN
                   EXISTS (
                     SELECT 1 FROM po_detail d2
@@ -1640,7 +1629,6 @@ app.get('/po-data-v2', isAdmin, async (req, res) => {
                     HAVING SUM(COALESCE(h2.jumlah_setor, 0)) = 0
                   )
                 ELSE false END as is_empty
-
             FROM po_utama u 
             WHERE ${whereClauses}
             ORDER BY 
@@ -1675,6 +1663,7 @@ app.get('/po-data-v2', isAdmin, async (req, res) => {
             isInternal: isInternal,
             currentPage: page,
             totalPages: totalPages,
+            totalRows: totalRows, // <-- BARU, dipakai EJS buat info "X PO"
             searchQuery: searchQuery,
             statusQuery: statusQuery,
             hideLunas: hideLunas
@@ -1683,6 +1672,52 @@ app.get('/po-data-v2', isAdmin, async (req, res) => {
     } catch (err) {
         console.error("🔥 Error po-data-v2:", err.message);
         res.status(500).send("Gagal memuat data V2.");
+    }
+});
+
+// ============================================================
+// BARU: API ambil SEMUA ID PO sesuai filter aktif
+// Dipakai tombol "Pilih SEMUA PO Customer Ini (Semua Halaman)"
+// WAJIB: logika where-nya SAMA PERSIS dengan route di atas
+// ============================================================
+app.get('/api/po-ids-filtered', isAdmin, async (req, res) => {
+    if (!req.session.userId) return res.json([]);
+    const tId = req.session.tenantId;
+    const searchQuery = req.query.search || '';
+    const statusQuery = req.query.status || 'ALL';
+    const hideLunas = req.query.hideLunas === 'true';
+
+    let whereClauses = `u.tenant_id = $1`;
+    let queryParams = [tId];
+    let paramIndex = 2;
+
+    if (searchQuery) {
+        whereClauses += ` AND (LOWER(u.nama_po) LIKE LOWER($${paramIndex}) OR LOWER(u.customer) LIKE LOWER($${paramIndex}))`;
+        queryParams.push(`%${searchQuery}%`);
+        paramIndex++;
+    }
+    if (statusQuery !== 'ALL') {
+        if (statusQuery === 'Produksi') {
+            whereClauses += ` AND (u.status = $${paramIndex} OR u.status = $${paramIndex + 1})`;
+            queryParams.push(statusQuery, 'Parsial CMT');
+            paramIndex += 2;
+        } else {
+            whereClauses += ` AND u.status = $${paramIndex}`;
+            queryParams.push(statusQuery);
+            paramIndex++;
+        }
+    }
+    if (hideLunas) whereClauses += ` AND u.status != 'Lunas'`;
+
+    try {
+        const r = await db.query(
+            `SELECT u.id, u.customer FROM po_utama u WHERE ${whereClauses} ORDER BY u.id ASC`,
+            queryParams
+        );
+        res.json(r.rows);
+    } catch (e) {
+        console.error("🔥 Error po-ids-filtered:", e.message);
+        res.json([]);
     }
 });
 
