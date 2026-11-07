@@ -125,7 +125,8 @@
                     <div class="card-body p-3">
                         <div class="d-flex justify-content-between align-items-start mb-1">
                             <div class="d-flex align-items-center gap-3">
-                                <input type="checkbox" class="form-check-input mobile-checkbox po-checkbox" value="<%= po.id %>" data-customer="<%= po.customer %>" onchange="updateCounter()">
+                                <!-- DIUBAH KE handleCheckboxChange(this) -->
+                                <input type="checkbox" class="form-check-input mobile-checkbox po-checkbox" value="<%= po.id %>" data-customer="<%= po.customer %>" onchange="handleCheckboxChange(this)">
                                 <small class="text-secondary fw-bold"><%= po.nama_po %></small>
                             </div>
                             <div class="text-end">
@@ -218,8 +219,9 @@
                                 data-status="<%= po.status %>"
                                 onclick="toggleDetailDesktop('<%= po.id %>')">
                                 
+                                <!-- DIUBAH KE handleCheckboxChange(this) -->
                                 <td class="text-center" onclick="event.stopPropagation()">
-                                    <input type="checkbox" class="form-check-input po-checkbox" value="<%= po.id %>" data-customer="<%= po.customer %>" onchange="updateCounter()">
+                                    <input type="checkbox" class="form-check-input po-checkbox" value="<%= po.id %>" data-customer="<%= po.customer %>" onchange="handleCheckboxChange(this)">
                                 </td>
                                 <td class="text-center text-muted"><%= po.tanggal.split('-').reverse().join('/') %></td>
                                 <td>
@@ -403,8 +405,11 @@
 <% } %>
 
 <script>
+    // --- VARIABEL GLOBAL SELEKSI LINTAS HALAMAN ---
     let selectedPoIds = new Set();
     let selectedCustomers = new Map();
+    let searchTimer;
+
     // --- FUNGSI CMT ---
     const rawDetails = JSON.parse(document.getElementById('data-details').textContent);
 
@@ -570,7 +575,6 @@
         rowEl.style.display = 'table-row';
         const contentDiv = document.getElementById('content-desk-' + id);
 
-        // Jika belum pernah diload, ambil datanya via API
         if (!contentDiv.dataset.loaded) {
             contentDiv.innerHTML = `<div class="text-center py-3"><div class="spinner-border spinner-border-sm text-primary"></div> Memuat rincian...</div>`;
             try {
@@ -608,37 +612,48 @@
         }
     }
 
+    // --- PENGELOLA SELEKSI LINTAS HALAMAN ---
     function handleCheckboxChange(checkbox) {
-    const poId = checkbox.value;
-    const customer = checkbox.getAttribute('data-customer');
+        const poId = checkbox.value;
+        const customer = checkbox.getAttribute('data-customer');
 
-    if (checkbox.checked) {
-        if (selectedCustomers.size > 0 && !selectedCustomers.has(customer)) {
-            Swal.fire('Beda Customer!', 'Nota gabungan hanya bisa dibuat untuk 1 customer yang sama.', 'warning');
-            checkbox.checked = false;
-            return;
+        if (checkbox.checked) {
+            if (selectedCustomers.size > 0 && !selectedCustomers.has(customer)) {
+                Swal.fire('Beda Customer!', 'Nota gabungan hanya bisa dibuat untuk 1 customer yang sama.', 'warning');
+                checkbox.checked = false;
+                return;
+            }
+            selectedPoIds.add(poId);
+            selectedCustomers.set(customer, true);
+        } else {
+            selectedPoIds.delete(poId);
+            if (selectedPoIds.size === 0) {
+                selectedCustomers.clear();
+            }
         }
-        selectedPoIds.add(poId);
-        selectedCustomers.set(customer, true);
-    } else {
-        selectedPoIds.delete(poId);
-        if (selectedPoIds.size === 0) {
-            selectedCustomers.clear();
+        updateCounterUI();
+    }
+
+    function updateCounterUI() {
+        const bar = document.getElementById('bulkActionArea');
+        const count = selectedPoIds.size;
+        if (count > 0) {
+            bar.style.display = 'flex';
+            document.getElementById('countSelected').innerText = count + " PO Terpilih";
+        } else {
+            bar.style.display = 'none';
         }
     }
-    updateCounterUI();
-}
 
-function updateCounterUI() {
-    const bar = document.getElementById('bulkActionArea');
-    const count = selectedPoIds.size;
-    if (count > 0) {
-        bar.style.display = 'flex';
-        document.getElementById('countSelected').innerText = count + " PO Terpilih";
-    } else {
-        bar.style.display = 'none';
+    function restoreCheckboxes() {
+        const checkboxes = document.querySelectorAll('.po-checkbox');
+        checkboxes.forEach(cb => {
+            if (selectedPoIds.has(cb.value)) {
+                cb.checked = true;
+            }
+        });
+        updateCounterUI();
     }
-}
 
     // Helper untuk merender HTML Detail Desktop
     function renderTabelDetailHTML(poId, details) {
@@ -718,15 +733,18 @@ function updateCounterUI() {
         new bootstrap.Modal(document.getElementById('modalEditPO')).show();
     }
 
+    // --- DIKEMBALIKAN UTUH: FUNGSI JALANKAN FILTER & LOCALSTORAGE LAMA ---
     function jalankanFilter() {
-        let inputNama = document.getElementById("liveSearch").value.toLowerCase();
-        let inputStatus = document.getElementById("filterStatus").value;
-        let hideLunas = document.getElementById("checkLunas").checked;
+        let inputNama = document.getElementById("liveSearchInput").value.toLowerCase();
+        let inputStatus = document.getElementById("filterStatusDropdown").value;
+        let hideLunas = document.getElementById("checkHideLunas").checked;
 
         localStorage.setItem('filterNama', inputNama);
         localStorage.setItem('filterStatus', inputStatus);
         localStorage.setItem('hideLunas', hideLunas);
-        document.getElementById('checkAllVisible').checked = false;
+        
+        const chkDesktop = document.getElementById('checkAllVisible');
+        if (chkDesktop) chkDesktop.checked = false;
 
         let items = document.querySelectorAll(".filter-item");
         items.forEach(item => {
@@ -738,35 +756,23 @@ function updateCounterUI() {
                 item.style.display = ""; 
             } else {
                 item.style.display = "none"; 
-                let cb = item.querySelector('.po-checkbox');
-                if (cb) cb.checked = false;
             }
         });
-        updateCounter();
-    }
-
-    function updateCounter() {
-        const chk = document.querySelectorAll('.po-checkbox:checked');
-        const bar = document.getElementById('bulkActionArea');
-        if (chk.length > 0) {
-            bar.style.display = 'flex';
-            document.getElementById('countSelected').innerText = chk.length + " PO Terpilih";
-        } else {
-            bar.style.display = 'none';
-        }
+        restoreCheckboxes();
     }
 
     function prosesNotaGabungan(mode = 'rinci') {
-            if (selectedPoIds.size === 0) {
-                alert("❌ Belum ada PO yang dipilih.");
-                return;
-            }
-            let idsArray = Array.from(selectedPoIds);
-            window.open(`/cetak-nota-gabungan?ids=${idsArray.join(',')}&mode=${mode}`, '_blank');
+        if (selectedPoIds.size === 0) {
+            alert("❌ Belum ada PO yang dipilih.");
+            return;
         }
+        let idsArray = Array.from(selectedPoIds);
+        window.open(`/cetak-nota-gabungan?ids=${idsArray.join(',')}&mode=${mode}`, '_blank');
+    }
+
     function sinkronLunas(cb) {
-        if (cb.checked && document.getElementById('filterStatus').value === 'Lunas') {
-            document.getElementById('filterStatus').value = 'ALL';
+        if (cb.checked && document.getElementById('filterStatusDropdown').value === 'Lunas') {
+            document.getElementById('filterStatusDropdown').value = 'ALL';
         }
         jalankanFilter();
     }
@@ -847,33 +853,12 @@ function updateCounterUI() {
         items.forEach(item => {
             if (item.style.display !== "none") {
                 const checkbox = item.querySelector('.po-checkbox');
-                if (checkbox) checkbox.checked = source.checked;
+                if (checkbox) {
+                    checkbox.checked = source.checked;
+                    handleCheckboxChange(checkbox);
+                }
             }
         });
-        updateCounter();
-    }
-
-    window.onload = function() {
-        const sn = localStorage.getItem('filterNama');
-        const ss = localStorage.getItem('filterStatus');
-        const shl = localStorage.getItem('hideLunas');
-        if (sn !== null) document.getElementById('liveSearch').value = sn;
-        if (ss !== null) document.getElementById('filterStatus').value = ss;
-        if (shl !== null) document.getElementById('checkLunas').checked = (shl === 'true');
-        jalankanFilter();
-    };
-
-    let searchTimer;
-
-    // --- FUNGSI RESTORE CHECKBOXES (SELEKSI LINTAS HALAMAN) ---
-    function restoreCheckboxes() {
-        const checkboxes = document.querySelectorAll('.po-checkbox');
-        checkboxes.forEach(cb => {
-            if (selectedPoIds.has(cb.value)) {
-                cb.checked = true;
-            }
-        });
-        updateCounterUI();
     }
 
     // --- FUNGSI UTAMA LIVE SEARCH (AJAX) ---
@@ -898,7 +883,6 @@ function updateCounterUI() {
                 const newTabelContent = doc.getElementById('areaTabelPO').innerHTML;
                 document.getElementById('areaTabelPO').innerHTML = newTabelContent;
                 
-                // Pastikan centangan dikembalikan setelah tabel baru dimuat via AJAX
                 restoreCheckboxes();
             })
             .catch(err => console.error("Gagal memuat pencarian:", err));
@@ -915,7 +899,17 @@ function updateCounterUI() {
         });
     }
 
+    // --- SAAT HALAMAN DIMUAT ---
+    window.onload = function() {
+        const sn = localStorage.getItem('filterNama');
+        const ss = localStorage.getItem('filterStatus');
+        const shl = localStorage.getItem('hideLunas');
+        if (sn !== null && document.getElementById('liveSearchInput')) document.getElementById('liveSearchInput').value = sn;
+        if (ss !== null && document.getElementById('filterStatusDropdown')) document.getElementById('filterStatusDropdown').value = ss;
+        if (shl !== null && document.getElementById('checkHideLunas')) document.getElementById('checkHideLunas').checked = (shl === 'true');
+        
+        restoreCheckboxes();
+    };
 </script>
-
 
 <%- include('partials/footer') %>
