@@ -1374,7 +1374,7 @@ app.post('/update-po/:id', isAdmin, async (req, res) => {
                 // INSERT DETAIL BARU - langsung set full internal biar bersih
                 await db.query(
                     `INSERT INTO po_detail (po_id, jenis_bordir, nama_desain, jumlah, harga_cmt, harga_operator, harga_customer, qty_internal, qty_cmt) 
-                    VALUES ($1, $2, $3, $4, $5, $6, $7, $3, 0)`,
+                    VALUES ($1, $2, $3, $4, $5, $6, $7, $4, 0)`,
                     [poId, jbList[i], dsList[i], qty, finalHCmt, finalHOp, hCu]
                 );
             }
