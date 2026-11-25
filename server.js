@@ -2332,6 +2332,9 @@ app.get('/laporan-kas', isAdmin, async (req, res) => {
         const configRes = await db.query("SELECT * FROM settings WHERE tenant_id = $1", [tId]);
         const conf = configRes.rows[0] || { beban_tetap: 0, nominal_buffer: 0 };
 
+        // Definisi bebanTetap dipindah ke atas, supaya bisa dipakai kalkulasi akumulasi
+        const bebanTetap = parseFloat(conf.beban_tetap) || 0;
+
         // 1. Query Statistik Keuangan BULAN INI
         const sqlData = `
             SELECT 
@@ -2394,14 +2397,17 @@ app.get('/laporan-kas', isAdmin, async (req, res) => {
                 
                 (SELECT COALESCE(SUM(jumlah), 0) FROM arus_kas WHERE kategori IN ('JATAH PROFIT OWNER', 'JATAH KHUSUS UTUK & CMT') AND tenant_id = $1) as ditarik_all,
 
-                -- BARU: Jumlah bulan yang ada produksinya, untuk pengali beban_tetap
+                -- Jumlah bulan yang ada produksinya, untuk pengali beban_tetap
                 (SELECT COUNT(DISTINCT TO_CHAR(tanggal::DATE, 'YYYY-MM')) FROM hasil_kerja WHERE tenant_id = $1) as jumlah_bulan_prod
         `;
         const akumulasiRes = await db.query(sqlAkumulasi, [tId]);
         const akData = akumulasiRes.rows[0];
 
         // Kalkulasi All-Time Retained Earnings
-        // YANG BARU: Beban tetap pakai settings, bukan realisasi bayar
+        // Beban tetap pakai settings, bukan realisasi bayar
+        const bebanTetapAllTime = bebanTetap * parseFloat(akData.jumlah_bulan_prod || 0);
+        const profitKotorAllTime = (parseFloat(akData.prod_all) - parseFloat(akData.op_all)) + (parseFloat(akData.omzet_cmt_all) - parseFloat(akData.hpp_cmt_all)) - bebanTetapAllTime;
+        const sisaProfitAkumulasi = profitKotorAllTime - parseFloat(akData.ditarik_all);
 
         // 3. Query Piutang Berjalan & Bulan Ini
         const sqlPiutang = `SELECT (COALESCE((SELECT SUM(h2.jumlah_setor * d2.harga_customer) FROM hasil_kerja h2 JOIN po_detail d2 ON h2.detail_id = d2.id WHERE h2.tenant_id = $1), 0) - COALESCE((SELECT SUM(jumlah) FROM arus_kas WHERE kategori IN ('PEMBAYARAN BORDIR', 'PELUNASAN', 'DP/CICILAN') AND tenant_id = $1), 0)) as piutang_total`;
@@ -2421,7 +2427,6 @@ app.get('/laporan-kas', isAdmin, async (req, res) => {
         const omzetCmt = parseFloat(data?.omzet_cmt_bln || 0);
         const hppCmt = parseFloat(data?.hpp_cmt_bln || 0);
         const labaCmt = omzetCmt - hppCmt;
-        const bebanTetap = parseFloat(conf.beban_tetap) || 0;
         const estimasiProfit = labaMesin + labaCmt - bebanTetap;
         const profitDitarik = parseFloat(data?.profit_ditarik_bln || 0);
 
