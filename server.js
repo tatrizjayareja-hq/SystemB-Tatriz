@@ -2377,7 +2377,6 @@ app.get('/laporan-kas', isAdmin, async (req, res) => {
             SELECT 
                 (SELECT COALESCE(SUM(h.jumlah_setor * d.harga_customer), 0) FROM hasil_kerja h JOIN po_detail d ON h.detail_id = d.id WHERE h.tenant_id = $1) as prod_all,
                 
-                -- PENGECUALIAN Jatah Khusus dari operasional All Time
                 (SELECT COALESCE(SUM(jumlah), 0) FROM arus_kas WHERE jenis = 'PENGELUARAN' AND kategori NOT IN ('BIAYA KONTRAKAN', 'BAYAR SEWA MESIN','BAYAR HUTANG', 'JATAH PROFIT OWNER', 'BAYAR CMT / VENDOR', 'JATAH KHUSUS UTUK & CMT') AND tenant_id = $1) as op_all,
                 
                 (SELECT COALESCE(SUM(ak.jumlah), 0) 
@@ -2393,17 +2392,16 @@ app.get('/laporan-kas', isAdmin, async (req, res) => {
                     ) as omzet_cmt_all,
                 (SELECT COALESCE(SUM(jumlah), 0) FROM arus_kas WHERE kategori = 'BAYAR CMT / VENDOR' AND tenant_id = $1) as hpp_cmt_all,
                 
-                -- Gabungkan penarikan Jatah Owner biasa & Jatah Khusus agar Sisa Profit All-Time akurat
                 (SELECT COALESCE(SUM(jumlah), 0) FROM arus_kas WHERE kategori IN ('JATAH PROFIT OWNER', 'JATAH KHUSUS UTUK & CMT') AND tenant_id = $1) as ditarik_all,
-                (SELECT COALESCE(SUM(jumlah), 0) FROM arus_kas WHERE kategori = 'BAYAR SEWA MESIN' AND tenant_id = $1) as sewa_mesin_all,
-                (SELECT COALESCE(SUM(jumlah), 0) FROM arus_kas WHERE kategori = 'BIAYA KONTRAKAN' AND tenant_id = $1) as kontrakan_all
+
+                -- BARU: Jumlah bulan yang ada produksinya, untuk pengali beban_tetap
+                (SELECT COUNT(DISTINCT TO_CHAR(tanggal::DATE, 'YYYY-MM')) FROM hasil_kerja WHERE tenant_id = $1) as jumlah_bulan_prod
         `;
         const akumulasiRes = await db.query(sqlAkumulasi, [tId]);
         const akData = akumulasiRes.rows[0];
 
         // Kalkulasi All-Time Retained Earnings
-        const profitKotorAllTime = (parseFloat(akData.prod_all) - parseFloat(akData.op_all)) + (parseFloat(akData.omzet_cmt_all) - parseFloat(akData.hpp_cmt_all)) - parseFloat(akData.kontrakan_all) - parseFloat(akData.sewa_mesin_all);
-        const sisaProfitAkumulasi = profitKotorAllTime - parseFloat(akData.ditarik_all);
+        // YANG BARU: Beban tetap pakai settings, bukan realisasi bayar
 
         // 3. Query Piutang Berjalan & Bulan Ini
         const sqlPiutang = `SELECT (COALESCE((SELECT SUM(h2.jumlah_setor * d2.harga_customer) FROM hasil_kerja h2 JOIN po_detail d2 ON h2.detail_id = d2.id WHERE h2.tenant_id = $1), 0) - COALESCE((SELECT SUM(jumlah) FROM arus_kas WHERE kategori IN ('PEMBAYARAN BORDIR', 'PELUNASAN', 'DP/CICILAN') AND tenant_id = $1), 0)) as piutang_total`;
@@ -2730,7 +2728,7 @@ app.get('/analisis-profit', isAdmin, async (req, res) => {
                 FROM arus_kas 
                 WHERE tenant_id = $1 
                 AND jenis = 'PENGELUARAN' 
-                AND kategori NOT IN ('BIAYA KONTRAKAN', 'BAYAR HUTANG', 'JATAH PROFIT OWNER', 'BAYAR CMT / VENDOR')
+                AND kategori NOT IN ('BIAYA KONTRAKAN', 'BAYAR SEWA MESIN', 'BAYAR HUTANG', 'JATAH PROFIT OWNER', 'BAYAR CMT / VENDOR')
                 GROUP BY TO_CHAR(tanggal::DATE, 'YYYY-MM')
             ) ops ON prod.bulan = ops.bulan
             ORDER BY prod.bulan DESC
